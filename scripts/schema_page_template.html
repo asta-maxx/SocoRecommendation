@@ -1,0 +1,658 @@
+<title>SOCO Collection Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap">
+
+<style>
+  :root {
+    --ground:   #f5f7f6;
+    --surface:  #ffffff;
+    --raised:   #eef2f0;
+    --ink:      #16211e;
+    --ink-soft: #4a5b56;
+    --muted:    #6f807b;
+    --line:     #dce4e1;
+    --line-firm:#c3cfcb;
+
+    --accent:   #0c6553;
+    --accent-bg:#e2efeb;
+    --amber:    #8a610c;
+    --amber-bg: #f6eedc;
+    --rust:     #a03d2b;
+    --rust-bg:  #f7e7e3;
+
+    --rail: 20.5rem;
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #0c1110;
+      --surface:  #141a19;
+      --raised:   #1c2422;
+      --ink:      #e3eae7;
+      --ink-soft: #b0c0bb;
+      --muted:    #849690;
+      --line:     #243030;
+      --line-firm:#33423f;
+
+      --accent:   #4fbfa4;
+      --accent-bg:#123029;
+      --amber:    #d5a441;
+      --amber-bg: #322713;
+      --rust:     #e0806c;
+      --rust-bg:  #37201b;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #0c1110;
+    --surface:  #141a19;
+    --raised:   #1c2422;
+    --ink:      #e3eae7;
+    --ink-soft: #b0c0bb;
+    --muted:    #849690;
+    --line:     #243030;
+    --line-firm:#33423f;
+
+    --accent:   #4fbfa4;
+    --accent-bg:#123029;
+    --amber:    #d5a441;
+    --amber-bg: #322713;
+    --rust:     #e0806c;
+    --rust-bg:  #37201b;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .wrap {
+    max-width: 78rem;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 2.25rem 4rem;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead { display: flex; flex-wrap: wrap; gap: 1.5rem 2.5rem; align-items: flex-end; justify-content: space-between; }
+  h1 {
+    font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.3rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .sub { color: var(--muted); margin: 0.35rem 0 0; font-size: 0.94rem; }
+  .sub code { font-family: var(--mono); color: var(--ink-soft); font-size: 0.88em; }
+
+  .totals { display: flex; gap: 1.75rem; }
+  .total-n {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .total-l {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--muted); margin-top: 0.2rem;
+  }
+
+  hr.rule { border: 0; border-top: 1px solid var(--line); margin: 1.75rem 0; }
+
+  /* ---------- search ---------- */
+  .searchbar { position: relative; margin-bottom: 1.5rem; }
+  #q {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line-firm);
+    border-radius: 7px;
+    padding: 0.7rem 0.9rem 0.7rem 2.3rem;
+  }
+  #q:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  #q::placeholder { color: var(--muted); }
+  .searchbar::before {
+    content: "⌕"; position: absolute; left: 0.85rem; top: 50%; transform: translateY(-52%);
+    color: var(--muted); font-size: 1.15rem; pointer-events: none;
+  }
+  .hint { font-size: 0.8rem; color: var(--muted); margin: 0.55rem 0 1.75rem; }
+
+  /* ---------- layout ---------- */
+  .panes { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); gap: 1.75rem; align-items: start; }
+  @media (max-width: 62rem) { .panes { grid-template-columns: 1fr; } }
+
+  /* The rail runs to 73 entries; keeping the detail in view while it scrolls is
+     the difference between browsing and hunting. */
+  @media (min-width: 62.01rem) {
+    .detail { position: sticky; top: 1.25rem; max-height: calc(100vh - 2.5rem); overflow-y: auto; }
+  }
+
+  /* ---------- rail ---------- */
+  .rail { min-width: 0; }
+  .group + .group { margin-top: 1.4rem; }
+  .group-h {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--muted); margin-bottom: 0.5rem;
+  }
+  .group-h b { font-family: var(--mono); font-weight: 500; color: var(--ink-soft); letter-spacing: 0; }
+
+  .list { display: flex; flex-direction: column; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .item {
+    display: flex; align-items: center; gap: 0.6rem;
+    background: var(--surface); border: 0; width: 100%; text-align: left;
+    font-family: var(--mono); font-size: 0.85rem; color: var(--ink);
+    padding: 0.5rem 0.7rem; cursor: pointer;
+  }
+  .item:hover { background: var(--raised); }
+  .item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .item[aria-current="true"] { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+  .item .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .ct { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.8rem; }
+  .item[aria-current="true"] .ct { color: var(--accent); }
+  .stripe { width: 3px; align-self: stretch; margin: -0.5rem 0.15rem -0.5rem -0.7rem; background: transparent; }
+  .stripe.m1 { background: var(--accent); }
+  .stripe.trap { background: var(--rust); }
+
+  /* ---------- detail ---------- */
+  .detail { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 1.5rem 1.6rem 1.75rem; min-width: 0; }
+  .detail-h { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: baseline; justify-content: space-between; }
+  .cname { font-family: var(--mono); font-size: 1.3rem; font-weight: 600; margin: 0; word-break: break-word; }
+  .facts { display: flex; gap: 1.25rem; font-family: var(--mono); font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .facts b { color: var(--ink-soft); font-weight: 500; }
+
+  .note { border-radius: 6px; padding: 0.65rem 0.85rem; margin-top: 1.1rem; font-size: 0.88rem; }
+  .note.m1 { background: var(--accent-bg); color: var(--accent); }
+  .note.trap { background: var(--rust-bg); color: var(--rust); }
+  .note.empty { background: var(--amber-bg); color: var(--amber); }
+  .note b { font-weight: 600; }
+
+  .sec-h {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted);
+    margin: 1.6rem 0 0.6rem;
+  }
+
+  .tbl-scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  th {
+    text-align: left; font-weight: 500; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--muted); padding: 0 0.7rem 0.4rem 0; border-bottom: 1px solid var(--line-firm); white-space: nowrap;
+  }
+  td { padding: 0.38rem 0.7rem 0.38rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td.f { font-family: var(--mono); word-break: break-word; }
+  td.f .depth { color: var(--muted); }
+  td.p { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; text-align: right; width: 1%; }
+
+  .ty {
+    display: inline-block; font-family: var(--mono); font-size: 0.75rem;
+    background: var(--raised); color: var(--ink-soft);
+    border-radius: 4px; padding: 0.05rem 0.35rem; margin-right: 0.25rem;
+  }
+  .ty.warn { background: var(--rust-bg); color: var(--rust); font-weight: 600; }
+
+  tr.conflict td.f { color: var(--rust); font-weight: 500; }
+
+  .idx { font-family: var(--mono); font-size: 0.82rem; }
+  .idx li { margin-bottom: 0.3rem; }
+  .idx .u { color: var(--accent); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; margin-left: 0.4rem; }
+  ul { padding-left: 1.1rem; margin: 0; }
+
+  .empty-state { color: var(--muted); font-size: 0.9rem; margin: 1.2rem 0 0; }
+
+  mark { background: var(--accent-bg); color: var(--accent); border-radius: 3px; padding: 0 0.12em; }
+
+  .foot { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.8rem; }
+  .foot code { font-family: var(--mono); }
+
+  /* ---------- view tabs ---------- */
+  .tabs { display: flex; gap: 0.35rem; margin-bottom: 1.75rem; }
+  .tab {
+    font-family: var(--sans); font-size: 0.88rem; font-weight: 500; color: var(--muted);
+    background: transparent; border: 1px solid transparent; border-radius: 6px;
+    padding: 0.4rem 0.8rem; cursor: pointer;
+  }
+  .tab:hover { color: var(--ink); background: var(--raised); }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tab[aria-selected="true"] { color: var(--accent); background: var(--accent-bg); border-color: var(--accent-bg); }
+
+  /* ---------- figures ---------- */
+  figure { margin: 0 0 2.75rem; }
+  figure svg { display: block; width: 100%; max-width: 100%; height: auto; }
+  .fig-frame {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 9px;
+    padding: 1.25rem 1.35rem;
+    overflow-x: auto;
+  }
+  figcaption { color: var(--muted); font-size: 0.87rem; margin-top: 0.85rem; max-width: 62ch; }
+  figcaption b { color: var(--ink-soft); font-weight: 600; }
+  figcaption code { font-family: var(--mono); font-size: 0.88em; }
+
+  /* SVG parts take their colour from the page tokens, so both themes hold. */
+  svg .frame  { fill: none; stroke: var(--line-firm); stroke-width: 1; }
+  svg .panel  { fill: var(--raised); stroke: none; }
+  svg .node   { fill: var(--surface); stroke: var(--line-firm); stroke-width: 1; }
+  svg .engine { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+  svg .target { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+  svg .gone   { fill: none; stroke: var(--line-firm); stroke-width: 1; stroke-dasharray: 5 4; }
+  svg .flag   { fill: var(--rust-bg); stroke: var(--rust); stroke-width: 1; }
+
+  svg text { font-family: var(--sans); fill: var(--ink); }
+  svg .mono { font-family: var(--mono); }
+  svg .dim  { fill: var(--muted); }
+  svg .warn { fill: var(--rust); }
+  svg .good { fill: var(--accent); }
+  svg .eyebrow { font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; fill: var(--muted); }
+
+  svg .edge { stroke: var(--ink-soft); stroke-width: 1.5; fill: none; }
+  svg .edge-warn { stroke: var(--rust); stroke-width: 1.5; fill: none; }
+  svg .edge-good { stroke: var(--accent); stroke-width: 1.5; fill: none; }
+  svg .edge-thin { stroke: var(--muted); stroke-width: 1; fill: none; stroke-dasharray: 4 3; }
+  svg .div { stroke: var(--line); stroke-width: 1; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <h1>SOCO Collection Map</h1>
+      <p class="sub">Database <code id="dbname">soco</code> · read-only credential · <span id="gen"></span></p>
+    </div>
+    <div class="totals">
+      <div>
+        <div class="total-n" id="t-coll">–</div>
+        <div class="total-l">Collections</div>
+      </div>
+      <div>
+        <div class="total-n" id="t-data">–</div>
+        <div class="total-l">With data</div>
+      </div>
+      <div>
+        <div class="total-n" id="t-docs">–</div>
+        <div class="total-l">Documents</div>
+      </div>
+      <div>
+        <div class="total-n" id="t-fields">–</div>
+        <div class="total-l">Fields</div>
+      </div>
+    </div>
+  </header>
+
+  <hr class="rule">
+
+  <div class="tabs" role="tablist" aria-label="View">
+    <button class="tab" id="tab-map"  role="tab" aria-selected="true"  aria-controls="view-map">Collections</button>
+    <button class="tab" id="tab-flow" role="tab" aria-selected="false" aria-controls="view-flow">Where data goes</button>
+  </div>
+
+  <section id="view-map" role="tabpanel" aria-labelledby="tab-map">
+    <div class="searchbar">
+      <input id="q" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Search collections and field names…">
+    </div>
+    <p class="hint">Searching matches field names too — try <code>categories</code>, <code>interest</code>, or <code>user_id</code>.</p>
+
+    <div class="panes">
+      <nav class="rail" id="rail" aria-label="Collections"></nav>
+      <section class="detail" id="detail" aria-live="polite"></section>
+    </div>
+  </section>
+
+  <section id="view-flow" role="tabpanel" aria-labelledby="tab-flow" hidden>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 530" role="img"
+             aria-label="Today the engine reads one cluster and writes to a second; at launch both the application collections and the ml_ score store sit in the same database, with the write arrow turning back on itself.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+            </marker>
+          </defs>
+
+          <!-- ============ ROW 1 : today ============ -->
+          <text x="0" y="14" class="eyebrow">Today — while building</text>
+
+          <rect class="frame" x="0" y="28" width="252" height="164" rx="7"/>
+          <text x="14" y="48" class="mono" font-size="12.5" font-weight="600">SOCO cluster</text>
+          <text x="14" y="65" class="mono dim" font-size="11">cob9whd · db soco</text>
+          <line class="div" x1="14" y1="76" x2="238" y2="76"/>
+          <text x="14" y="95"  class="mono" font-size="11.5">postevents</text><text x="238" y="95"  class="mono dim" font-size="11" text-anchor="end">50</text>
+          <text x="14" y="115" class="mono" font-size="11.5">posts</text>     <text x="238" y="115" class="mono dim" font-size="11" text-anchor="end">8</text>
+          <text x="14" y="135" class="mono" font-size="11.5">users</text>     <text x="238" y="135" class="mono dim" font-size="11" text-anchor="end">13</text>
+          <text x="14" y="155" class="mono" font-size="11.5">orders</text>    <text x="238" y="155" class="mono dim" font-size="11" text-anchor="end">8</text>
+          <text x="14" y="176" class="mono dim" font-size="10.5">readonly_user · read-only</text>
+
+          <rect class="engine" x="312" y="82" width="136" height="56" rx="7"/>
+          <text x="380" y="106" text-anchor="middle" class="mono good" font-size="12.5" font-weight="600">reco</text>
+          <text x="380" y="124" text-anchor="middle" class="dim" font-size="11">the engine</text>
+
+          <line class="edge" x1="252" y1="110" x2="306" y2="110" marker-end="url(#ar)"/>
+          <text x="279" y="102" text-anchor="middle" class="dim" font-size="11">reads</text>
+
+          <line class="edge-warn" x1="448" y1="110" x2="502" y2="110" marker-end="url(#ar)"/>
+          <text x="475" y="102" text-anchor="middle" class="warn" font-size="11">writes</text>
+
+          <rect class="frame" x="508" y="28" width="252" height="164" rx="7"/>
+          <text x="522" y="48" class="mono" font-size="12.5" font-weight="600">Your cluster</text>
+          <text x="522" y="65" class="mono dim" font-size="11">4b7z1ko · db SoCo</text>
+          <line class="div" x1="522" y1="76" x2="746" y2="76"/>
+          <text x="522" y="95"  class="mono good" font-size="11">ml_user_interest_scores</text>
+          <text x="522" y="115" class="mono good" font-size="11">ml_user_interest_scores_demo</text>
+          <rect class="flag" x="522" y="130" width="224" height="46" rx="5"/>
+          <text x="534" y="147" class="warn" font-size="11" font-weight="600">Credential is unscoped</text>
+          <text x="534" y="163" class="mono warn" font-size="10">allen_db_user · atlasAdmin</text>
+
+          <line class="div" x1="0" y1="232" x2="760" y2="232"/>
+
+          <!-- ============ ROW 2 : at launch ============ -->
+          <text x="0" y="266" class="eyebrow">At launch — Q14 Option A</text>
+
+          <rect class="frame" x="0" y="280" width="252" height="212" rx="7"/>
+          <text x="14" y="300" class="mono" font-size="12.5" font-weight="600">SOCO cluster</text>
+          <text x="14" y="317" class="mono dim" font-size="11">cob9whd · db soco</text>
+          <line class="div" x1="14" y1="328" x2="238" y2="328"/>
+          <text x="14" y="347" class="mono" font-size="11.5">postevents</text>
+          <text x="14" y="367" class="mono" font-size="11.5">posts</text>
+          <text x="14" y="387" class="mono" font-size="11.5">users</text>
+          <text x="14" y="405" class="mono" font-size="11.5">orders</text>
+          <text x="132" y="405" class="mono dim" font-size="10.5">readonly_user</text>
+          <rect class="target" x="14" y="420" width="224" height="56" rx="5"/>
+          <text x="26" y="440" class="mono good" font-size="11" font-weight="600">ml_user_interest_scores</text>
+          <text x="26" y="458" class="good" font-size="10.5">same database · prefix convention</text>
+
+          <rect class="engine" x="312" y="330" width="136" height="56" rx="7"/>
+          <text x="380" y="354" text-anchor="middle" class="mono good" font-size="12.5" font-weight="600">reco</text>
+          <text x="380" y="372" text-anchor="middle" class="dim" font-size="11">the engine</text>
+
+          <line class="edge" x1="252" y1="352" x2="306" y2="352" marker-end="url(#ar)"/>
+          <text x="279" y="344" text-anchor="middle" class="dim" font-size="11">reads</text>
+
+          <path class="edge-good" d="M380,386 L380,448 L244,448" marker-end="url(#ar)"/>
+          <text x="392" y="412" class="good" font-size="11">writes</text>
+          <text x="392" y="428" class="mono good" font-size="10">mlWriter · ml_* only</text>
+
+          <rect class="gone" x="508" y="300" width="252" height="120" rx="7"/>
+          <text x="634" y="352" text-anchor="middle" class="dim" font-size="12">No second cluster</text>
+          <text x="634" y="372" text-anchor="middle" class="dim" font-size="10.5">one app connection, one database</text>
+        </svg>
+      </div>
+      <figcaption>
+        <b>The write arrow has to turn around before launch.</b> Today the engine reads
+        SOCO's cluster and writes scores to a separate one, which is fine for building but
+        is not the deployment shape. Q14 settled on a prefix convention <em>inside the
+        application's own database</em> — the app runs a single MongoDB connection and
+        there is no second database. Two things move: the <code>ml_</code> collections
+        cross into <code>soco</code>, and the write credential narrows from full admin to
+        <code>ml_*</code> only.
+      </figcaption>
+    </figure>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 400" role="img"
+             aria-label="Live events carry a post_id and need a join to resolve a category, while generated events carry categories on the row; both are adapted into one internal event shape before scoring.">
+          <defs>
+            <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+            </marker>
+          </defs>
+
+          <text x="0" y="14" class="eyebrow">DATA_PROFILE = live</text>
+
+          <rect class="node" x="0" y="28" width="168" height="62" rx="6"/>
+          <text x="14" y="50" class="mono" font-size="11.5">postevents</text>
+          <text x="14" y="68" class="dim" font-size="10.5">post_id, no categories</text>
+          <text x="14" y="83" class="dim" font-size="10.5">created_at</text>
+
+          <rect class="node" x="0" y="102" width="168" height="44" rx="6"/>
+          <text x="14" y="122" class="mono" font-size="11.5">posts</text>
+          <text x="14" y="138" class="dim" font-size="10.5">categories, title case</text>
+
+          <path class="edge" d="M84,90 L84,102" marker-end="url(#ar2)"/>
+          <text x="94" y="100" class="dim" font-size="10">join on post_id</text>
+
+          <rect class="node" x="0" y="158" width="168" height="26" rx="6"/>
+          <text x="14" y="176" class="mono" font-size="11.5">users · orders</text>
+
+          <rect class="node" x="228" y="60" width="150" height="52" rx="6"/>
+          <text x="303" y="82" text-anchor="middle" class="mono" font-size="11.5">postevent</text>
+          <text x="303" y="99" text-anchor="middle" class="dim" font-size="10.5">adapter</text>
+
+          <line class="edge" x1="168" y1="86" x2="222" y2="86" marker-end="url(#ar2)"/>
+
+          <line class="div" x1="0" y1="212" x2="760" y2="212"/>
+
+          <text x="0" y="242" class="eyebrow">DATA_PROFILE = demo</text>
+
+          <rect class="node" x="0" y="256" width="168" height="62" rx="6"/>
+          <text x="14" y="278" class="mono" font-size="11.5">ml_demo_events</text>
+          <text x="14" y="296" class="dim" font-size="10.5">categories on the row</text>
+          <text x="14" y="311" class="dim" font-size="10.5">timestamp</text>
+
+          <rect class="node" x="0" y="330" width="168" height="26" rx="6"/>
+          <text x="14" y="348" class="mono" font-size="11.5">ml_demo_users · _orders</text>
+
+          <rect class="node" x="228" y="262" width="150" height="52" rx="6"/>
+          <text x="303" y="284" text-anchor="middle" class="mono" font-size="11.5">flat</text>
+          <text x="303" y="301" text-anchor="middle" class="dim" font-size="10.5">adapter</text>
+
+          <line class="edge" x1="168" y1="288" x2="222" y2="288" marker-end="url(#ar2)"/>
+
+          <!-- converge -->
+          <path class="edge" d="M378,86 L432,86 L432,186" marker-end="url(#ar2)"/>
+          <path class="edge" d="M378,288 L432,288 L432,214" marker-end="url(#ar2)"/>
+
+          <rect class="engine" x="452" y="150" width="150" height="72" rx="7"/>
+          <text x="527" y="176" text-anchor="middle" class="mono good" font-size="12" font-weight="600">Event</text>
+          <text x="527" y="194" text-anchor="middle" class="dim" font-size="10.5">one internal shape</text>
+          <text x="527" y="210" text-anchor="middle" class="dim" font-size="10.5">no weight field</text>
+
+          <line class="edge" x1="602" y1="186" x2="656" y2="186" marker-end="url(#ar2)"/>
+          <text x="629" y="176" text-anchor="middle" class="dim" font-size="10">scored</text>
+
+          <rect class="target" x="662" y="150" width="98" height="72" rx="7"/>
+          <text x="711" y="180" text-anchor="middle" class="mono good" font-size="11" font-weight="600">ml_user_</text>
+          <text x="711" y="196" text-anchor="middle" class="mono good" font-size="11" font-weight="600">interest_</text>
+          <text x="711" y="212" text-anchor="middle" class="mono good" font-size="11" font-weight="600">scores</text>
+
+          <rect class="node" x="452" y="278" width="150" height="52" rx="6"/>
+          <text x="527" y="300" text-anchor="middle" class="mono" font-size="11.5">P-06 weights</text>
+          <text x="527" y="317" text-anchor="middle" class="dim" font-size="10.5">from config, not the row</text>
+          <path class="edge-thin" d="M527,278 L527,224" marker-end="url(#ar2)"/>
+        </svg>
+      </div>
+      <figcaption>
+        <b>Swapping a collection name would not have been enough.</b> A live event carries a
+        <code>post_id</code> and no category at all, so the category costs a join through
+        <code>posts</code>; a generated event carries its <code>categories</code> array on
+        the row. Those are structurally different reads, so each source gets its own
+        adapter and both produce the same internal <code>Event</code> — which is why the
+        scoring methods never learn which profile they are running under. The weight comes
+        from P-06 in configuration, never from the <code>weight</code> written on the row.
+      </figcaption>
+    </figure>
+
+  </section>
+
+  <p class="foot">
+    Generated by <code>scripts/introspect_db.py</code> from a sample of up to
+    <span id="samp">40</span> documents per collection. Field names and BSON types only —
+    no document values are recorded.
+  </p>
+</div>
+
+<script>
+const DATA = /*__SCHEMA__*/;
+
+/* What each collection is to M1. Only the ones that carry a consequence. */
+const ROLES = {
+  postevents: { kind: "m1", text: "<b>Live event source.</b> The engine reads events from here. No <code>categories</code> field — the category resolves through <code>posts</code>, which is a join." },
+  posts:      { kind: "m1", text: "<b>Category resolution.</b> The join target for every post event. Categories are stored title case and normalise through <code>toCategoryKey()</code>." },
+  users:      { kind: "m1", text: "<b>Declared-interest floor (P-25).</b> Read from the <code>interest</code> array — never from <code>interestScores</code>, where the seeded floor and tracked events are fused and cannot be decomposed." },
+  orders:     { kind: "m1", text: "<b>Reversal aging.</b> A purchase reversal is aged from this order's <code>created_at</code>, never from the cancellation." },
+  userevents: { kind: "trap", text: "<b>Do not read.</b> Always empty — its TTL index was never created. A query here returns nothing and looks like a user with no activity." },
+  trackings:  { kind: "trap", text: "<b>Carries no duration.</b> <code>view_duration_seconds</code> lives on <code>postevents</code>, not here." },
+  interestscores: { kind: "trap", text: "Not a collection — a field on <code>users</code>." },
+};
+
+const CONFLICT_NOTE = {
+  "posts.userId": "Holds both String and ObjectId across documents. A join matching one type returns a partial result — worse than an empty one, because it looks like the query worked.",
+};
+
+/* An empty array and a typed array are the same field, not a type conflict.
+   Only a genuine disagreement between base types counts. */
+const baseType = t => t.startsWith("array") ? "array" : t;
+const isConflict = f => new Set(f.types.map(baseType)).size > 1;
+
+const byName = Object.fromEntries(DATA.collections.map(c => [c.name, c]));
+let selected = byName.postevents ? "postevents" : DATA.collections[0].name;
+let query = "";
+
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const hl = (s, q) => {
+  if (!q) return esc(s);
+  const i = s.toLowerCase().indexOf(q);
+  if (i < 0) return esc(s);
+  return esc(s.slice(0, i)) + "<mark>" + esc(s.slice(i, i + q.length)) + "</mark>" + esc(s.slice(i + q.length));
+};
+const roleOf = c => ROLES[c.name.toLowerCase()];
+
+function matches(c, q) {
+  if (!q) return { hit: true, fields: 0 };
+  if (c.name.toLowerCase().includes(q)) return { hit: true, fields: 0 };
+  const n = c.fields.filter(f => f.name.toLowerCase().includes(q)).length;
+  return { hit: n > 0, fields: n };
+}
+
+function renderRail() {
+  const q = query;
+  const shown = DATA.collections.map(c => ({ c, m: matches(c, q) })).filter(x => x.m.hit);
+
+  const groups = [
+    { key: "m1",    label: "M1 sources",  items: shown.filter(x => roleOf(x.c)) },
+    { key: "data",  label: "Has data",    items: shown.filter(x => !roleOf(x.c) && x.c.count > 0) },
+    { key: "empty", label: "Empty",       items: shown.filter(x => !roleOf(x.c) && x.c.count === 0) },
+  ];
+
+  const rail = document.getElementById("rail");
+  if (!shown.length) {
+    rail.innerHTML = '<p class="empty-state">Nothing matches that.</p>';
+    return;
+  }
+
+  rail.innerHTML = groups.filter(g => g.items.length).map(g => `
+    <div class="group">
+      <div class="group-h"><span>${g.label}</span><b>${g.items.length}</b></div>
+      <div class="list">
+        ${g.items.map(({ c, m }) => {
+          const role = roleOf(c);
+          const stripe = role ? (role.kind === "trap" ? "trap" : "m1") : "";
+          const tail = m.fields ? `${m.fields} field${m.fields > 1 ? "s" : ""}` : c.count.toLocaleString();
+          return `<button class="item" data-name="${esc(c.name)}" aria-current="${c.name === selected}">
+            <span class="stripe ${stripe}"></span>
+            <span class="nm">${hl(c.name, q)}</span>
+            <span class="ct">${tail}</span>
+          </button>`;
+        }).join("")}
+      </div>
+    </div>`).join("");
+
+  rail.querySelectorAll(".item").forEach(b =>
+    b.addEventListener("click", () => { selected = b.dataset.name; render(); }));
+}
+
+function renderDetail() {
+  const c = byName[selected];
+  const q = query;
+  const role = roleOf(c);
+  const conflicts = c.fields.filter(isConflict);
+
+  let notes = "";
+  if (role) notes += `<div class="note ${role.kind === "trap" ? "trap" : "m1"}">${role.text}</div>`;
+  if (c.count === 0 && !role) notes += `<div class="note empty">Empty. No documents, so no fields could be sampled.</div>`;
+
+  const rows = c.fields.map(f => {
+    const conflict = isConflict(f);
+    const note = CONFLICT_NOTE[c.name + "." + f.name];
+    const depth = f.name.lastIndexOf(".");
+    const shown = depth > -1
+      ? `<span class="depth">${esc(f.name.slice(0, depth + 1))}</span>${hl(f.name.slice(depth + 1), q)}`
+      : hl(f.name, q);
+    return `<tr class="${conflict ? "conflict" : ""}">
+      <td class="f">${shown}${note ? `<div class="sub" style="font-family:var(--sans);font-size:0.78rem;margin-top:0.2rem">${note}</div>` : ""}</td>
+      <td>${f.types.map(t => `<span class="ty ${conflict ? "warn" : ""}">${esc(t)}</span>`).join("")}</td>
+      <td class="p">${f.presence >= 1 ? "all" : Math.round(f.presence * 100) + "%"}</td>
+    </tr>`;
+  }).join("");
+
+  const indexes = c.indexes.length
+    ? `<ul class="idx">${c.indexes.map(i =>
+        `<li>{ ${i.key.map(([k, v]) => `${esc(k)}: ${v}`).join(", ")} }${i.unique ? '<span class="u">unique</span>' : ""}</li>`
+      ).join("")}</ul>`
+    : `<p class="empty-state">No indexes beyond the default.</p>`;
+
+  document.getElementById("detail").innerHTML = `
+    <div class="detail-h">
+      <h2 class="cname">${esc(c.name)}</h2>
+      <div class="facts">
+        <span><b>${c.count.toLocaleString()}</b> docs</span>
+        <span><b>${c.fields.length}</b> fields</span>
+        <span><b>${c.indexes.length}</b> indexes</span>
+        ${conflicts.length ? `<span style="color:var(--rust)"><b style="color:var(--rust)">${conflicts.length}</b> mixed type</span>` : ""}
+      </div>
+    </div>
+    ${notes}
+    ${c.fields.length ? `
+      <div class="sec-h">Fields · sampled from ${c.sampled} document${c.sampled === 1 ? "" : "s"}</div>
+      <div class="tbl-scroll">
+        <table><thead><tr><th>Name</th><th>Type</th><th style="text-align:right">Present</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      </div>` : ""}
+    <div class="sec-h">Indexes</div>
+    ${indexes}`;
+}
+
+function render() { renderRail(); renderDetail(); }
+
+document.getElementById("q").addEventListener("input", e => {
+  query = e.target.value.trim().toLowerCase();
+  const first = DATA.collections.find(c => matches(c, query).hit);
+  if (query && first && !matches(byName[selected], query).hit) selected = first.name;
+  render();
+});
+
+const VIEWS = [["tab-map", "view-map"], ["tab-flow", "view-flow"]];
+VIEWS.forEach(([tabId]) => {
+  document.getElementById(tabId).addEventListener("click", () => {
+    VIEWS.forEach(([t, v]) => {
+      const on = t === tabId;
+      document.getElementById(t).setAttribute("aria-selected", String(on));
+      document.getElementById(v).hidden = !on;
+    });
+  });
+});
+
+document.getElementById("dbname").textContent = DATA.database;
+document.getElementById("gen").textContent = new Date(DATA.generated_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+document.getElementById("samp").textContent = DATA.sample_size;
+document.getElementById("t-coll").textContent = DATA.collection_count;
+document.getElementById("t-data").textContent = DATA.collections.filter(c => c.count > 0).length;
+document.getElementById("t-docs").textContent = DATA.collections.reduce((n, c) => n + c.count, 0).toLocaleString();
+document.getElementById("t-fields").textContent = DATA.collections.reduce((n, c) => n + c.fields.length, 0);
+
+render();
+</script>

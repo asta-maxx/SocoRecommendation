@@ -1,0 +1,1298 @@
+[
+ {
+  "user_id": "U01",
+  "declared_interests": [
+   "Fashion & Apparel",
+   "Shoes & Footwear"
+  ],
+  "note": "dominant category, two declared interests"
+ },
+ {
+  "user_id": "U02",
+  "declared_interests": [],
+  "note": "twelve sub threshold views, eight qualified"
+ },
+ {
+  "user_id": "U03",
+  "declared_interests": [],
+  "note": "ten dual tagged posts, ten single tagged"
+ },
+ {
+  "user_id": "U04",
+  "declared_interests": [],
+  "note": "interest shifted, old category outweighs the new"
+ },
+ {
+  "user_id": "U05",
+  "declared_interests": [
+   "Fashion & Apparel",
+   "Jewellery",
+   "Technology"
+  ],
+  "note": "floor against faded behaviour"
+ },
+ {
+  "user_id": "U06",
+  "declared_interests": [],
+  "note": "3 List 1 names merging into Home & Living and 2 case variants"
+ },
+ {
+  "user_id": "U07",
+  "declared_interests": [
+   "Fashion & Apparel",
+   "Beauty & Personal Care",
+   "Jewellery",
+   "Shoes & Footwear",
+   "Travel & Lifestyle",
+   "Technology"
+  ],
+  "note": "declared interests, zero events"
+ },
+ {
+  "user_id": "U08",
+  "declared_interests": [],
+  "note": "six unmappable product events of fifteen"
+ },
+ {
+  "user_id": "U09",
+  "declared_interests": [],
+  "note": "no declared interests, forty events"
+ },
+ {
+  "user_id": "U10",
+  "declared_interests": [],
+  "note": "three future dated events, two with no timestamp"
+ },
+ {
+  "user_id": "U11",
+  "declared_interests": [],
+  "note": "no interests, no events"
+ },
+ {
+  "user_id": "U12",
+  "declared_interests": [],
+  "note": "share comparison, ten times the volume"
+ },
+ {
+  "user_id": "U13",
+  "declared_interests": [],
+  "note": "share comparison, ten times the volume"
+ },
+ {
+  "user_id": "U14",
+  "declared_interests": [],
+  "note": "bursts at day 28 and day 32, one category each"
+ },
+ {
+  "user_id": "U15",
+  "declared_interests": [],
+  "note": "twelve events, one per window band"
+ },
+ {
+  "user_id": "U16",
+  "declared_interests": [],
+  "note": "purchase reversal pair"
+ },
+ {
+  "user_id": "U17",
+  "declared_interests": [],
+  "note": "purchase reversal pair"
+ },
+ {
+  "user_id": "U18",
+  "declared_interests": [],
+  "note": "events at 88 and 89 days inside the window, one at 92 outside"
+ },
+ {
+  "user_id": "U19",
+  "declared_interests": [],
+  "note": "even spread across eight categories"
+ },
+ {
+  "user_id": "U20",
+  "declared_interests": [
+   "Shoes & Footwear"
+  ],
+  "note": "hand calculable, all five event types"
+ },
+ {
+  "user_id": "F001",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F002",
+  "declared_interests": [
+   "Travel & Lifestyle"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F003",
+  "declared_interests": [
+   "Wedding & Events",
+   "Books & Education",
+   "Home & Living"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F004",
+  "declared_interests": [
+   "Wedding & Events"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F005",
+  "declared_interests": [
+   "Technology",
+   "Food & Beverages"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F006",
+  "declared_interests": [
+   "Organic & Eco",
+   "Automotive"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F007",
+  "declared_interests": [
+   "Beauty & Personal Care",
+   "Automotive",
+   "Electronics"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F008",
+  "declared_interests": [
+   "Organic & Eco",
+   "Wedding & Events",
+   "Health & Wellness"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F009",
+  "declared_interests": [
+   "Pets"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F010",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F011",
+  "declared_interests": [
+   "Shoes & Footwear",
+   "Sports & Outdoors"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F012",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F013",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F014",
+  "declared_interests": [
+   "Gaming"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F015",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F016",
+  "declared_interests": [
+   "Technology"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F017",
+  "declared_interests": [
+   "Music & Entertainment"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F018",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F019",
+  "declared_interests": [
+   "Technology",
+   "Organic & Eco"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F020",
+  "declared_interests": [
+   "Beauty & Personal Care"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F021",
+  "declared_interests": [
+   "Jewellery",
+   "Shoes & Footwear",
+   "Health & Wellness"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F022",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F023",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F024",
+  "declared_interests": [
+   "Pets",
+   "Automotive"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F025",
+  "declared_interests": [
+   "Finance",
+   "Wedding & Events",
+   "Music & Entertainment"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F026",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F027",
+  "declared_interests": [
+   "Electronics",
+   "Gaming",
+   "Home & Living"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F028",
+  "declared_interests": [
+   "Books & Education"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F029",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F030",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F031",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F032",
+  "declared_interests": [
+   "Organic & Eco",
+   "Food & Beverages"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F033",
+  "declared_interests": [
+   "Photography",
+   "Sports & Outdoors",
+   "Beauty & Personal Care"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F034",
+  "declared_interests": [
+   "Food & Beverages"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F035",
+  "declared_interests": [
+   "Shoes & Footwear",
+   "Automotive",
+   "Electronics"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F036",
+  "declared_interests": [
+   "Books & Education",
+   "Technology",
+   "Electronics"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F037",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F038",
+  "declared_interests": [
+   "Electronics",
+   "Finance"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F039",
+  "declared_interests": [
+   "Electronics",
+   "Fashion & Apparel",
+   "Music & Entertainment"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F040",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F041",
+  "declared_interests": [
+   "Finance"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F042",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F043",
+  "declared_interests": [
+   "Technology",
+   "Music & Entertainment",
+   "Home & Living"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F044",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F045",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F046",
+  "declared_interests": [
+   "Office & Business",
+   "Jewellery"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F047",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F048",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F049",
+  "declared_interests": [
+   "Wedding & Events",
+   "Sports & Outdoors"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F050",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F051",
+  "declared_interests": [
+   "Photography",
+   "Gaming"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F052",
+  "declared_interests": [
+   "Gaming",
+   "Office & Business"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F053",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F054",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F055",
+  "declared_interests": [
+   "Travel & Lifestyle"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F056",
+  "declared_interests": [
+   "Beauty & Personal Care"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F057",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F058",
+  "declared_interests": [
+   "Finance"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F059",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F060",
+  "declared_interests": [
+   "Finance",
+   "Pets"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F061",
+  "declared_interests": [
+   "Fashion & Apparel",
+   "Sports & Outdoors",
+   "Pets"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F062",
+  "declared_interests": [
+   "Travel & Lifestyle",
+   "Finance"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F063",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F064",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F065",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F066",
+  "declared_interests": [
+   "Health & Wellness",
+   "Sports & Outdoors",
+   "Art & Collectibles"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F067",
+  "declared_interests": [
+   "Office & Business",
+   "Pets",
+   "Art & Collectibles"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F068",
+  "declared_interests": [
+   "Home & Living",
+   "Photography"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F069",
+  "declared_interests": [
+   "Art & Collectibles"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F070",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F071",
+  "declared_interests": [
+   "Music & Entertainment",
+   "Wedding & Events",
+   "Pets"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F072",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F073",
+  "declared_interests": [
+   "Beauty & Personal Care"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F074",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F075",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F076",
+  "declared_interests": [
+   "Wedding & Events",
+   "Gaming"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F077",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F078",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F079",
+  "declared_interests": [
+   "Automotive",
+   "Shoes & Footwear",
+   "Wedding & Events"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F080",
+  "declared_interests": [
+   "Technology",
+   "Shoes & Footwear"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F081",
+  "declared_interests": [
+   "Toys & Kids",
+   "Art & Collectibles"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F082",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F083",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F084",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F085",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F086",
+  "declared_interests": [
+   "Office & Business",
+   "Travel & Lifestyle",
+   "Finance"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F087",
+  "declared_interests": [
+   "Photography"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F088",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F089",
+  "declared_interests": [
+   "Gaming"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F090",
+  "declared_interests": [
+   "Shoes & Footwear",
+   "Automotive",
+   "Gaming"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F091",
+  "declared_interests": [
+   "Art & Collectibles",
+   "Pets",
+   "Music & Entertainment"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F092",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F093",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F094",
+  "declared_interests": [
+   "Gaming"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F095",
+  "declared_interests": [
+   "Home & Living"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F096",
+  "declared_interests": [
+   "Automotive",
+   "Jewellery",
+   "Art & Collectibles"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F097",
+  "declared_interests": [
+   "Technology"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F098",
+  "declared_interests": [
+   "Sports & Outdoors",
+   "Wedding & Events",
+   "Organic & Eco"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F099",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F100",
+  "declared_interests": [
+   "Organic & Eco"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F101",
+  "declared_interests": [
+   "Home & Living",
+   "Wedding & Events"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F102",
+  "declared_interests": [
+   "Books & Education",
+   "Food & Beverages",
+   "Music & Entertainment"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F103",
+  "declared_interests": [
+   "Photography"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F104",
+  "declared_interests": [
+   "Home & Living"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F105",
+  "declared_interests": [
+   "Gaming"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F106",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F107",
+  "declared_interests": [
+   "Jewellery",
+   "Books & Education",
+   "Sports & Outdoors"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F108",
+  "declared_interests": [
+   "Wedding & Events",
+   "Jewellery"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F109",
+  "declared_interests": [
+   "Wedding & Events",
+   "Home & Living",
+   "Shoes & Footwear"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F110",
+  "declared_interests": [
+   "Home & Living",
+   "Office & Business",
+   "Food & Beverages"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F111",
+  "declared_interests": [
+   "Health & Wellness"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F112",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F113",
+  "declared_interests": [
+   "Photography",
+   "Food & Beverages"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F114",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F115",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F116",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F117",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F118",
+  "declared_interests": [
+   "Art & Collectibles",
+   "Technology"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F119",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F120",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F121",
+  "declared_interests": [
+   "Pets",
+   "Finance"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F122",
+  "declared_interests": [
+   "Pets",
+   "Beauty & Personal Care",
+   "Technology"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F123",
+  "declared_interests": [
+   "Toys & Kids",
+   "Finance"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F124",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F125",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F126",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F127",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F128",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F129",
+  "declared_interests": [
+   "Technology",
+   "Finance"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F130",
+  "declared_interests": [
+   "Home & Living",
+   "Jewellery"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F131",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F132",
+  "declared_interests": [
+   "Art & Collectibles"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F133",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F134",
+  "declared_interests": [
+   "Wedding & Events",
+   "Food & Beverages"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F135",
+  "declared_interests": [
+   "Wedding & Events"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F136",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F137",
+  "declared_interests": [
+   "Books & Education",
+   "Music & Entertainment"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F138",
+  "declared_interests": [
+   "Health & Wellness",
+   "Art & Collectibles"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F139",
+  "declared_interests": [
+   "Wedding & Events",
+   "Organic & Eco"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F140",
+  "declared_interests": [
+   "Fashion & Apparel",
+   "Health & Wellness"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F141",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F142",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F143",
+  "declared_interests": [
+   "Photography"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F144",
+  "declared_interests": [
+   "Automotive"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F145",
+  "declared_interests": [
+   "Art & Collectibles",
+   "Fashion & Apparel",
+   "Health & Wellness"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F146",
+  "declared_interests": [
+   "Sports & Outdoors"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F147",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F148",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F149",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F150",
+  "declared_interests": [
+   "Jewellery"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F151",
+  "declared_interests": [
+   "Pets",
+   "Photography"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F152",
+  "declared_interests": [
+   "Pets"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F153",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F154",
+  "declared_interests": [
+   "Electronics"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F155",
+  "declared_interests": [
+   "Jewellery",
+   "Toys & Kids"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F156",
+  "declared_interests": [
+   "Automotive",
+   "Books & Education"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F157",
+  "declared_interests": [
+   "Toys & Kids",
+   "Pets"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F158",
+  "declared_interests": [
+   "Electronics"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F159",
+  "declared_interests": [
+   "Photography"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F160",
+  "declared_interests": [
+   "Photography",
+   "Organic & Eco"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F161",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F162",
+  "declared_interests": [
+   "Beauty & Personal Care",
+   "Food & Beverages"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F163",
+  "declared_interests": [
+   "Sports & Outdoors",
+   "Beauty & Personal Care"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F164",
+  "declared_interests": [
+   "Wedding & Events",
+   "Home & Living"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F165",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F166",
+  "declared_interests": [
+   "Books & Education"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F167",
+  "declared_interests": [
+   "Art & Collectibles"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F168",
+  "declared_interests": [
+   "Automotive"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F169",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F170",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F171",
+  "declared_interests": [
+   "Music & Entertainment",
+   "Art & Collectibles",
+   "Finance"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F172",
+  "declared_interests": [
+   "Organic & Eco",
+   "Food & Beverages"
+  ],
+  "note": "filler"
+ },
+ {
+  "user_id": "F173",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F174",
+  "declared_interests": [],
+  "note": "filler"
+ },
+ {
+  "user_id": "F175",
+  "declared_interests": [],
+  "note": "filler"
+ }
+]

@@ -1,0 +1,22 @@
+# S7. The reco service on the same network as SOCO_BE, so the backend can reach
+# it by name. A single-digit-millisecond hop against a 200ms ranking budget.
+#
+# The network is declared external: SOCO_BE owns it. Attach with
+#   docker network ls          # find the name SOCO_BE's compose created
+#   docker compose up          # after setting SOCO_NETWORK below
+services:
+  reco:
+    build: .
+    container_name: reco
+    restart: unless-stopped
+    ports:
+      - "8100:8100"
+    env_file:
+      - .env
+    networks:
+      - soco
+
+networks:
+  soco:
+    external: true
+    name: ${SOCO_NETWORK:-soco_default}

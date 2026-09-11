@@ -1,0 +1,887 @@
+#!/usr/bin/env python3
+"""
+SOCO-REC-DS-015 task 8.  M1 demonstration event generator.
+
+Produces the constructed dataset the M1 demonstration runs against:
+twenty narrated users, each built to prove one thing, plus a filler
+population so that platform wide popularity means something.
+
+Nothing here computes a score.  The generator writes events and user
+records only.  Every number on the screen on the day is produced by
+the engine reading these collections.
+
+Writes to:
+    ml_demo_events        one document per event
+    ml_demo_users         one document per user, carrying declared interests
+    ml_demo_orders        one document per order, so the engine has something to
+                          resolve when it ages a purchase reversal.  See U16/U17.
+    ml_demo_meta          a single document recording the reference date, the seed,
+                          the parameters the expected values were computed at, the
+                          eight category handles, and the expected raw scores
+
+Usage:
+    python generate_demo_events.py                      # JSON files, no database
+    python generate_demo_events.py --mongo "mongodb+srv://..."
+    python generate_demo_events.py --as-of 2026-09-15   # pin the reference date
+
+Reference: SOCO-REC-DS-014 v2 section 3.2, SOCO-REC-DS-008 v3.1, SOCO-REC-DS-007 v1.1.
+"""
+
+import argparse
+import json
+import random
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+SEED = 20260909
+
+# --------------------------------------------------------------------------
+# Parameters.  These mirror SOCO-REC-DS-007 v1.1 and exist here only so the
+# generator can compute expected values in its own report.  The engine reads
+# its own configuration; it does not read this file.
+# --------------------------------------------------------------------------
+WEIGHTS = {
+    "product_view": 2,
+    "product_click": 5,
+    "add_to_cart": 10,
+    "purchase": 20,
+    "keyword_search": 3,
+}
+PURCHASE_REVERSAL = "purchase_reversal"      # weight is -20, see U16 and U17
+DECLARED_FLOOR = 10                          # P-25
+HALF_LIFE_DAYS = 30                          # P-04
+QUALIFIED_VIEW_SECONDS = 3                   # P-02
+
+# --------------------------------------------------------------------------
+# PLACEHOLDER.  Replace with the twenty three values from the post category
+# picker before the generator is run in anger.  The names are strings all the
+# way through, so this is a data change and not a code change.
+# --------------------------------------------------------------------------
+CANONICAL = [
+    "Fashion & Apparel", "Electronics", "Home & Living", "Beauty & Personal Care",
+    "Jewellery", "Footwear", "Bags & Accessories", "Watches",
+    "Sports & Fitness", "Books & Stationery", "Toys & Games", "Baby & Kids",
+    "Groceries", "Health & Wellness", "Mobiles & Tablets", "Computers",
+    "Automotive", "Pet Supplies", "Art & Craft", "Music & Instruments",
+    "Travel & Luggage", "Garden & Outdoor", "Food & Beverage",
+]
+
+# A second, independent copy of the placeholder names, so the warning is an
+# identity test against what shipped rather than a guess at the first and last
+# entries.  It has to be its own literal: list(CANONICAL) would copy whatever
+# CANONICAL currently holds and compare equal for ever.  Do not edit this one
+# when you paste the real vocabulary in above; that is the entire point of it.
+PLACEHOLDER_CANONICAL = [
+    "Fashion & Apparel", "Electronics", "Home & Living", "Beauty & Personal Care",
+    "Jewellery", "Footwear", "Bags & Accessories", "Watches",
+    "Sports & Fitness", "Books & Stationery", "Toys & Games", "Baby & Kids",
+    "Groceries", "Health & Wellness", "Mobiles & Tablets", "Computers",
+    "Automotive", "Pet Supplies", "Art & Craft", "Music & Instruments",
+    "Travel & Luggage", "Garden & Outdoor", "Food & Beverage",
+]
+
+# --------------------------------------------------------------------------
+# The eight categories the narrated users are built around.
+#
+# These used to be bound at import time with pick("Electronics") and friends,
+# which meant the real vocabulary could only arrive by editing this file.  It now
+# arrives at run time instead, with --categories, so whoever seeds the database
+# supplies the twenty three in the same breath and nobody edits code on the day.
+#
+# Binding is by name where the name is there, and by position only where it is
+# not.  The narrated users do not care which categories they get: U04 needs an
+# old interest and a new one, U19 needs eight distinct ones.  What matters is
+# that a handle never silently points at a different category than the report
+# says, so every fallback is printed and recorded in ml_demo_meta.handles.
+#
+# The names below are the real post picker vocabulary, confirmed 10 Sep.  Two of the
+# original eight, 'Bags & Accessories' and 'Watches', do not exist in the canonical 23
+# and LEGACY_LABEL_MAP maps their List 1 forms to null, meaning drop.  Those two
+# handles carry no meaning to the narrated users, so they are bound to two unused real
+# categories instead.  All eight now bind by exact name with no fallbacks.
+# --------------------------------------------------------------------------
+PREFERRED_HANDLES = [
+    ("fashion",     "Fashion & Apparel"),
+    ("electronics", "Electronics"),
+    ("home",        "Home & Living"),
+    ("beauty",      "Beauty & Personal Care"),
+    ("jewellery",   "Jewellery"),
+    ("footwear",    "Shoes & Footwear"),
+    ("bags",        "Travel & Lifestyle"),
+    ("watches",     "Technology"),
+]
+
+# Bound by bind_handles() before any user is built.  Declared here so the module
+# reads the way it did and so build_narrated() can pick them up as globals.
+FASHION = ELECTRONICS = HOME = BEAUTY = None
+JEWELLERY = FOOTWEAR = BAGS = WATCHES = None
+HANDLES = {}
+HANDLE_FALLBACKS = {}
+
+
+def validate_vocabulary(canonical, source):
+    """Twenty three, distinct, non empty.  A bare assert disappears under -O."""
+    if len(canonical) != 23:
+        raise SystemExit(f"\nThe canonical vocabulary is twenty three items; "
+                         f"{source} holds {len(canonical)}.\n")
+    if len(set(canonical)) != len(canonical):
+        dupes = sorted({c for c in canonical if canonical.count(c) > 1})
+        raise SystemExit(f"\n{source} contains duplicates: {dupes}\n")
+    blank = [c for c in canonical if not isinstance(c, str) or not c.strip()]
+    if blank:
+        raise SystemExit(f"\n{source} contains blank or non string entries.\n")
+
+
+STOPWORDS = {"and", "the", "of", "personal", "care", "accessories", "essentials"}
+
+
+def _tokens(name):
+    out, word = set(), ""
+    for ch in name.lower():
+        if ch.isalnum():
+            word += ch
+        elif word:
+            out.add(word)
+            word = ""
+    if word:
+        out.add(word)
+    return out - STOPWORDS
+
+
+def bind_handles(canonical):
+    """Point the eight handles at real categories, preferring the named ones.
+
+    Three passes, in decreasing confidence.  Exact name, which is what happens
+    when the vocabulary matches PREFERRED_HANDLES.  Then a token match, because a
+    real vocabulary tends to name the same thing at greater length: 'Footwear'
+    against 'Shoes & Footwear', 'Watches' against 'Watches & Eyewear'.  Then
+    position, which is arbitrary but keeps the generator running.
+
+    Only the first pass is silent.  The other two are printed and recorded,
+    because a handle pointing somewhere the narration does not expect is how a
+    demonstration ends up describing the wrong category out loud.
+    """
+    global FASHION, ELECTRONICS, HOME, BEAUTY, JEWELLERY, FOOTWEAR, BAGS, WATCHES
+    global HANDLES, HANDLE_FALLBACKS
+    HANDLES, HANDLE_FALLBACKS = {}, {}
+    used = set()
+
+    for key, preferred in PREFERRED_HANDLES:                    # 1. exact
+        if preferred in canonical and preferred not in used:
+            HANDLES[key] = preferred
+            used.add(preferred)
+
+    for key, preferred in PREFERRED_HANDLES:                    # 2. token match
+        if key in HANDLES:
+            continue
+        want = _tokens(preferred)
+        if not want:
+            continue
+        best, best_score = None, 0.0
+        for c in canonical:
+            if c in used:
+                continue
+            score = len(want & _tokens(c)) / len(want)
+            if score > best_score:
+                best, best_score = c, score
+        if best is not None and best_score >= 0.5:
+            HANDLES[key] = best
+            HANDLE_FALLBACKS[key] = (preferred, best, "token match")
+            used.add(best)
+
+    for key, preferred in PREFERRED_HANDLES:                    # 3. position
+        if key in HANDLES:
+            continue
+        nxt = next((c for c in canonical if c not in used), None)
+        if nxt is None:
+            raise SystemExit(f"\nThe vocabulary has fewer than eight distinct "
+                             f"categories; the narrated users need eight.\n")
+        HANDLES[key] = nxt
+        HANDLE_FALLBACKS[key] = (preferred, nxt, "position, no name resembled it")
+        used.add(nxt)
+    FASHION, ELECTRONICS = HANDLES["fashion"], HANDLES["electronics"]
+    HOME, BEAUTY = HANDLES["home"], HANDLES["beauty"]
+    JEWELLERY, FOOTWEAR = HANDLES["jewellery"], HANDLES["footwear"]
+    BAGS, WATCHES = HANDLES["bags"], HANDLES["watches"]
+    return HANDLES
+
+
+def load_categories(args, client=None):
+    """The twenty three, from a file, from the database, or from CANONICAL.
+
+    A file is one JSON array, or one name per line with # for comments.  A
+    collection is read for distinct values of --categories-field, which lets the
+    engineer seeding the picker list supply it in the same run rather than
+    editing this file.  Returns (list, source description).
+    """
+    if args.categories:
+        p = Path(args.categories)
+        if not p.exists():
+            raise SystemExit(f"\n--categories {p} does not exist.\n")
+        text = p.read_text().strip()
+        try:
+            names = json.loads(text)
+            if not isinstance(names, list):
+                raise ValueError
+        except (json.JSONDecodeError, ValueError):
+            names = [ln.strip() for ln in text.splitlines()
+                     if ln.strip() and not ln.strip().startswith("#")]
+        return [str(n).strip() for n in names], f"--categories {p.name}"
+
+    if args.categories_collection:
+        if client is None:
+            raise SystemExit("\n--categories-collection needs --mongo.\n")
+        db = client[args.db] if args.db else client.get_default_database()
+        field = args.categories_field
+        names = sorted({d[field].strip() for d in db[args.categories_collection]
+                       .find({}, {field: 1, "_id": 0})
+                        if isinstance(d.get(field), str) and d[field].strip()})
+        if not names:
+            raise SystemExit(
+                f"\n{args.categories_collection}.{field} yielded no names in "
+                f"{db.name}.\nCheck the collection and the field, or pass "
+                f"--categories with a file.\n")
+        return names, f"{db.name}.{args.categories_collection}.{field}"
+
+    return list(CANONICAL), "the CANONICAL list in this file"
+
+# CONFIRMED against LEGACY_LABEL_MAP in backend/SOCO_BE/src/constants/categories.js,
+# 10 Sep.  These were placeholders until D-05 landed; D-05 is now answered and all
+# three lists below are taken from the code rather than guessed.
+#
+# The map holds four keys targeting Home & Living.  Only three are genuine merges;
+# the fourth, 'home_&_living', is the underscore variant of the canonical label and
+# is a spelling fix, not a merge.  DS-008 says four and is wrong on this point.
+LIST1_MERGING_INTO_HOME = ["home & decor", "kitchen & dining", "bedding & bath"]
+
+# The two spellings that produced the duplicate keys on production, with their
+# writers.  'Fashion' was served verbatim by the old GET /common/getInterst 20 item
+# list and saved without transformation.  'fashion' came from /common/trackEvent,
+# which lowercased the same short label but never mapped it.  Both fold to
+# 'fashion & apparel' through LEGACY_LABEL_MAP, and neither is a canonical name, so
+# the engine has something real to normalise.
+#
+# NOTE  the historical cleanup migration has NOT been run on production.  The read
+# API folds these on the fly; the raw collection does not, and M1 reads collections.
+# So U06 describes production as it stands today, not as it stood in September.
+LIST1_CASE_VARIANTS = ["Fashion", "fashion"]
+
+# Real names from the categories collection, verified 10 Sep against both the exact
+# string and the path root, and against LEGACY_LABEL_MAP.
+#
+# D-05 is answered: products.basicInfo.categoryId points at the LEAF node, and
+# nothing collapses it to path[0].  'Saree' was therefore valid here too, but it is
+# deliberately not used: its path root is 'Fashion', which LEGACY_LABEL_MAP resolves
+# to 'Fashion & Apparel'.  If M1's own product mapping is ever written to resolve
+# through the path, 'Saree' becomes mappable and U08 silently proves nothing.  The
+# three below are unmappable by leaf name, by path root and through the legacy map,
+# so U08 holds under every rule anyone might choose.
+UNMAPPABLE = ["Casual Sneakers", "Jackets", "Sunglasses"]
+
+
+# --------------------------------------------------------------------------
+# The three lists above only demonstrate anything while they sit OUTSIDE the
+# canonical vocabulary.  pick() already asserts that the eight handles are IN it;
+# this is the mirror, and it is the assertion that was missing.  Without it,
+# pasting a real vocabulary that happens to contain "Jackets" or "Fashion" turns
+# U06 and U08 into ordinary users, every check still passes, and the loss is
+# invisible until someone asks about them on the day.
+# --------------------------------------------------------------------------
+def validate_placeholders(canonical):
+    lowered = {c.lower() for c in canonical}
+
+    same = [n for n in UNMAPPABLE if n.lower() in lowered]
+    if same:
+        raise SystemExit(
+            f"\nUNMAPPABLE contains {same}, which CANONICAL also contains.\n"
+            f"An unmappable category that is in the vocabulary is mappable, so U08\n"
+            f"would prove nothing. Pick other names from the categories collection;\n"
+            f"find_category_placeholders.py lists the candidates.\n")
+
+    same = [n for n in LIST1_MERGING_INTO_HOME if n.lower() in lowered]
+    if same:
+        raise SystemExit(
+            f"\nLIST1_MERGING_INTO_HOME contains {same}, which CANONICAL also contains.\n"
+            f"A List 1 name that survived into List 2 does not merge into "
+            f"{HOME!r},\nso it cannot demonstrate the merge. Recheck D-05.\n")
+
+    if LIST1_CASE_VARIANTS:
+        if len({v.lower() for v in LIST1_CASE_VARIANTS}) != 1:
+            raise SystemExit(
+                f"\nLIST1_CASE_VARIANTS is {LIST1_CASE_VARIANTS}, which are not variants\n"
+                f"of one another. They must differ only by case, or U06 is not showing\n"
+                f"case normalisation at all.\n")
+        if all(v in canonical for v in LIST1_CASE_VARIANTS):
+            raise SystemExit(
+                f"\nEvery entry in LIST1_CASE_VARIANTS is already an exact member of\n"
+                f"CANONICAL, so there is nothing for the engine to normalise. At least\n"
+                f"one must be a variant the vocabulary does not contain verbatim.\n")
+
+    overlap = set(UNMAPPABLE) & (set(LIST1_MERGING_INTO_HOME) | set(LIST1_CASE_VARIANTS))
+    if overlap:
+        raise SystemExit(
+            f"\n{sorted(overlap)} appears in both UNMAPPABLE and a List 1 list.\n"
+            f"U06 and U08 would then be making the same point twice and check 1\n"
+            f"cannot attribute the offender to either user.\n")
+
+
+EVENTS, USERS, ORDERS = [], [], []
+
+
+# --------------------------------------------------------------------------
+# Row construction
+# --------------------------------------------------------------------------
+def emit(user_id, event_type, categories, age_days, *, duration=None, order_id=None,
+         weight=None, no_timestamp=False):
+    """One event row.  Seven fields, per SOCO-REC-DS-015 task 7."""
+    row = {
+        "user_id": user_id,
+        "event_type": event_type,
+        "categories": list(categories),
+        "timestamp": None if no_timestamp else iso(age_days),
+        "weight": WEIGHTS.get(event_type, 0) if weight is None else weight,
+    }
+    if event_type == "product_view":
+        row["view_duration_seconds"] = duration
+    if order_id is not None:
+        row["order_id"] = order_id
+    EVENTS.append(row)
+    if order_id is not None:
+        register_order(row)
+    return row
+
+
+def register_order(row):
+    """Keep ml_demo_orders in step with the events that reference an order.
+
+    The engine ages a purchase reversal from the order, not from the cancellation
+    (SOCO-REC-DS-008 v3.1 section 3.3).  It therefore has to resolve the order
+    identifier to a date, and until now nothing in this generator wrote an order
+    for it to resolve.  An engine looking for one found an empty collection, aged
+    the reversal from the cancellation instead, and check 7 reported that as an
+    engine defect when it was missing fixture data.
+
+    Driven off the event rows themselves so the two can never disagree.
+    """
+    oid = row["order_id"]
+    existing = next((o for o in ORDERS if o["order_id"] == oid), None)
+    if row["event_type"] == PURCHASE_REVERSAL:
+        if existing is None:                      # a reversal with no order is a bug
+            raise SystemExit(f"reversal {oid} has no purchase to reverse")
+        existing["cancelled_at"] = row["timestamp"]
+        existing["status"] = "cancelled"
+        return
+    if existing is not None:
+        raise SystemExit(f"order {oid} is placed twice")
+    ORDERS.append({
+        "order_id": oid,
+        "user_id": row["user_id"],
+        "placed_at": row["timestamp"],
+        "cancelled_at": None,
+        "status": "placed",
+        "categories": list(row["categories"]),
+    })
+
+
+def user(user_id, declared=(), note=""):
+    USERS.append({"user_id": user_id, "declared_interests": list(declared), "note": note})
+
+
+def iso(age_days):
+    return (AS_OF - timedelta(days=age_days)).isoformat()
+
+
+def spread(n, lo, hi):
+    """n ages evenly spaced from lo to hi.  Deterministic, not random."""
+    if n == 1:
+        return [lo]
+    step = (hi - lo) / (n - 1)
+    return [lo + i * step for i in range(n)]
+
+
+# --------------------------------------------------------------------------
+# The twenty narrated users
+# --------------------------------------------------------------------------
+def build_narrated():
+
+    # U01  the basic case.  A clear profile with one dominant category.
+    user("U01", [FASHION, FOOTWEAR], "dominant category, two declared interests")
+    pattern = ["product_view", "product_click", "product_view", "add_to_cart"]
+    for i, age in enumerate(spread(40, 0.5, 21)):
+        cat = FASHION if i % 10 < 7 else [ELECTRONICS, BEAUTY, BAGS][i % 3]
+        et = pattern[i % 4]
+        emit("U01", et, [cat], age, duration=6 if et == "product_view" else None)
+
+    # U02  the qualified view threshold.  Eight of twenty views count.
+    user("U02", [], "twelve sub threshold views, eight qualified")
+    for i, age in enumerate(spread(20, 1, 20)):
+        qualified = i % 5 in (0, 1)                      # 8 of 20
+        emit("U02", "product_view", [BEAUTY], age,
+             duration=7 if qualified else 1)
+
+    # U03  a post carrying several categories contributes full weight to each.
+    user("U03", [], "ten dual tagged posts, ten single tagged")
+    for age in spread(10, 2, 20):
+        emit("U03", "product_click", [FASHION, JEWELLERY], age)
+    for age in spread(10, 2, 20):
+        emit("U03", "product_click", [WATCHES], age)
+
+    # U04  the argument for decay.  Old interest heavy, new interest recent.
+    # Electronics carries 40 events against Home & Living's 30, same mix, so the
+    # raw weight ratio is 1.33 and Electronics still leads with decay disabled.
+    user("U04", [], "interest shifted, old category outweighs the new")
+    for i, age in enumerate(spread(40, 90, 120)):
+        emit("U04", pattern[i % 4], [ELECTRONICS], age,
+             duration=6 if pattern[i % 4] == "product_view" else None)
+    for i, age in enumerate(spread(30, 0.5, 14)):
+        emit("U04", pattern[i % 4], [HOME], age,
+             duration=6 if pattern[i % 4] == "product_view" else None)
+
+    # U05  the declared floor holds while behaviour fades.
+    # All twenty five events are product views at weight 2, so the decayed total
+    # sits at about 4.5 against a floor of 10.  Anything heavier inverts it.
+    user("U05", [FASHION, JEWELLERY, WATCHES], "floor against faded behaviour")
+    for age in spread(25, 90, 120):
+        emit("U05", "product_view", [ELECTRONICS], age, duration=8)
+
+    # U06  mapping: the merge into Home & Living, and case variants.
+    #
+    # The merge half is optional.  With LIST1_MERGING_INTO_HOME set to [] because
+    # D-05 has not landed, U06 still builds and still demonstrates case
+    # normalisation; it just no longer demonstrates a merge.  The note is written
+    # from what the user actually carries rather than from what it was originally
+    # built for, so nobody narrates a merge that is not on the screen.
+    legacy = LIST1_MERGING_INTO_HOME + LIST1_CASE_VARIANTS
+    if not legacy:
+        raise SystemExit(
+            "U06 needs at least one legacy category name.\n"
+            "Both LIST1_MERGING_INTO_HOME and LIST1_CASE_VARIANTS are empty, so there\n"
+            "is nothing for the engine to map. Set at least one of them; the case\n"
+            "variants alone are enough if D-05 has not landed.")
+    parts = []
+    if LIST1_MERGING_INTO_HOME:
+        parts.append(f"{len(LIST1_MERGING_INTO_HOME)} List 1 names merging into {HOME}")
+    if LIST1_CASE_VARIANTS:
+        parts.append(f"{len(LIST1_CASE_VARIANTS)} case variants")
+    user("U06", [], " and ".join(parts)
+         + ("" if LIST1_MERGING_INTO_HOME else
+            "; no merge, D-05 has not landed"))
+    for i, age in enumerate(spread(20, 1, 60)):
+        emit("U06", pattern[i % 4], [legacy[i % len(legacy)]], age,
+             duration=6 if pattern[i % 4] == "product_view" else None)
+
+    # U07  cold start, rung 2.  Declared interests and nothing else.
+    user("U07", [FASHION, BEAUTY, JEWELLERY, FOOTWEAR, BAGS, WATCHES],
+         "declared interests, zero events")
+
+    # U08  unmappable categories dropped and counted.  Six of fifteen.
+    user("U08", [], "six unmappable product events of fifteen")
+    for i, age in enumerate(spread(15, 1, 45)):
+        cat = UNMAPPABLE[i % 3] if i % 5 in (0, 1) else HOME
+        emit("U08", "product_view" if i % 2 else "product_click", [cat], age,
+             duration=9 if i % 2 else None)
+
+    # U09  a profile built entirely from behaviour, with no floor beneath it.
+    # The category cycle and the event type cycle were both i % 4, which welded
+    # each category to one event type: Beauty was always the add_to_cart at weight
+    # ten and Fashion always the product_view at weight two, so what reads as a
+    # spread across four categories was really Beauty at half the profile.  The
+    # event type index is rotated by the block number so that every category sees
+    # every event type.  (i + i // 4) % 4 lands on (j + k) % 4 for category j in
+    # block k, which walks all four over the ten blocks.
+    user("U09", [], "no declared interests, forty events")
+    for i, age in enumerate(spread(40, 1, 90)):
+        cat = [FASHION, ELECTRONICS, HOME, BEAUTY][i % 4]
+        et = pattern[(i + i // 4) % 4]
+        emit("U09", et, [cat], age, duration=6 if et == "product_view" else None)
+
+    # U10  invalid timestamps dropped and counted.  Three future, two missing.
+    user("U10", [], "three future dated events, two with no timestamp")
+    for i, age in enumerate(spread(15, 1, 40)):
+        emit("U10", pattern[i % 4], [BAGS], age,
+             duration=6 if pattern[i % 4] == "product_view" else None)
+    for age in (-1, -3, -7):                                  # dated in the future
+        emit("U10", "product_click", [BAGS], age)
+    for _ in range(2):
+        emit("U10", "product_click", [BAGS], 0, no_timestamp=True)
+
+    # U11  nothing at all.  Rung 3 of the ladder.
+    user("U11", [], "no interests, no events")
+
+    # U12 and U13  why the share matters and the raw score does not.
+    # Zero declared interests on both, and both categories carry an identical
+    # age distribution, so decay cancels out of the share exactly.
+    for uid, pairs in (("U12", 100), ("U13", 10)):
+        user(uid, [], "share comparison, ten times the volume")
+        for age in spread(pairs, 1, 80):
+            emit(uid, "product_view", [FASHION], age, duration=6)
+            emit(uid, "product_view", [ELECTRONICS], age, duration=6)
+
+    # U14  where the two methods disagree most.
+    # One burst per category, so the disagreement is visible in the share and
+    # not only in the raw score.  Neither burst straddles a window boundary.
+    user("U14", [], "bursts at day 28 and day 32, one category each")
+    for age in spread(40, 27, 29):
+        emit("U14", "product_view", [FASHION], age, duration=6)
+    for age in spread(40, 31, 33):
+        emit("U14", "product_view", [ELECTRONICS], age, duration=6)
+
+    # U15  the windows are disjoint.  Six recent, four medium, two long.
+    user("U15", [], "twelve events, one per window band")
+    for age in spread(6, 1, 6):
+        emit("U15", "product_view", [HOME], age, duration=6)
+    for age in spread(4, 10, 28):
+        emit("U15", "product_view", [HOME], age, duration=6)
+    for age in spread(2, 40, 80):
+        emit("U15", "product_view", [HOME], age, duration=6)
+
+    # U16 and U17  the purchase reversal.
+    # Identical profiles except that U17's order was cancelled.  The reversal row
+    # carries the cancellation timestamp and the order identifier.  The engine
+    # resolves the order to find the age to apply the negative weight at, which
+    # is what makes the reversal exact.  See SOCO-REC-DS-008 v3.1 section 3.3.
+    for uid in ("U16", "U17"):
+        user(uid, [], "purchase reversal pair")
+        for i, age in enumerate(spread(12, 1, 40)):
+            emit(uid, pattern[i % 4], [FASHION], age,
+                 duration=6 if pattern[i % 4] == "product_view" else None)
+        emit(uid, "purchase", [FASHION], 12, order_id=f"ORD-{uid}-001")
+    emit("U17", PURCHASE_REVERSAL, [FASHION], 5,
+         order_id="ORD-U17-001", weight=-WEIGHTS["purchase"])
+
+    # U18  the window cliff.  The event outside the window sits in its own category
+    # so the cliff is visible in the share, not only in the raw score.
+    #
+    # These were 89, 90 and 91 days.  An event at exactly ninety is inside the
+    # ninety day window only by the <= convention and only at the instant the file
+    # is written: one second of drift carries it out, and the cliff then falls
+    # between the first and second event rather than where the narration says.
+    # A day of margin either side of the boundary is enough for a dataset built in
+    # the morning and shown in the afternoon, and check 9 fails once drift eats it.
+    user("U18", [], "events at 88 and 89 days inside the window, one at 92 outside")
+    emit("U18", "add_to_cart", [HOME], 88)
+    emit("U18", "add_to_cart", [HOME], 89)
+    emit("U18", "add_to_cart", [BEAUTY], 92)
+
+    # U19  no dominant interest is a valid outcome.
+    user("U19", [], "even spread across eight categories")
+    eight = [FASHION, ELECTRONICS, HOME, BEAUTY, JEWELLERY, FOOTWEAR, BAGS, WATCHES]
+    for i, age in enumerate(spread(40, 1, 60)):
+        emit("U19", "product_view", [eight[i % 8]], age, duration=6)
+
+    # U20  the conformance replay user, and the incremental check.
+    # One declared interest and one of each event type at a known age, so the
+    # whole profile can be computed on paper.
+    user("U20", [FOOTWEAR], "hand calculable, all five event types")
+    for et, age in (("product_view", 5), ("product_click", 10), ("add_to_cart", 20),
+                    ("purchase", 40), ("keyword_search", 80)):
+        emit("U20", et, [FOOTWEAR], age,
+             duration=10 if et == "product_view" else None,
+             order_id="ORD-U20-001" if et == "purchase" else None)
+
+
+# --------------------------------------------------------------------------
+# Filler population.  Never narrated, excluded from every check.
+# --------------------------------------------------------------------------
+def build_filler(rng, n_users=175):
+    types = list(WEIGHTS.keys())
+    for n in range(1, n_users + 1):
+        uid = f"F{n:03d}"
+        declared = rng.sample(CANONICAL, rng.choice([0, 0, 1, 2, 3]))
+        user(uid, declared, "filler")
+        favourite = rng.choice(CANONICAL)
+        n_orders = 0                     # a sequence, not rng.randint; two filler
+        for _ in range(rng.randint(4, 60)):   # purchases could draw the same number
+            cat = favourite if rng.random() < 0.5 else rng.choice(CANONICAL)
+            et = rng.choices(types, weights=[60, 20, 10, 4, 6])[0]
+            if et == "purchase":
+                n_orders += 1
+            emit(uid, et, [cat], round(rng.uniform(0.2, 120), 2),
+                 duration=rng.choice([1, 2, 4, 6, 9, 15]) if et == "product_view" else None,
+                 order_id=f"ORD-{uid}-{n_orders:03d}" if et == "purchase" else None)
+
+
+# --------------------------------------------------------------------------
+# Report.  What the generator believes it produced, so the data checks in
+# task 9 have something to be checked against.
+# --------------------------------------------------------------------------
+def decay(age):
+    return 2 ** (-age / HALF_LIFE_DAYS)
+
+
+def raw(uid, cat, qualified_only=True):
+    total = 0.0
+    for e in EVENTS:
+        if e["user_id"] != uid or cat not in e["categories"]:
+            continue
+        if e["timestamp"] is None:
+            continue
+        age = (AS_OF - datetime.fromisoformat(e["timestamp"])).total_seconds() / 86400
+        if age < 0:
+            continue
+        if qualified_only and e["event_type"] == "product_view" \
+                and (e.get("view_duration_seconds") or 0) < QUALIFIED_VIEW_SECONDS:
+            continue
+        if e["event_type"] == PURCHASE_REVERSAL:
+            continue                       # aged from its order, handled below
+        total += e["weight"] * decay(age)
+    return total
+
+
+def expected_raw():
+    """Every narrated user's decayed raw score per category, as a number.
+
+    The prose in expected() is for a human reading the terminal.  This is the same
+    arithmetic in a form a checker can compare against, which is what lets the
+    conformance check on U20 exist at all.  The reversal is applied here, aged
+    from its order, so U17 carries the value the engine should agree with.
+    """
+    out = {}
+    for u in USERS:
+        uid = u["user_id"]
+        if uid.startswith("F"):
+            continue
+        cats = sorted({c for e in EVENTS if e["user_id"] == uid for c in e["categories"]})
+        out[uid] = {c: round(raw(uid, c), 6) for c in cats}
+    for e in EVENTS:                       # apply the reversals, aged from the order
+        if e["event_type"] != PURCHASE_REVERSAL or e["user_id"].startswith("F"):
+            continue
+        order = next(o for o in ORDERS if o["order_id"] == e["order_id"])
+        age = (AS_OF - datetime.fromisoformat(order["placed_at"])).total_seconds() / 86400
+        for c in e["categories"]:
+            out[e["user_id"]][c] = round(out[e["user_id"]][c] + e["weight"] * decay(age), 6)
+    return out
+
+
+def expected():
+    lines = []
+    lines.append(f"U02 {BEAUTY} raw {raw('U02', BEAUTY):.2f}   "
+                 f"(twenty views, eight of them qualified)")
+    lines.append(f"U03 {FASHION} {raw('U03', FASHION):.2f} | {JEWELLERY} "
+                 f"{raw('U03', JEWELLERY):.2f} | {WATCHES} {raw('U03', WATCHES):.2f}   "
+                 f"(all three equal if full weight is credited to each tag)")
+    lines.append(f"U04 {ELECTRONICS} {raw('U04', ELECTRONICS):.2f} vs {HOME} "
+                 f"{raw('U04', HOME):.2f} with decay on")
+    lines.append(f"U05 floor {DECLARED_FLOOR}.00 x3 vs {ELECTRONICS} "
+                 f"{raw('U05', ELECTRONICS):.2f}   (floor must lead)")
+    lines.append(f"U14 {FASHION} {raw('U14', FASHION):.2f} vs {ELECTRONICS} "
+                 f"{raw('U14', ELECTRONICS):.2f}   (about 9 percent apart under decay, "
+                 f"50 percent apart under windows)")
+    lines.append(f"U16 {FASHION} {raw('U16', FASHION):.2f} | U17 {raw('U17', FASHION):.2f} "
+                 f"before the reversal is applied; equal by construction")
+    lines.append(f"    reversal on U17 removes {WEIGHTS['purchase'] * decay(12):.2f}, "
+                 f"aged from the order at 12 days, leaving exactly "
+                 f"{raw('U17', FASHION) - WEIGHTS['purchase'] * decay(12):.2f}")
+    lines.append(f"U18 {HOME} {raw('U18', HOME):.2f} vs {BEAUTY} {raw('U18', BEAUTY):.2f} "
+                 f"under decay; {BEAUTY} falls to zero under windows")
+    lines.append(f"U20 {FOOTWEAR} {raw('U20', FOOTWEAR):.2f} plus a floor of {DECLARED_FLOOR}")
+    return lines
+
+
+# --------------------------------------------------------------------------
+def main():
+    global AS_OF
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--mongo", help="connection string; omit to write JSON only")
+    # Was default="nex-dev", which is the cluster name and not a database name.  A
+    # URI ending /soco on cluster nex-dev means the database is soco, so the old
+    # default wrote the fixtures into a database called nex-dev while
+    # run_data_checks, whose --db defaults to the URI's own database, read soco and
+    # found nothing.  Defaulting to None makes both scripts resolve the same way.
+    ap.add_argument("--db", default=None,
+                    help="database name. Defaults to the one named in the URI. "
+                         "The cluster name is not the database name.")
+    ap.add_argument("--as-of", help="reference date, YYYY-MM-DD; defaults to now")
+    ap.add_argument("--out", default=".")
+    ap.add_argument("--filler", type=int, default=175)
+    ap.add_argument("--categories",
+                    help="file holding the twenty three post picker categories: a "
+                         "JSON array, or one name per line. Overrides CANONICAL.")
+    ap.add_argument("--categories-collection",
+                    help="read the twenty three from this collection instead "
+                         "(needs --mongo)")
+    ap.add_argument("--categories-field", default="name",
+                    help="field holding the name in --categories-collection "
+                         "(default: name)")
+    args = ap.parse_args()
+
+    EVENTS.clear()                        # module level, so a second call in one
+    USERS.clear()                         # process would otherwise stack a second
+    ORDERS.clear()                        # dataset on top of the first
+
+    global CANONICAL
+    client = None
+    if args.mongo:
+        from pymongo import MongoClient
+        client = MongoClient(args.mongo)
+    CANONICAL, vocab_source = load_categories(args, client)
+    validate_vocabulary(CANONICAL, vocab_source)
+    bind_handles(CANONICAL)
+    validate_placeholders(CANONICAL)
+
+    if args.as_of:
+        AS_OF = datetime.fromisoformat(args.as_of)
+        if AS_OF.tzinfo is None:                 # bare date or time, read as UTC
+            AS_OF = AS_OF.replace(tzinfo=timezone.utc)
+        if len(args.as_of) <= 10:
+            print("WARNING  --as-of carries no time, so it is read as midnight UTC.")
+            print("         By the time the demonstration runs, every event is up to a")
+            print("         day older than its nominal age.  U18 sits on the ninety day")
+            print("         window boundary and U14's bursts sit either side of thirty,")
+            print("         so both move.  Pass the date and time of the demonstration,")
+            print("         for example 2026-09-15T15:00+05:30.\n")
+    else:
+        AS_OF = datetime.now(timezone.utc)
+
+    rng = random.Random(SEED)
+    build_narrated()
+    build_filler(rng, args.filler)
+
+    narrated = [u for u in USERS if not u["user_id"].startswith("F")]
+    dated = [e for e in EVENTS if e["timestamp"]]
+
+    # The reference date every age is measured back from.  Written down rather
+    # than left to be inferred: the newest timestamp in the event file belongs to
+    # one of U10's deliberately future dated rows, so anything that guesses the
+    # anchor from the data guesses wrong by a week and reports the boundary users
+    # as broken when they are not.
+    meta = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "reference_date": AS_OF.isoformat(),
+        "reference_date_source": "--as-of" if args.as_of else "run time",
+        "seed": SEED,
+        "half_life_days": HALF_LIFE_DAYS,
+        "declared_floor": DECLARED_FLOOR,
+        "qualified_view_seconds": QUALIFIED_VIEW_SECONDS,
+        "event_weights": WEIGHTS,
+        "narrated_users": len(narrated),
+        "filler_users": len(USERS) - len(narrated),
+        "events_total": len(EVENTS),
+        "events_narrated": len([e for e in EVENTS if not e["user_id"].startswith("F")]),
+        "events_without_timestamp": len(EVENTS) - len(dated),
+        "orders_total": len(ORDERS),
+        "canonical_categories": CANONICAL,
+        # An identity test against the literal list, rather than a guess at the
+        # first and last entries.  A real vocabulary that happened to open with
+        # Fashion & Apparel and close with Food & Beverage used to trip the old
+        # test forever, and a placeholder list with either end edited slipped past.
+        "canonical_is_placeholder": CANONICAL == PLACEHOLDER_CANONICAL,
+        "handles": HANDLES,
+        "handle_fallbacks": HANDLE_FALLBACKS,
+        "canonical_source": vocab_source,
+        "list1_merging_into_home": LIST1_MERGING_INTO_HOME,
+        "list1_case_variants": LIST1_CASE_VARIANTS,
+        # Recorded so the run report and anyone reading the manifest can see that
+        # U06 is carrying only half of what it was designed to carry.
+        "u06_demonstrates_merge": bool(LIST1_MERGING_INTO_HOME),
+        "unmappable": UNMAPPABLE,
+        "score_store_contract": {
+            "collection": "ml_user_interest_scores_demo",
+            "fields": ["user_id", "category", "raw", "share", "event_count",
+                       "method", "model_version", "window", "computed_at"],
+            "raw_field": "raw",           # named, not inferred from the list order
+            "share_field": "share",
+            "event_count_field": "event_count",
+            "model_version_field": "model_version",
+            "raw_includes_declared_floor": True,
+            "decay_method_name": "recency_decay",
+            "note": "checks 5 to 8 read these field names verbatim. An engine that "
+                    "writes 'score' instead of 'raw', or names the decay method "
+                    "anything else, is reported as a contract mismatch and not as "
+                    "a scoring defect.",
+        },
+        "expected": expected(),
+        "expected_raw": expected_raw(),
+    }
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)     # --out at a folder that does not
+                                               # exist used to be a bare traceback
+    (out / "ml_demo_events.json").write_text(json.dumps(EVENTS, indent=1))
+    (out / "ml_demo_users.json").write_text(json.dumps(USERS, indent=1))
+    (out / "ml_demo_orders.json").write_text(json.dumps(ORDERS, indent=1))
+    (out / "ml_demo_meta.json").write_text(json.dumps(meta, indent=1))
+
+    print(f"categories       {len(CANONICAL)} from {vocab_source}")
+    print(f"reference date   {AS_OF.isoformat()}")
+    print(f"seed             {SEED}")
+    print(f"users            {len(narrated)} narrated, {len(USERS) - len(narrated)} filler")
+    print(f"events           {len(EVENTS)}")
+    print(f"orders           {len(ORDERS)} "
+          f"({sum(1 for o in ORDERS if o['status'] == 'cancelled')} cancelled)")
+    if meta["canonical_is_placeholder"]:
+        print("\nWARNING  CANONICAL still holds the placeholder names. Paste the "
+              "twenty three\n         post picker categories before this dataset "
+              "is shown to anyone.")
+    if HANDLE_FALLBACKS:
+        guessed = sum(1 for v in HANDLE_FALLBACKS.values() if v[2].startswith("position"))
+        print(f"\nNOTE     {len(HANDLE_FALLBACKS)} of the eight handles did not match "
+              f"a name in this vocabulary"
+              + (f", and {guessed}\n         of those landed on an arbitrary "
+                 f"category." if guessed else ".")
+              + "\n         The narration must use the names on the right:")
+        for key, (preferred, got, how) in HANDLE_FALLBACKS.items():
+            print(f"           {key:12s} {preferred!r} -> {got!r}  ({how})")
+        print("         Set PREFERRED_HANDLES to the real names to silence this.")
+    else:
+        print(f"\nhandles          all eight bound by name: "
+              f"{', '.join(HANDLES[k] for k, _ in PREFERRED_HANDLES)}")
+    if not meta["u06_demonstrates_merge"]:
+        print("\nNOTE     LIST1_MERGING_INTO_HOME is empty, so U06 carries case "
+              "variants only.\n         It still shows that the engine normalises "
+              "case; it does not show a\n         List 1 name merging into "
+              f"{HOME}. Narrate it as mapping, not as\n         the merge, or fill "
+              "the list in once D-05 lands.")
+    print("\nexpected values, for the data checks in DS-015 task 9:")
+    for line in meta["expected"]:
+        print("  " + line)
+
+    if args.mongo:
+        if args.db:
+            db = client[args.db]
+        else:
+            # pymongo raises ConfigurationError here rather than returning None,
+            # so both outcomes have to be caught.
+            try:
+                db = client.get_default_database()
+            except Exception:
+                db = None
+            if db is None:
+                raise SystemExit(
+                    "The connection string names no database and --db was not given.\n"
+                    "Pass the database name, not the cluster name: a URI ending /soco\n"
+                    "on cluster nex-dev means --db soco.")
+        print(f"\ndatabase         {db.name}")
+        for name, docs in (("ml_demo_events", EVENTS), ("ml_demo_users", USERS),
+                           ("ml_demo_orders", ORDERS)):
+            db[name].delete_many({})
+            if docs:
+                # insert_many stamps _id onto the dicts it is handed, so it gets
+                # copies; the JSON files are already written but EVENTS is still
+                # read by nothing else only by luck.
+                db[name].insert_many([dict(d) for d in docs])
+        db.ml_demo_meta.delete_many({})
+        db.ml_demo_meta.insert_one(dict(meta))
+        print(f"written to {db.name}.ml_demo_events, ml_demo_users, "
+              f"ml_demo_orders and ml_demo_meta")
+        print(f"run the checks against the same database:\n"
+              f"  python run_data_checks.py --mongo \"...\" --db {db.name}")
+    else:
+        print(f"\nwritten to {out.resolve()}")
+        print("  ml_demo_events.json, ml_demo_users.json, ml_demo_orders.json, "
+              "ml_demo_meta.json")
+
+    print(f"\nreference date recorded in ml_demo_meta.json as {AS_OF.isoformat()}")
+    print("Every checker reads the anchor from there rather than inferring it from")
+    print("the events, because U10's future dated rows make the newest timestamp a")
+    print("week later than the reference.")
+    print("\nRegenerate on the morning of the demonstration, or pass --as-of.")
+    print("Ages are measured back from the reference date, so a dataset built on")
+    print("Monday and shown on Thursday has U18 sitting at 91, 92 and 95 days and")
+    print("the window cliff no longer falls where the narration says it does.")
+    print("U18 carries a day of margin either side of the ninety day boundary and")
+    print("check 9 in run_data_checks fails once drift has eaten it.")
+
+
+if __name__ == "__main__":
+    main()

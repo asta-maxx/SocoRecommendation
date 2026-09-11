@@ -1,0 +1,2052 @@
+[
+ {
+  "order_id": "ORD-U16-001",
+  "user_id": "U16",
+  "placed_at": "2026-08-30T10:28:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-U17-001",
+  "user_id": "U17",
+  "placed_at": "2026-08-30T10:28:50.231381+00:00",
+  "cancelled_at": "2026-09-06T10:28:50.231381+00:00",
+  "status": "cancelled",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-U20-001",
+  "user_id": "U20",
+  "placed_at": "2026-08-02T10:28:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F002-001",
+  "user_id": "F002",
+  "placed_at": "2026-07-15T20:19:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F002-002",
+  "user_id": "F002",
+  "placed_at": "2026-09-01T09:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Gaming"
+  ]
+ },
+ {
+  "order_id": "ORD-F003-001",
+  "user_id": "F003",
+  "placed_at": "2026-08-18T08:33:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Automotive"
+  ]
+ },
+ {
+  "order_id": "ORD-F004-001",
+  "user_id": "F004",
+  "placed_at": "2026-08-30T19:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F005-001",
+  "user_id": "F005",
+  "placed_at": "2026-08-28T01:07:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Toys & Kids"
+  ]
+ },
+ {
+  "order_id": "ORD-F009-001",
+  "user_id": "F009",
+  "placed_at": "2026-07-06T18:24:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Gaming"
+  ]
+ },
+ {
+  "order_id": "ORD-F009-002",
+  "user_id": "F009",
+  "placed_at": "2026-06-10T06:52:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F009-003",
+  "user_id": "F009",
+  "placed_at": "2026-06-15T06:09:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Photography"
+  ]
+ },
+ {
+  "order_id": "ORD-F011-001",
+  "user_id": "F011",
+  "placed_at": "2026-08-26T14:04:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Automotive"
+  ]
+ },
+ {
+  "order_id": "ORD-F011-002",
+  "user_id": "F011",
+  "placed_at": "2026-05-18T17:55:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Toys & Kids"
+  ]
+ },
+ {
+  "order_id": "ORD-F012-001",
+  "user_id": "F012",
+  "placed_at": "2026-07-30T05:12:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Automotive"
+  ]
+ },
+ {
+  "order_id": "ORD-F012-002",
+  "user_id": "F012",
+  "placed_at": "2026-06-13T01:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Travel & Lifestyle"
+  ]
+ },
+ {
+  "order_id": "ORD-F012-003",
+  "user_id": "F012",
+  "placed_at": "2026-08-17T20:48:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Food & Beverages"
+  ]
+ },
+ {
+  "order_id": "ORD-F017-001",
+  "user_id": "F017",
+  "placed_at": "2026-06-13T04:14:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F019-001",
+  "user_id": "F019",
+  "placed_at": "2026-08-19T13:50:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Office & Business"
+  ]
+ },
+ {
+  "order_id": "ORD-F019-002",
+  "user_id": "F019",
+  "placed_at": "2026-08-23T14:48:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Electronics"
+  ]
+ },
+ {
+  "order_id": "ORD-F021-001",
+  "user_id": "F021",
+  "placed_at": "2026-05-17T16:57:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Books & Education"
+  ]
+ },
+ {
+  "order_id": "ORD-F021-002",
+  "user_id": "F021",
+  "placed_at": "2026-05-31T00:52:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Travel & Lifestyle"
+  ]
+ },
+ {
+  "order_id": "ORD-F021-003",
+  "user_id": "F021",
+  "placed_at": "2026-06-15T21:16:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Books & Education"
+  ]
+ },
+ {
+  "order_id": "ORD-F021-004",
+  "user_id": "F021",
+  "placed_at": "2026-06-01T04:14:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Books & Education"
+  ]
+ },
+ {
+  "order_id": "ORD-F021-005",
+  "user_id": "F021",
+  "placed_at": "2026-08-27T02:04:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Jewellery"
+  ]
+ },
+ {
+  "order_id": "ORD-F022-001",
+  "user_id": "F022",
+  "placed_at": "2026-06-28T03:02:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F023-001",
+  "user_id": "F023",
+  "placed_at": "2026-06-17T03:02:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Wedding & Events"
+  ]
+ },
+ {
+  "order_id": "ORD-F023-002",
+  "user_id": "F023",
+  "placed_at": "2026-08-16T03:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Automotive"
+  ]
+ },
+ {
+  "order_id": "ORD-F024-001",
+  "user_id": "F024",
+  "placed_at": "2026-08-07T19:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Pets"
+  ]
+ },
+ {
+  "order_id": "ORD-F025-001",
+  "user_id": "F025",
+  "placed_at": "2026-07-30T19:50:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Travel & Lifestyle"
+  ]
+ },
+ {
+  "order_id": "ORD-F025-002",
+  "user_id": "F025",
+  "placed_at": "2026-06-02T11:12:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Travel & Lifestyle"
+  ]
+ },
+ {
+  "order_id": "ORD-F028-001",
+  "user_id": "F028",
+  "placed_at": "2026-09-04T21:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F028-002",
+  "user_id": "F028",
+  "placed_at": "2026-07-10T19:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Pets"
+  ]
+ },
+ {
+  "order_id": "ORD-F029-001",
+  "user_id": "F029",
+  "placed_at": "2026-08-21T23:55:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F032-001",
+  "user_id": "F032",
+  "placed_at": "2026-08-14T19:36:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F033-001",
+  "user_id": "F033",
+  "placed_at": "2026-06-20T21:02:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Pets"
+  ]
+ },
+ {
+  "order_id": "ORD-F033-002",
+  "user_id": "F033",
+  "placed_at": "2026-06-10T00:09:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F036-001",
+  "user_id": "F036",
+  "placed_at": "2026-08-19T08:19:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Home & Living"
+  ]
+ },
+ {
+  "order_id": "ORD-F036-002",
+  "user_id": "F036",
+  "placed_at": "2026-08-13T19:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Home & Living"
+  ]
+ },
+ {
+  "order_id": "ORD-F038-001",
+  "user_id": "F038",
+  "placed_at": "2026-05-25T21:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Pets"
+  ]
+ },
+ {
+  "order_id": "ORD-F038-002",
+  "user_id": "F038",
+  "placed_at": "2026-06-05T07:07:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Pets"
+  ]
+ },
+ {
+  "order_id": "ORD-F039-001",
+  "user_id": "F039",
+  "placed_at": "2026-06-25T21:16:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Wedding & Events"
+  ]
+ },
+ {
+  "order_id": "ORD-F039-002",
+  "user_id": "F039",
+  "placed_at": "2026-08-11T22:43:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F040-001",
+  "user_id": "F040",
+  "placed_at": "2026-08-02T13:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Finance"
+  ]
+ },
+ {
+  "order_id": "ORD-F040-002",
+  "user_id": "F040",
+  "placed_at": "2026-07-02T11:26:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Finance"
+  ]
+ },
+ {
+  "order_id": "ORD-F042-001",
+  "user_id": "F042",
+  "placed_at": "2026-09-08T13:50:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F042-002",
+  "user_id": "F042",
+  "placed_at": "2026-06-21T14:04:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F042-003",
+  "user_id": "F042",
+  "placed_at": "2026-07-31T00:24:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Organic & Eco"
+  ]
+ },
+ {
+  "order_id": "ORD-F044-001",
+  "user_id": "F044",
+  "placed_at": "2026-09-10T04:57:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Organic & Eco"
+  ]
+ },
+ {
+  "order_id": "ORD-F045-001",
+  "user_id": "F045",
+  "placed_at": "2026-05-20T22:43:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Food & Beverages"
+  ]
+ },
+ {
+  "order_id": "ORD-F046-001",
+  "user_id": "F046",
+  "placed_at": "2026-07-26T23:12:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Home & Living"
+  ]
+ },
+ {
+  "order_id": "ORD-F046-002",
+  "user_id": "F046",
+  "placed_at": "2026-07-07T11:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Travel & Lifestyle"
+  ]
+ },
+ {
+  "order_id": "ORD-F046-003",
+  "user_id": "F046",
+  "placed_at": "2026-08-09T00:24:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Wedding & Events"
+  ]
+ },
+ {
+  "order_id": "ORD-F047-001",
+  "user_id": "F047",
+  "placed_at": "2026-06-11T09:02:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Toys & Kids"
+  ]
+ },
+ {
+  "order_id": "ORD-F051-001",
+  "user_id": "F051",
+  "placed_at": "2026-08-27T06:24:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Music & Entertainment"
+  ]
+ },
+ {
+  "order_id": "ORD-F052-001",
+  "user_id": "F052",
+  "placed_at": "2026-08-11T06:24:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Photography"
+  ]
+ },
+ {
+  "order_id": "ORD-F052-002",
+  "user_id": "F052",
+  "placed_at": "2026-05-28T05:55:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Finance"
+  ]
+ },
+ {
+  "order_id": "ORD-F052-003",
+  "user_id": "F052",
+  "placed_at": "2026-06-12T17:26:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Finance"
+  ]
+ },
+ {
+  "order_id": "ORD-F053-001",
+  "user_id": "F053",
+  "placed_at": "2026-07-17T08:33:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Wedding & Events"
+  ]
+ },
+ {
+  "order_id": "ORD-F057-001",
+  "user_id": "F057",
+  "placed_at": "2026-06-16T05:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F058-001",
+  "user_id": "F058",
+  "placed_at": "2026-08-04T02:48:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Finance"
+  ]
+ },
+ {
+  "order_id": "ORD-F060-001",
+  "user_id": "F060",
+  "placed_at": "2026-08-25T08:33:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Office & Business"
+  ]
+ },
+ {
+  "order_id": "ORD-F060-002",
+  "user_id": "F060",
+  "placed_at": "2026-05-24T03:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F060-003",
+  "user_id": "F060",
+  "placed_at": "2026-06-14T18:38:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F064-001",
+  "user_id": "F064",
+  "placed_at": "2026-07-07T01:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Toys & Kids"
+  ]
+ },
+ {
+  "order_id": "ORD-F064-002",
+  "user_id": "F064",
+  "placed_at": "2026-08-31T21:02:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Beauty & Personal Care"
+  ]
+ },
+ {
+  "order_id": "ORD-F064-003",
+  "user_id": "F064",
+  "placed_at": "2026-07-07T17:26:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Office & Business"
+  ]
+ },
+ {
+  "order_id": "ORD-F066-001",
+  "user_id": "F066",
+  "placed_at": "2026-09-02T17:12:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Beauty & Personal Care"
+  ]
+ },
+ {
+  "order_id": "ORD-F066-002",
+  "user_id": "F066",
+  "placed_at": "2026-09-07T22:14:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Food & Beverages"
+  ]
+ },
+ {
+  "order_id": "ORD-F067-001",
+  "user_id": "F067",
+  "placed_at": "2026-08-07T13:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Home & Living"
+  ]
+ },
+ {
+  "order_id": "ORD-F067-002",
+  "user_id": "F067",
+  "placed_at": "2026-07-28T10:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F067-003",
+  "user_id": "F067",
+  "placed_at": "2026-07-15T20:33:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Home & Living"
+  ]
+ },
+ {
+  "order_id": "ORD-F068-001",
+  "user_id": "F068",
+  "placed_at": "2026-08-22T17:12:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F068-002",
+  "user_id": "F068",
+  "placed_at": "2026-07-10T00:09:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F068-003",
+  "user_id": "F068",
+  "placed_at": "2026-06-28T07:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F069-001",
+  "user_id": "F069",
+  "placed_at": "2026-05-19T04:57:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Photography"
+  ]
+ },
+ {
+  "order_id": "ORD-F069-002",
+  "user_id": "F069",
+  "placed_at": "2026-08-02T11:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F070-001",
+  "user_id": "F070",
+  "placed_at": "2026-08-27T05:55:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Jewellery"
+  ]
+ },
+ {
+  "order_id": "ORD-F072-001",
+  "user_id": "F072",
+  "placed_at": "2026-05-22T22:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Toys & Kids"
+  ]
+ },
+ {
+  "order_id": "ORD-F073-001",
+  "user_id": "F073",
+  "placed_at": "2026-08-14T05:55:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Toys & Kids"
+  ]
+ },
+ {
+  "order_id": "ORD-F073-002",
+  "user_id": "F073",
+  "placed_at": "2026-08-19T18:09:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Food & Beverages"
+  ]
+ },
+ {
+  "order_id": "ORD-F076-001",
+  "user_id": "F076",
+  "placed_at": "2026-06-10T08:04:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Automotive"
+  ]
+ },
+ {
+  "order_id": "ORD-F078-001",
+  "user_id": "F078",
+  "placed_at": "2026-06-29T22:28:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Photography"
+  ]
+ },
+ {
+  "order_id": "ORD-F080-001",
+  "user_id": "F080",
+  "placed_at": "2026-09-10T16:57:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F080-002",
+  "user_id": "F080",
+  "placed_at": "2026-08-13T04:14:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F080-003",
+  "user_id": "F080",
+  "placed_at": "2026-06-24T09:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Music & Entertainment"
+  ]
+ },
+ {
+  "order_id": "ORD-F081-001",
+  "user_id": "F081",
+  "placed_at": "2026-05-17T20:33:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F081-002",
+  "user_id": "F081",
+  "placed_at": "2026-07-06T22:43:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Beauty & Personal Care"
+  ]
+ },
+ {
+  "order_id": "ORD-F083-001",
+  "user_id": "F083",
+  "placed_at": "2026-07-08T09:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Wedding & Events"
+  ]
+ },
+ {
+  "order_id": "ORD-F084-001",
+  "user_id": "F084",
+  "placed_at": "2026-08-01T21:02:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F084-002",
+  "user_id": "F084",
+  "placed_at": "2026-08-18T15:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F085-001",
+  "user_id": "F085",
+  "placed_at": "2026-06-02T02:19:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F085-002",
+  "user_id": "F085",
+  "placed_at": "2026-07-06T18:24:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Electronics"
+  ]
+ },
+ {
+  "order_id": "ORD-F085-003",
+  "user_id": "F085",
+  "placed_at": "2026-07-06T16:43:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F086-001",
+  "user_id": "F086",
+  "placed_at": "2026-08-06T02:33:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Photography"
+  ]
+ },
+ {
+  "order_id": "ORD-F087-001",
+  "user_id": "F087",
+  "placed_at": "2026-07-13T15:16:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F088-001",
+  "user_id": "F088",
+  "placed_at": "2026-07-20T11:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F088-002",
+  "user_id": "F088",
+  "placed_at": "2026-06-21T01:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F092-001",
+  "user_id": "F092",
+  "placed_at": "2026-07-11T03:16:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Food & Beverages"
+  ]
+ },
+ {
+  "order_id": "ORD-F093-001",
+  "user_id": "F093",
+  "placed_at": "2026-07-04T17:55:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F093-002",
+  "user_id": "F093",
+  "placed_at": "2026-05-26T14:04:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F095-001",
+  "user_id": "F095",
+  "placed_at": "2026-08-30T04:43:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Pets"
+  ]
+ },
+ {
+  "order_id": "ORD-F096-001",
+  "user_id": "F096",
+  "placed_at": "2026-06-29T22:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Photography"
+  ]
+ },
+ {
+  "order_id": "ORD-F096-002",
+  "user_id": "F096",
+  "placed_at": "2026-05-31T11:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Automotive"
+  ]
+ },
+ {
+  "order_id": "ORD-F096-003",
+  "user_id": "F096",
+  "placed_at": "2026-09-08T07:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Electronics"
+  ]
+ },
+ {
+  "order_id": "ORD-F098-001",
+  "user_id": "F098",
+  "placed_at": "2026-07-11T17:55:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Sports & Outdoors"
+  ]
+ },
+ {
+  "order_id": "ORD-F098-002",
+  "user_id": "F098",
+  "placed_at": "2026-08-05T05:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Jewellery"
+  ]
+ },
+ {
+  "order_id": "ORD-F101-001",
+  "user_id": "F101",
+  "placed_at": "2026-06-20T21:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Electronics"
+  ]
+ },
+ {
+  "order_id": "ORD-F103-001",
+  "user_id": "F103",
+  "placed_at": "2026-09-07T22:14:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F103-002",
+  "user_id": "F103",
+  "placed_at": "2026-07-11T09:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Automotive"
+  ]
+ },
+ {
+  "order_id": "ORD-F103-003",
+  "user_id": "F103",
+  "placed_at": "2026-08-01T15:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Gaming"
+  ]
+ },
+ {
+  "order_id": "ORD-F105-001",
+  "user_id": "F105",
+  "placed_at": "2026-05-20T10:28:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F105-002",
+  "user_id": "F105",
+  "placed_at": "2026-08-13T04:43:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Travel & Lifestyle"
+  ]
+ },
+ {
+  "order_id": "ORD-F105-003",
+  "user_id": "F105",
+  "placed_at": "2026-08-30T08:48:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F106-001",
+  "user_id": "F106",
+  "placed_at": "2026-08-22T01:36:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F106-002",
+  "user_id": "F106",
+  "placed_at": "2026-08-19T11:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Wedding & Events"
+  ]
+ },
+ {
+  "order_id": "ORD-F110-001",
+  "user_id": "F110",
+  "placed_at": "2026-09-04T01:36:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Wedding & Events"
+  ]
+ },
+ {
+  "order_id": "ORD-F110-002",
+  "user_id": "F110",
+  "placed_at": "2026-06-21T09:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Sports & Outdoors"
+  ]
+ },
+ {
+  "order_id": "ORD-F112-001",
+  "user_id": "F112",
+  "placed_at": "2026-07-24T07:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F112-002",
+  "user_id": "F112",
+  "placed_at": "2026-08-11T03:16:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Music & Entertainment"
+  ]
+ },
+ {
+  "order_id": "ORD-F112-003",
+  "user_id": "F112",
+  "placed_at": "2026-08-22T13:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F113-001",
+  "user_id": "F113",
+  "placed_at": "2026-06-13T11:55:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Organic & Eco"
+  ]
+ },
+ {
+  "order_id": "ORD-F113-002",
+  "user_id": "F113",
+  "placed_at": "2026-07-23T19:50:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Toys & Kids"
+  ]
+ },
+ {
+  "order_id": "ORD-F115-001",
+  "user_id": "F115",
+  "placed_at": "2026-08-25T02:33:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Wedding & Events"
+  ]
+ },
+ {
+  "order_id": "ORD-F115-002",
+  "user_id": "F115",
+  "placed_at": "2026-05-18T14:48:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Travel & Lifestyle"
+  ]
+ },
+ {
+  "order_id": "ORD-F116-001",
+  "user_id": "F116",
+  "placed_at": "2026-06-09T06:24:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Gaming"
+  ]
+ },
+ {
+  "order_id": "ORD-F116-002",
+  "user_id": "F116",
+  "placed_at": "2026-08-28T10:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Finance"
+  ]
+ },
+ {
+  "order_id": "ORD-F117-001",
+  "user_id": "F117",
+  "placed_at": "2026-07-02T00:52:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F118-001",
+  "user_id": "F118",
+  "placed_at": "2026-08-29T13:36:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Pets"
+  ]
+ },
+ {
+  "order_id": "ORD-F119-001",
+  "user_id": "F119",
+  "placed_at": "2026-09-01T10:14:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Organic & Eco"
+  ]
+ },
+ {
+  "order_id": "ORD-F120-001",
+  "user_id": "F120",
+  "placed_at": "2026-07-17T19:36:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F120-002",
+  "user_id": "F120",
+  "placed_at": "2026-07-17T13:07:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F121-001",
+  "user_id": "F121",
+  "placed_at": "2026-07-28T21:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Pets"
+  ]
+ },
+ {
+  "order_id": "ORD-F127-001",
+  "user_id": "F127",
+  "placed_at": "2026-07-22T16:28:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F127-002",
+  "user_id": "F127",
+  "placed_at": "2026-06-25T14:48:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F129-001",
+  "user_id": "F129",
+  "placed_at": "2026-07-28T16:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Automotive"
+  ]
+ },
+ {
+  "order_id": "ORD-F131-001",
+  "user_id": "F131",
+  "placed_at": "2026-07-25T12:52:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Jewellery"
+  ]
+ },
+ {
+  "order_id": "ORD-F131-002",
+  "user_id": "F131",
+  "placed_at": "2026-07-13T00:24:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Food & Beverages"
+  ]
+ },
+ {
+  "order_id": "ORD-F131-003",
+  "user_id": "F131",
+  "placed_at": "2026-07-15T00:24:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Home & Living"
+  ]
+ },
+ {
+  "order_id": "ORD-F132-001",
+  "user_id": "F132",
+  "placed_at": "2026-06-30T22:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Beauty & Personal Care"
+  ]
+ },
+ {
+  "order_id": "ORD-F133-001",
+  "user_id": "F133",
+  "placed_at": "2026-07-10T15:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Organic & Eco"
+  ]
+ },
+ {
+  "order_id": "ORD-F134-001",
+  "user_id": "F134",
+  "placed_at": "2026-05-21T22:14:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Pets"
+  ]
+ },
+ {
+  "order_id": "ORD-F136-001",
+  "user_id": "F136",
+  "placed_at": "2026-06-21T22:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Home & Living"
+  ]
+ },
+ {
+  "order_id": "ORD-F136-002",
+  "user_id": "F136",
+  "placed_at": "2026-07-12T20:48:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F138-001",
+  "user_id": "F138",
+  "placed_at": "2026-07-22T17:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Gaming"
+  ]
+ },
+ {
+  "order_id": "ORD-F139-001",
+  "user_id": "F139",
+  "placed_at": "2026-08-09T19:50:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Gaming"
+  ]
+ },
+ {
+  "order_id": "ORD-F140-001",
+  "user_id": "F140",
+  "placed_at": "2026-07-26T05:26:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Finance"
+  ]
+ },
+ {
+  "order_id": "ORD-F140-002",
+  "user_id": "F140",
+  "placed_at": "2026-09-01T09:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F141-001",
+  "user_id": "F141",
+  "placed_at": "2026-06-10T10:14:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F141-002",
+  "user_id": "F141",
+  "placed_at": "2026-08-19T00:24:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Wedding & Events"
+  ]
+ },
+ {
+  "order_id": "ORD-F142-001",
+  "user_id": "F142",
+  "placed_at": "2026-07-28T02:19:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Sports & Outdoors"
+  ]
+ },
+ {
+  "order_id": "ORD-F143-001",
+  "user_id": "F143",
+  "placed_at": "2026-06-20T04:43:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Sports & Outdoors"
+  ]
+ },
+ {
+  "order_id": "ORD-F144-001",
+  "user_id": "F144",
+  "placed_at": "2026-08-10T03:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F145-001",
+  "user_id": "F145",
+  "placed_at": "2026-07-09T10:14:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F146-001",
+  "user_id": "F146",
+  "placed_at": "2026-05-15T20:48:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F148-001",
+  "user_id": "F148",
+  "placed_at": "2026-08-20T18:52:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Photography"
+  ]
+ },
+ {
+  "order_id": "ORD-F148-002",
+  "user_id": "F148",
+  "placed_at": "2026-07-16T03:02:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Office & Business"
+  ]
+ },
+ {
+  "order_id": "ORD-F148-003",
+  "user_id": "F148",
+  "placed_at": "2026-05-26T01:36:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Photography"
+  ]
+ },
+ {
+  "order_id": "ORD-F149-001",
+  "user_id": "F149",
+  "placed_at": "2026-06-08T19:21:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Music & Entertainment"
+  ]
+ },
+ {
+  "order_id": "ORD-F149-002",
+  "user_id": "F149",
+  "placed_at": "2026-07-30T10:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Music & Entertainment"
+  ]
+ },
+ {
+  "order_id": "ORD-F149-003",
+  "user_id": "F149",
+  "placed_at": "2026-05-27T11:55:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Office & Business"
+  ]
+ },
+ {
+  "order_id": "ORD-F150-001",
+  "user_id": "F150",
+  "placed_at": "2026-08-20T05:26:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F151-001",
+  "user_id": "F151",
+  "placed_at": "2026-09-05T09:16:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Organic & Eco"
+  ]
+ },
+ {
+  "order_id": "ORD-F152-001",
+  "user_id": "F152",
+  "placed_at": "2026-07-23T17:26:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Technology"
+  ]
+ },
+ {
+  "order_id": "ORD-F154-001",
+  "user_id": "F154",
+  "placed_at": "2026-06-05T22:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Toys & Kids"
+  ]
+ },
+ {
+  "order_id": "ORD-F154-002",
+  "user_id": "F154",
+  "placed_at": "2026-08-17T06:09:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Jewellery"
+  ]
+ },
+ {
+  "order_id": "ORD-F157-001",
+  "user_id": "F157",
+  "placed_at": "2026-08-30T03:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Beauty & Personal Care"
+  ]
+ },
+ {
+  "order_id": "ORD-F157-002",
+  "user_id": "F157",
+  "placed_at": "2026-08-12T17:55:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Food & Beverages"
+  ]
+ },
+ {
+  "order_id": "ORD-F158-001",
+  "user_id": "F158",
+  "placed_at": "2026-07-31T11:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Jewellery"
+  ]
+ },
+ {
+  "order_id": "ORD-F159-001",
+  "user_id": "F159",
+  "placed_at": "2026-06-19T08:33:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Books & Education"
+  ]
+ },
+ {
+  "order_id": "ORD-F159-002",
+  "user_id": "F159",
+  "placed_at": "2026-06-19T02:33:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Books & Education"
+  ]
+ },
+ {
+  "order_id": "ORD-F159-003",
+  "user_id": "F159",
+  "placed_at": "2026-07-01T17:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Beauty & Personal Care"
+  ]
+ },
+ {
+  "order_id": "ORD-F160-001",
+  "user_id": "F160",
+  "placed_at": "2026-07-24T22:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Beauty & Personal Care"
+  ]
+ },
+ {
+  "order_id": "ORD-F160-002",
+  "user_id": "F160",
+  "placed_at": "2026-06-18T02:33:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Shoes & Footwear"
+  ]
+ },
+ {
+  "order_id": "ORD-F160-003",
+  "user_id": "F160",
+  "placed_at": "2026-08-08T21:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Beauty & Personal Care"
+  ]
+ },
+ {
+  "order_id": "ORD-F161-001",
+  "user_id": "F161",
+  "placed_at": "2026-07-31T06:24:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Travel & Lifestyle"
+  ]
+ },
+ {
+  "order_id": "ORD-F161-002",
+  "user_id": "F161",
+  "placed_at": "2026-05-21T10:28:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Music & Entertainment"
+  ]
+ },
+ {
+  "order_id": "ORD-F161-003",
+  "user_id": "F161",
+  "placed_at": "2026-08-11T20:19:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Photography"
+  ]
+ },
+ {
+  "order_id": "ORD-F163-001",
+  "user_id": "F163",
+  "placed_at": "2026-06-10T10:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F163-002",
+  "user_id": "F163",
+  "placed_at": "2026-07-14T00:52:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F163-003",
+  "user_id": "F163",
+  "placed_at": "2026-06-16T04:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F163-004",
+  "user_id": "F163",
+  "placed_at": "2026-07-07T03:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F165-001",
+  "user_id": "F165",
+  "placed_at": "2026-06-27T15:02:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Beauty & Personal Care"
+  ]
+ },
+ {
+  "order_id": "ORD-F166-001",
+  "user_id": "F166",
+  "placed_at": "2026-08-01T12:09:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Wedding & Events"
+  ]
+ },
+ {
+  "order_id": "ORD-F166-002",
+  "user_id": "F166",
+  "placed_at": "2026-08-27T21:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Wedding & Events"
+  ]
+ },
+ {
+  "order_id": "ORD-F168-001",
+  "user_id": "F168",
+  "placed_at": "2026-05-15T14:04:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Beauty & Personal Care"
+  ]
+ },
+ {
+  "order_id": "ORD-F169-001",
+  "user_id": "F169",
+  "placed_at": "2026-07-17T10:43:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Jewellery"
+  ]
+ },
+ {
+  "order_id": "ORD-F169-002",
+  "user_id": "F169",
+  "placed_at": "2026-09-02T15:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Sports & Outdoors"
+  ]
+ },
+ {
+  "order_id": "ORD-F169-003",
+  "user_id": "F169",
+  "placed_at": "2026-08-14T01:07:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Art & Collectibles"
+  ]
+ },
+ {
+  "order_id": "ORD-F169-004",
+  "user_id": "F169",
+  "placed_at": "2026-05-31T14:33:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Books & Education"
+  ]
+ },
+ {
+  "order_id": "ORD-F170-001",
+  "user_id": "F170",
+  "placed_at": "2026-06-07T06:52:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Jewellery"
+  ]
+ },
+ {
+  "order_id": "ORD-F170-002",
+  "user_id": "F170",
+  "placed_at": "2026-06-04T18:52:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Jewellery"
+  ]
+ },
+ {
+  "order_id": "ORD-F170-003",
+  "user_id": "F170",
+  "placed_at": "2026-07-28T15:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Jewellery"
+  ]
+ },
+ {
+  "order_id": "ORD-F170-004",
+  "user_id": "F170",
+  "placed_at": "2026-05-26T01:36:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Jewellery"
+  ]
+ },
+ {
+  "order_id": "ORD-F171-001",
+  "user_id": "F171",
+  "placed_at": "2026-06-10T15:31:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Pets"
+  ]
+ },
+ {
+  "order_id": "ORD-F171-002",
+  "user_id": "F171",
+  "placed_at": "2026-09-03T09:45:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F171-003",
+  "user_id": "F171",
+  "placed_at": "2026-07-05T23:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F171-004",
+  "user_id": "F171",
+  "placed_at": "2026-05-31T04:00:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Books & Education"
+  ]
+ },
+ {
+  "order_id": "ORD-F172-001",
+  "user_id": "F172",
+  "placed_at": "2026-08-31T16:28:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Music & Entertainment"
+  ]
+ },
+ {
+  "order_id": "ORD-F173-001",
+  "user_id": "F173",
+  "placed_at": "2026-08-06T22:28:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Travel & Lifestyle"
+  ]
+ },
+ {
+  "order_id": "ORD-F173-002",
+  "user_id": "F173",
+  "placed_at": "2026-08-05T17:40:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Travel & Lifestyle"
+  ]
+ },
+ {
+  "order_id": "ORD-F173-003",
+  "user_id": "F173",
+  "placed_at": "2026-06-12T07:50:26.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Office & Business"
+  ]
+ },
+ {
+  "order_id": "ORD-F173-004",
+  "user_id": "F173",
+  "placed_at": "2026-08-28T02:48:02.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Travel & Lifestyle"
+  ]
+ },
+ {
+  "order_id": "ORD-F174-001",
+  "user_id": "F174",
+  "placed_at": "2026-06-16T16:28:50.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Health & Wellness"
+  ]
+ },
+ {
+  "order_id": "ORD-F175-001",
+  "user_id": "F175",
+  "placed_at": "2026-05-31T04:57:38.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Fashion & Apparel"
+  ]
+ },
+ {
+  "order_id": "ORD-F175-002",
+  "user_id": "F175",
+  "placed_at": "2026-07-02T20:19:14.231381+00:00",
+  "cancelled_at": null,
+  "status": "placed",
+  "categories": [
+   "Photography"
+  ]
+ }
+]

@@ -1,0 +1,192 @@
+{
+ "generated_at": "2026-09-11T10:28:50.395780+00:00",
+ "reference_date": "2026-09-11T10:28:50.231381+00:00",
+ "reference_date_source": "run time",
+ "seed": 20260909,
+ "half_life_days": 30,
+ "declared_floor": 10,
+ "qualified_view_seconds": 3,
+ "event_weights": {
+  "product_view": 2,
+  "product_click": 5,
+  "add_to_cart": 10,
+  "purchase": 20,
+  "keyword_search": 3
+ },
+ "narrated_users": 20,
+ "filler_users": 175,
+ "events_total": 6361,
+ "events_narrated": 657,
+ "events_without_timestamp": 2,
+ "orders_total": 205,
+ "canonical_categories": [
+  "Fashion & Apparel",
+  "Electronics",
+  "Food & Beverages",
+  "Home & Living",
+  "Beauty & Personal Care",
+  "Sports & Outdoors",
+  "Automotive",
+  "Travel & Lifestyle",
+  "Health & Wellness",
+  "Books & Education",
+  "Pets",
+  "Art & Collectibles",
+  "Toys & Kids",
+  "Music & Entertainment",
+  "Office & Business",
+  "Technology",
+  "Jewellery",
+  "Shoes & Footwear",
+  "Organic & Eco",
+  "Photography",
+  "Finance",
+  "Gaming",
+  "Wedding & Events"
+ ],
+ "canonical_is_placeholder": false,
+ "handles": {
+  "fashion": "Fashion & Apparel",
+  "electronics": "Electronics",
+  "home": "Home & Living",
+  "beauty": "Beauty & Personal Care",
+  "jewellery": "Jewellery",
+  "footwear": "Shoes & Footwear",
+  "bags": "Travel & Lifestyle",
+  "watches": "Technology"
+ },
+ "handle_fallbacks": {},
+ "canonical_source": "--categories post_picker_categories.txt",
+ "list1_merging_into_home": [
+  "home & decor",
+  "kitchen & dining",
+  "bedding & bath"
+ ],
+ "list1_case_variants": [
+  "Fashion",
+  "fashion"
+ ],
+ "u06_demonstrates_merge": true,
+ "unmappable": [
+  "Casual Sneakers",
+  "Jackets",
+  "Sunglasses"
+ ],
+ "score_store_contract": {
+  "collection": "ml_user_interest_scores_demo",
+  "fields": [
+   "user_id",
+   "category",
+   "raw",
+   "share",
+   "event_count",
+   "method",
+   "model_version",
+   "window",
+   "computed_at"
+  ],
+  "raw_field": "raw",
+  "share_field": "share",
+  "event_count_field": "event_count",
+  "model_version_field": "model_version",
+  "raw_includes_declared_floor": true,
+  "decay_method_name": "recency_decay",
+  "note": "checks 5 to 8 read these field names verbatim. An engine that writes 'score' instead of 'raw', or names the decay method anything else, is reported as a contract mismatch and not as a scoring defect."
+ },
+ "expected": [
+  "U02 Beauty & Personal Care raw 13.11   (twenty views, eight of them qualified)",
+  "U03 Fashion & Apparel 39.12 | Jewellery 39.12 | Technology 39.12   (all three equal if full weight is credited to each tag)",
+  "U04 Electronics 16.98 vs Home & Living 118.54 with decay on",
+  "U05 floor 10.00 x3 vs Electronics 4.52   (floor must lead)",
+  "U14 Fashion & Apparel 41.90 vs Electronics 38.20   (about 9 percent apart under decay, 50 percent apart under windows)",
+  "U16 Fashion & Apparel 50.45 | U17 50.45 before the reversal is applied; equal by construction",
+  "    reversal on U17 removes 15.16, aged from the order at 12 days, leaving exactly 35.29",
+  "U18 Home & Living 2.59 vs Beauty & Personal Care 1.19 under decay; Beauty & Personal Care falls to zero under windows",
+  "U20 Shoes & Footwear 20.46 plus a floor of 10"
+ ],
+ "expected_raw": {
+  "U01": {
+   "Beauty & Personal Care": 21.488306,
+   "Electronics": 19.296857,
+   "Fashion & Apparel": 97.35036,
+   "Travel & Lifestyle": 10.536041
+  },
+  "U02": {
+   "Beauty & Personal Care": 13.105563
+  },
+  "U03": {
+   "Fashion & Apparel": 39.121085,
+   "Jewellery": 39.121085,
+   "Technology": 39.121085
+  },
+  "U04": {
+   "Electronics": 16.981739,
+   "Home & Living": 118.537586
+  },
+  "U05": {
+   "Electronics": 4.515886
+  },
+  "U06": {
+   "Fashion": 11.439827,
+   "bedding & bath": 9.875739,
+   "fashion": 7.244065,
+   "home & decor": 9.652044,
+   "kitchen & dining": 10.876583
+  },
+  "U07": {},
+  "U08": {
+   "Casual Sneakers": 8.046016,
+   "Home & Living": 18.948715,
+   "Jackets": 4.18102,
+   "Sunglasses": 2.238507
+  },
+  "U09": {
+   "Beauty & Personal Care": 20.835723,
+   "Electronics": 20.014205,
+   "Fashion & Apparel": 18.803213,
+   "Home & Living": 19.332681
+  },
+  "U10": {
+   "Travel & Lifestyle": 42.475671
+  },
+  "U11": {},
+  "U12": {
+   "Electronics": 90.051721,
+   "Fashion & Apparel": 90.051721
+  },
+  "U13": {
+   "Electronics": 9.245478,
+   "Fashion & Apparel": 9.245478
+  },
+  "U14": {
+   "Electronics": 38.197237,
+   "Fashion & Apparel": 41.895683
+  },
+  "U15": {
+   "Home & Living": 17.404727
+  },
+  "U16": {
+   "Fashion & Apparel": 50.451544
+  },
+  "U17": {
+   "Fashion & Apparel": 35.294378
+  },
+  "U18": {
+   "Beauty & Personal Care": 1.193552,
+   "Home & Living": 2.588335
+  },
+  "U19": {
+   "Beauty & Personal Care": 5.431794,
+   "Electronics": 5.825102,
+   "Fashion & Apparel": 6.032311,
+   "Home & Living": 5.625012,
+   "Jewellery": 5.245213,
+   "Shoes & Footwear": 5.065041,
+   "Technology": 4.723052,
+   "Travel & Lifestyle": 4.891058
+  },
+  "U20": {
+   "Shoes & Footwear": 20.459381
+  }
+ }
+}

@@ -1,0 +1,646 @@
+#!/usr/bin/env python3
+"""
+SOCO-REC-DS-015 task 9.  The data checks.
+
+Half an hour here saves the demonstration.  Checks 1 to 4 and 9 to 11 read the
+constructed events and can run the moment the generator has run.  Checks 5 to 8
+read the score store and can only run once the methods have written to it; until
+then they report as pending rather than as failures.
+
+The reference date is read from ml_demo_meta.json, never inferred from the
+events.  U10 carries three deliberately future dated rows, so the newest
+timestamp in the event file sits a week after the reference, and anything that
+guesses the anchor reports U14, U15 and U18 as broken when they are not.
+
+Category names are read from the manifest too.  Nothing here spells a category
+out.  The generator binds eight handles by name and records them in
+ml_demo_meta.handles, and check 3 asks for the handle rather than for the string,
+so pasting the real vocabulary in cannot make a passing check fail.
+
+    python run_data_checks.py                                   # JSON files
+    python run_data_checks.py --mongo "mongodb+srv://..."       # database
+    python run_data_checks.py --scores ml_user_interest_scores_demo
+
+Exit code is 0 if nothing failed, 1 if anything did.  Pending is not a failure.
+Reference: SOCO-REC-DS-014 v2 section 3.3.
+"""
+
+import argparse
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+TOL = 1e-6
+results = []
+
+
+def record(n, title, state, detail):
+    results.append((n, title, state, detail))
+
+
+def ok(n, t, d):      record(n, t, "PASS", d)
+def fail(n, t, d):    record(n, t, "FAIL", d)
+def pending(n, t, d): record(n, t, "PENDING", d)
+
+
+# --------------------------------------------------------------------------
+class Data:
+    """Events, orders, users and the manifest, from files or from the database."""
+
+    def __init__(self, args):
+        if args.mongo:
+            from pymongo import MongoClient
+            client = MongoClient(args.mongo)
+            if args.db:
+                db = client[args.db]
+            else:
+                # pymongo raises ConfigurationError rather than returning None.
+                try:
+                    db = client.get_default_database()
+                except Exception:
+                    db = None
+                if db is None:
+                    sys.exit("The connection string names no database and --db was "
+                             "not given.\nPass the database name, not the cluster "
+                             "name: a URI ending /soco on\ncluster nex-dev means "
+                             "--db soco.")
+            self.events = list(db.ml_demo_events.find({}, {"_id": 0}))
+            self.users = list(db.ml_demo_users.find({}, {"_id": 0}))
+            self.orders = list(db.ml_demo_orders.find({}, {"_id": 0}))
+            meta = db.ml_demo_meta.find_one({}, {"_id": 0})
+            # A read only role often lacks listCollections, and asking for it used
+            # to abort the whole run.  Querying a collection that does not exist
+            # returns nothing rather than raising, so just read it.
+            try:
+                self.scores = list(db[args.scores].find({}, {"_id": 0}))
+            except Exception as exc:
+                print(f"WARNING          could not read {args.scores}: "
+                      f"{type(exc).__name__}: {exc}")
+                self.scores = []
+            self.source = f"{db.name} on the cluster"
+        else:
+            p = Path(args.dir)
+            self.events = self._load(p / "ml_demo_events.json", required=True)
+            self.users = self._load(p / "ml_demo_users.json", required=True)
+            self.orders = self._load(p / "ml_demo_orders.json") or []
+            meta = self._load(p / "ml_demo_meta.json")
+            self.scores = self._load(p / f"{args.scores}.json") or []
+            self.source = str(p.resolve())
+
+        if not meta:
+            sys.exit("No manifest found. Rerun the generator; it writes ml_demo_meta.\n"
+                     "The reference date must be read, not inferred.")
+        self.meta = meta
+        self.as_of = datetime.fromisoformat(meta["reference_date"])
+        self.canonical = set(meta["canonical_categories"])
+        self.floor = meta["declared_floor"]
+        self.threshold = meta["qualified_view_seconds"]
+        self.half_life = meta["half_life_days"]
+        self.narrated = [u for u in self.users if not u["user_id"].startswith("F")]
+
+        # Category names come from the manifest, never from a literal in this file.
+        self.handles = meta.get("handles")
+        if not self.handles:
+            sys.exit("This manifest predates ml_demo_meta.handles. Regenerate with the\n"
+                     "current generator; check 3 needs the handles to know which "
+                     "category\nis U04's old interest without hardcoding its name.")
+        self.contract = meta.get("score_store_contract", {})
+        self.raw_field = self.contract.get("raw_field", "raw")
+        self.decay_method = self.contract.get("decay_method_name", "recency_decay")
+        self.scores_usable = True
+
+    @staticmethod
+    def _load(path, required=False):
+        if path.exists():
+            return json.loads(path.read_text())
+        if required:
+            sys.exit(f"{path} is missing. Run the generator first.")
+        return None
+
+    def handle(self, key):
+        """The real category name behind one of the eight narrated handles."""
+        try:
+            return self.handles[key]
+        except KeyError:
+            raise KeyError(f"no handle {key!r} in the manifest; "
+                           f"it holds {sorted(self.handles)}")
+
+    def rows(self, uid):
+        return [e for e in self.events if e["user_id"] == uid]
+
+    def age(self, e):
+        return (self.as_of - datetime.fromisoformat(e["timestamp"])).total_seconds() / 86400
+
+    def decayed(self, e, at=None):
+        return e["weight"] * 2 ** (-(self.age(e) if at is None else at) / self.half_life)
+
+    def declared(self, uid):
+        for u in self.users:
+            if u["user_id"] == uid:
+                return u["declared_interests"]
+        return []
+
+    def score(self, uid, category=None):
+        rows = [s for s in self.scores if s.get("user_id") == uid]
+        if category is not None:
+            rows = [s for s in rows if s.get("category") == category]
+        return rows
+
+    def raw(self, row):
+        """The engine's raw score, by the field name the contract names."""
+        return row[self.raw_field]
+
+
+# --------------------------------------------------------------------------
+# Check 0.  The score store keeps the shape checks 5 to 8 assume.
+#
+# Checks 5 to 7 used to reach straight for row["raw"] and for a method literally
+# spelled recency_decay.  An engine writing "score" instead produced three
+# identical "check raised KeyError" lines that read like scoring defects, and an
+# engine spelling the method "decay" left every one of them PENDING for ever,
+# looking healthy while validating nothing.  Both are contract mismatches and are
+# now named as such, once, before anything else runs.
+# --------------------------------------------------------------------------
+def check_0(d):
+    t = "the score store matches the contract in the manifest"
+    want = d.contract.get("fields", ["user_id", "category", "method", "raw"])
+    if not d.scores:
+        return pending(0, t, f"no rows in the score store yet. Expecting "
+                             f"{want} with method {d.decay_method!r}")
+    seen = set()
+    for r in d.scores:
+        seen.update(r)
+    missing = [f for f in want if f not in seen]
+    if missing:
+        d.scores_usable = False
+        near = {"raw": ["score", "raw_score", "value", "weight"],
+                "method": ["algorithm", "strategy", "variant"],
+                "category": ["categoryName", "interest"]}
+        hint = ""
+        for f in missing:
+            alt = [a for a in near.get(f, []) if a in seen]
+            if alt:
+                hint += f"  {f!r} looks like it was written as {alt[0]!r}."
+        return fail(0, t, f"the store is missing {missing}; its rows carry "
+                          f"{sorted(seen)}.{hint} Checks 5 to 8 are skipped.")
+
+    methods = sorted({r.get("method", "unstated") for r in d.scores})
+    if d.decay_method not in methods:
+        d.scores_usable = False
+        return fail(0, t, f"no rows with method {d.decay_method!r}; the store holds "
+                          f"{methods}. The expected values are only derived for decay, "
+                          f"so checks 5 to 8 cannot compare against anything. Either "
+                          f"the engine names the method differently, in which case fix "
+                          f"score_store_contract.decay_method_name, or it did not run.")
+    ok(0, t, f"{len(d.scores)} rows carrying {want}, methods {methods}")
+
+
+# --------------------------------------------------------------------------
+# Checks 1 to 4.  The constructed events.
+# --------------------------------------------------------------------------
+def check_1(d):
+    t = "every event resolves to a canonical category"
+    expected = {"U06": set(d.meta["list1_merging_into_home"] + d.meta["list1_case_variants"]),
+                "U08": set(d.meta["unmappable"]),
+                "U10": set()}
+    offenders = {}
+    for e in d.events:
+        if e["user_id"].startswith("F"):
+            continue
+        bad = [c for c in e["categories"] if c not in d.canonical]
+        if bad:
+            offenders.setdefault(e["user_id"], set()).update(bad)
+
+    unexpected = {u: sorted(v) for u, v in offenders.items() if u not in expected}
+    wrong = {u: sorted(v - expected[u]) for u, v in offenders.items()
+             if u in expected and v - expected[u]}
+    if unexpected or wrong:
+        return fail(1, t, f"non canonical categories outside the three deliberate users: "
+                          f"{unexpected or ''} {wrong or ''}".strip())
+
+    # The other half of the test, which was missing.  A vocabulary that happens to
+    # contain "Jackets" or "Fashion" absorbs U06's and U08's deliberate offenders,
+    # the counts quietly drop, and the old check still passed.  Those users then
+    # demonstrate nothing.  The generator now refuses to build such a dataset, so
+    # this is the belt to its braces and it also catches an older event file.
+    thin = {}
+    for uid, want in (("U06", set(d.meta["list1_merging_into_home"]
+                                  + d.meta["list1_case_variants"])),
+                      ("U08", set(d.meta["unmappable"]))):
+        absorbed = sorted(c for c in want if c in d.canonical)
+        if absorbed:
+            thin[uid] = absorbed
+    if thin:
+        return fail(1, t, f"these are declared non canonical but the vocabulary "
+                          f"contains them, so they are silently mappable and the user "
+                          f"proves nothing: {thin}")
+
+    counts = {u: len(v) for u, v in sorted(offenders.items())}
+    ok(1, t, f"clean apart from the deliberate exceptions: {counts}")
+
+
+def check_2(d):
+    t = "every event carries a valid timestamp, none in the future"
+    missing, future = {}, {}
+    for e in d.events:
+        if e["user_id"].startswith("F"):
+            continue
+        if e["timestamp"] is None:
+            missing[e["user_id"]] = missing.get(e["user_id"], 0) + 1
+        elif d.age(e) < 0:
+            future[e["user_id"]] = future.get(e["user_id"], 0) + 1
+    # A user carrying both kinds used to lose one of the two counts, because the
+    # two dicts were merged with ** and the later key won.
+    stray = {u: {"missing": missing.get(u, 0), "future": future.get(u, 0)}
+             for u in set(missing) | set(future) if u != "U10"}
+    if stray:
+        fail(2, t, f"unexpected bad timestamps on {stray}")
+    elif missing.get("U10") == 2 and future.get("U10") == 3:
+        ok(2, t, "clean apart from U10's two missing and three future dated rows")
+    else:
+        fail(2, t, f"U10 should carry two missing and three future rows, "
+                   f"found {missing.get('U10', 0)} and {future.get('U10', 0)}")
+
+
+def check_3(d):
+    t = "U04 has at least sixty days between the old and the new activity"
+    old_cat, new_cat = d.handle("electronics"), d.handle("home")
+    old = [d.age(e) for e in d.rows("U04") if old_cat in e["categories"]]
+    new = [d.age(e) for e in d.rows("U04") if new_cat in e["categories"]]
+    if not old or not new:
+        return fail(3, t, f"U04 is missing one of its two categories "
+                          f"({old_cat!r}: {len(old)} events, {new_cat!r}: {len(new)})")
+    gap = min(old) - max(new)
+    (ok if gap >= 60 else fail)(3, t,
+        f"oldest new event at {max(new):.0f} days, newest old event at {min(old):.0f}, "
+        f"gap {gap:.0f} days")
+
+
+def check_4(d):
+    t = "U12 and U13 shares agree despite the tenfold event difference"
+    if d.declared("U12") or d.declared("U13"):
+        return fail(4, t, "one of them carries declared interests; the floor does not "
+                          "decay and breaks the comparison")
+
+    def share(uid, cat):
+        raws = {}
+        for e in d.rows(uid):
+            if e["timestamp"] is None:
+                continue
+            for c in e["categories"]:
+                raws[c] = raws.get(c, 0) + d.decayed(e)
+        total = sum(raws.values())
+        return raws.get(cat, 0) / total if total else 0
+
+    cat = d.rows("U12")[0]["categories"][0]
+    a, b = share("U12", cat), share("U13", cat)
+    n12, n13 = len(d.rows("U12")), len(d.rows("U13"))
+    if abs(n12 / max(n13, 1) - 10) > 0.5:
+        return fail(4, t, f"the volumes are {n12} and {n13}, which is not the tenfold "
+                          f"difference the pair exists to show")
+    (ok if abs(a - b) < 0.02 else fail)(4, t,
+        f"{n12} events give {a:.3f}, {n13} events give {b:.3f}, apart by "
+        f"{abs(a - b) * 100:.2f} points. Both categories carry identical ages within "
+        f"each user by construction, so this confirms the fixture, not the engine")
+
+
+# --------------------------------------------------------------------------
+# Checks 5 to 8.  The score store.  Pending until the methods have run.
+# --------------------------------------------------------------------------
+def check_5(d):
+    t = "U02's raw score reflects eight views, not twenty"
+    views = [e for e in d.rows("U02") if e["event_type"] == "product_view"]
+    qualified = [e for e in views if (e.get("view_duration_seconds") or 0) >= d.threshold]
+    cat = views[0]["categories"][0]
+    if not d.score("U02"):
+        return pending(5, t, f"no score for U02 yet. The dataset holds {len(qualified)} "
+                             f"qualified views of {len(views)}")
+    for method, rows in by_method(d, "U02"):
+        row = [r for r in rows if r.get("category") == cat]
+        if not row:
+            fail(5, f"{t} [{method}]", f"no {cat} row")
+            continue
+        got = d.raw(row[0])
+        want = sum(d.decayed(e) for e in qualified)
+        allv = sum(d.decayed(e) for e in views)
+        if method != d.decay_method:
+            pending(5, f"{t} [{method}]", "expected value is only derived for decay")
+        elif abs(got - want) < 0.01:
+            ok(5, f"{t} [{method}]", f"raw {got:.2f} matches eight qualified views")
+        else:
+            fail(5, f"{t} [{method}]",
+                 f"raw {got:.2f}; eight qualified views give {want:.2f}, "
+                 f"all twenty give {allv:.2f}")
+
+
+def check_6(d):
+    t = "U03's tagged categories carry full weight each, not half"
+    tagged = sorted({c for e in d.rows("U03") if len(e["categories"]) > 1 for c in e["categories"]})
+    single = sorted({c for e in d.rows("U03") if len(e["categories"]) == 1 for c in e["categories"]})
+    if not d.score("U03"):
+        return pending(6, t, f"no score for U03 yet. Dual tagged {tagged}, single {single}")
+    for method, rows in by_method(d, "U03"):
+        vals = {r["category"]: d.raw(r) for r in rows}
+        got = [vals.get(c) for c in tagged + single]
+        if any(v is None for v in got):
+            fail(6, f"{t} [{method}]", f"missing a category: {vals}")
+        elif max(got) - min(got) < 0.01:
+            ok(6, f"{t} [{method}]", f"all three equal at {got[0]:.2f}")
+        else:
+            fail(6, f"{t} [{method}]",
+                 f"{dict(zip(tagged + single, [round(v, 2) for v in got]))}; "
+                 f"the dual tagged pair at half the single suggests divided weight")
+
+
+def check_7(d):
+    t = "U16 and U17 differ by exactly the purchase, and no raw is negative"
+    pur = [e for e in d.rows("U17") if e["event_type"] == "purchase"]
+    if not pur:
+        return fail(7, t, "U17 carries no purchase row")
+    contribution = d.decayed(pur[0])
+    if not d.score("U16") or not d.score("U17"):
+        return pending(7, t, f"no scores yet. Aged from the order the reversal removes "
+                             f"{contribution:.2f}; aged from the cancellation it would "
+                             f"remove more and drive U17 below U16 minus the purchase")
+
+    negatives = [(r["user_id"], r["category"], d.raw(r)) for r in d.scores
+                 if d.raw_field in r and d.raw(r) < 0]
+    if negatives:
+        fail(7, t + " [negative raw]", f"negative raw scores present: {negatives[:5]}")
+
+    cat = pur[0]["categories"][0]
+    for method, _ in by_method(d, "U16"):
+        a = [r for r in d.score("U16", cat) if r.get("method") == method]
+        b = [r for r in d.score("U17", cat) if r.get("method") == method]
+        if not a or not b:
+            fail(7, f"{t} [{method}]", "missing a score row for one of the pair")
+            continue
+        diff = d.raw(a[0]) - d.raw(b[0])
+        if method != d.decay_method:
+            # The contribution above is a decay figure.  Under time windows the
+            # same purchase is worth weight x the window's own multiplier, which
+            # this script cannot derive without the window weights, and those are
+            # configuration rather than manifest.  Reporting the decay figure
+            # against a windows method produced a FAIL reading "aged from the
+            # cancellation", which is the most alarming message in the set and
+            # was wrong: a correct windows reversal lands in the same window as
+            # its order and cancels exactly there too.  Checks 5, 6 and 8 all
+            # guard this way; check 7 did not.
+            pending(7, f"{t} [{method}]",
+                    f"the expected difference is only derived for decay. "
+                    f"The negative-raw half of this check ran across all methods")
+            continue
+        if abs(diff - contribution) < 0.01:
+            ok(7, f"{t} [{method}]",
+               f"difference {diff:.2f} equals the purchase contribution {contribution:.2f}")
+        else:
+            fail(7, f"{t} [{method}]",
+                 f"difference {diff:.2f}, expected {contribution:.2f}. A larger difference "
+                 f"means the reversal was aged from the cancellation rather than the order")
+
+
+def check_8(d):
+    """The conformance replay, and the cheapest check in the set.
+
+    The generator already computes every narrated raw score under the decay method
+    and records them in ml_demo_meta.expected_raw.  Comparing the engine against
+    that catches a mis-set half life, a wrong weight in the table and a dropped
+    event type in one line, and it covers the twelve narrated users that no other
+    check touches.  U20 is called out separately because it is small enough to
+    check on paper if this disagrees.
+    """
+    t = "the engine agrees with the generator's own arithmetic"
+    want_all = d.meta.get("expected_raw")
+    if not want_all:
+        return fail(8, t, "this manifest predates ml_demo_meta.expected_raw. Regenerate.")
+    if not d.scores:
+        return pending(8, t, f"no scores yet. U20's behavioural total is "
+                             f"{want_all.get('U20')}, plus a floor of {d.floor} on "
+                             f"each category U20 declared")
+
+    rows = [r for r in d.scores if r.get("method") == d.decay_method]
+    if not rows:
+        return pending(8, f"{t} [{d.decay_method}]", "no rows for the decay method")
+
+    off, checked = [], 0
+    for r in rows:
+        uid, cat = r.get("user_id"), r.get("category")
+        if uid not in want_all or cat not in want_all[uid]:
+            continue
+        checked += 1
+        # expected_raw is behavioural only.  DS-008 4.1 defines the stored raw as
+        # floor + the weighted sum, so an engine that follows the specification is
+        # higher by P-25 on every category the user declared.  Comparing the two
+        # directly reported those rows as disagreeing and told the reader the
+        # engine had folded the floor in, when folding it in is what the
+        # specification asks for.  Add the floor here instead.
+        want = want_all[uid][cat] + (d.floor if cat in d.declared(uid) else 0)
+        got = d.raw(r)
+        if abs(got - want) > max(0.01, abs(want) * 0.001):
+            off.append((uid, cat, round(got, 2), round(want, 2)))
+    if not checked:
+        return pending(8, t, "no score rows line up with the narrated users")
+    if off:
+        off.sort(key=lambda x: -abs(x[2] - x[3]))
+        return fail(8, t, f"{len(off)} of {checked} disagree, worst first: {off[:5]}. "
+                          f"The expected figures include the declared floor of "
+                          f"{d.floor} on categories the user chose at signup, per "
+                          f"DS-008 4.1. A shortfall of exactly {d.floor} on those "
+                          f"rows means the engine is storing raw before the floor")
+    u20 = want_all.get("U20", {})
+    ok(8, t, f"{checked} narrated scores match. U20 at "
+             f"{ {k: round(v, 2) for k, v in u20.items()} } plus a floor of {d.floor}")
+
+
+# --------------------------------------------------------------------------
+# Checks 9 to 11.  The constructed events again, for the things nothing tested.
+# --------------------------------------------------------------------------
+def check_9(d):
+    """The boundary users, measured from now rather than from the reference date.
+
+    This is the check the docstrings asked for in prose and nothing enforced.  The
+    engine ages events from its own clock, not from ml_demo_meta.  A dataset built
+    on Monday and shown on Thursday has U18's ninety day event sitting at ninety
+    three, the cliff falls somewhere the narration does not mention, and every
+    number on the screen is defensible but not the one anybody rehearsed.
+    """
+    t = "U15's bands and U18's cliff still sit where the narration puts them"
+    drift = (datetime.now(timezone.utc) - d.as_of).total_seconds() / 86400
+    edges = [7, 30, 90]
+
+    def band(age):
+        return sum(1 for edge in edges if age > edge)
+
+    # First, the shape the fixture was built to have, measured at the reference
+    # date, where the ages are the exact integers the generator wrote.
+    want = {0: 6, 1: 4, 2: 2}
+    got = {0: 0, 1: 0, 2: 0, 3: 0}
+    for e in d.rows("U15"):
+        got[band(d.age(e))] = got.get(band(d.age(e)), 0) + 1
+    if {k: v for k, v in got.items() if v} != want:
+        return fail(9, t, f"U15 does not hold six recent, four medium and two long "
+                          f"events even at the reference date: {got}")
+
+    u18 = sorted(d.age(e) for e in d.rows("U18"))
+    if not (len(u18) == 3 and u18[1] <= 90 < u18[2]):
+        return fail(9, t, f"U18 sits at {[round(a, 1) for a in u18]} at the reference "
+                          f"date; the cliff is not between the second and third event")
+
+    # Then the question that actually matters on the day.  The engine ages events
+    # from its own clock, not from the manifest, so the test is whether drift has
+    # carried anything across a boundary since the dataset was built.  Comparing
+    # band membership then and now avoids arguing about an event that sits exactly
+    # on ninety, which U18's middle row does by construction.
+    moved = []
+    for uid in ("U15", "U18"):
+        for e in d.rows(uid):
+            then, now_band = band(d.age(e)), band(d.age(e) + drift)
+            if then != now_band:
+                moved.append((uid, round(d.age(e), 1), round(d.age(e) + drift, 1)))
+    if moved:
+        return fail(9, t, f"drift since the reference date is {drift:.2f} days and has "
+                          f"carried {len(moved)} event(s) across a window boundary: "
+                          f"{moved[:5]} (age then, age now). The cliff no longer falls "
+                          f"where the narration says. Regenerate with --as-of set to "
+                          f"the date and time of the demonstration")
+    margin = min(min(abs(d.age(e) + drift - edge) for edge in edges)
+                 for uid in ("U15", "U18") for e in d.rows(uid))
+    ok(9, t, f"U15 is six, four and two across the bands; U18 sits at "
+             f"{[round(a, 1) for a in u18]} with the cliff between the second and "
+             f"third. Drift {drift:.2f} days, closest event to a boundary "
+             f"{margin * 24:.1f} hours")
+
+
+def check_10(d):
+    """Every order the events reference exists and is resolvable.
+
+    The reversal is aged from the order, so the engine has to resolve
+    ORD-U17-001 to a date.  Nothing used to write an order for it to find; an
+    engine reading an empty collection falls back to the cancellation date, and
+    check 7 reports that as an engine defect when it is missing fixture data.
+    """
+    t = "every order referenced by an event exists, and the cancellation follows it"
+    if not d.orders:
+        return fail(10, t, "ml_demo_orders is empty or missing. The engine has nothing "
+                           "to resolve a purchase reversal against and will fall back "
+                           "to the cancellation date, which check 7 will report as an "
+                           "engine defect. Regenerate with the current generator")
+    by_id = {o["order_id"]: o for o in d.orders}
+    dangling = sorted({e["order_id"] for e in d.events
+                       if e.get("order_id") and e["order_id"] not in by_id})
+    if dangling:
+        return fail(10, t, f"{len(dangling)} order ids on events with no order: "
+                           f"{dangling[:5]}")
+    problems = []
+    for e in d.events:
+        if e["event_type"] != "purchase_reversal":
+            continue
+        o = by_id[e["order_id"]]
+        if o.get("status") != "cancelled" or not o.get("cancelled_at"):
+            problems.append((e["order_id"], "reversed but the order is not cancelled"))
+            continue
+        placed = datetime.fromisoformat(o["placed_at"])
+        cancelled = datetime.fromisoformat(o["cancelled_at"])
+        if cancelled <= placed:
+            problems.append((e["order_id"], "cancelled at or before it was placed"))
+    if problems:
+        return fail(10, t, f"{problems[:5]}")
+    reversed_ids = {e["order_id"] for e in d.events if e["event_type"] == "purchase_reversal"}
+    ok(10, t, f"{len(by_id)} orders, {len(reversed_ids)} reversed, "
+              f"every reference resolves")
+
+
+def check_11(d):
+    """The narrated users the checks reach at all.
+
+    Twenty users are built and, before check 8 existed, seven of them carried the
+    whole burden.  This does not test the engine; it reports the coverage so that
+    a user quietly dropping out of the dataset is visible rather than silent.
+    """
+    t = "every narrated user is present and carries the events it was built for"
+    want = {f"U{n:02d}" for n in range(1, 21)}
+    have = {u["user_id"] for u in d.narrated}
+    if want - have:
+        return fail(11, t, f"missing narrated users: {sorted(want - have)}")
+    empty_by_design = {"U07", "U11"}
+    silent = sorted(u for u in have if not d.rows(u))
+    unexpected = [u for u in silent if u not in empty_by_design]
+    if unexpected:
+        return fail(11, t, f"these carry no events and were not built empty: {unexpected}")
+    covered = {"U02", "U03", "U04", "U06", "U08", "U10", "U12", "U13",
+               "U15", "U16", "U17", "U18"}
+    scored = {r.get("user_id") for r in d.scores}
+    by_check_8 = sorted(u for u in have if u in scored)
+    ok(11, t, f"{len(have)} narrated users present. Checks 1 to 7 and 9 name "
+              f"{len(covered)} of them; check 8 covers {len(by_check_8)} more from the "
+              f"score store"
+              + ("" if scored else ", once the engine has run"))
+
+
+def by_method(d, uid):
+    methods = sorted({r.get("method", "unstated") for r in d.score(uid)})
+    return [(m, [r for r in d.score(uid) if r.get("method", "unstated") == m]) for m in methods]
+
+
+# --------------------------------------------------------------------------
+# The checks, numbered here rather than scraped off the end of the function
+# name, which stopped working the moment a check reached double figures.
+# --------------------------------------------------------------------------
+CHECKS = [(0, check_0), (1, check_1), (2, check_2), (3, check_3), (4, check_4),
+          (5, check_5), (6, check_6), (7, check_7), (8, check_8), (9, check_9),
+          (10, check_10), (11, check_11)]
+NEEDS_SCORES = {5, 6, 7, 8}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dir", default=".", help="folder holding the JSON files")
+    ap.add_argument("--mongo", help="connection string; omit to read the JSON files")
+    ap.add_argument("--db", default=None,
+                    help="database name. Defaults to the one named in the URI.")
+    ap.add_argument("--scores", default="ml_user_interest_scores_demo")
+    args = ap.parse_args()
+
+    d = Data(args)
+
+    print(f"source           {d.source}")
+    print(f"reference date   {d.meta['reference_date']}  ({d.meta['reference_date_source']})")
+    print(f"seed             {d.meta['seed']}")
+    print(f"dataset          {d.meta['narrated_users']} narrated users, "
+          f"{d.meta['events_narrated']} narrated events, {len(d.orders)} orders, "
+          f"{len(d.scores)} score rows")
+    if d.meta.get("canonical_is_placeholder"):
+        print("WARNING          the category names are still the placeholders")
+    drift = (datetime.now(timezone.utc) - d.as_of).total_seconds() / 86400
+    if abs(drift) > 0.5:
+        print(f"WARNING          the reference date is {drift:.1f} days from now, so "
+              f"the engine\n                 will age every event from a different "
+              f"anchor. See check 9.")
+    print()
+
+    for n, fn in CHECKS:
+        if n in NEEDS_SCORES and not d.scores_usable:
+            pending(n, fn.__name__, "skipped; the score store does not match the "
+                                    "contract. See check 0")
+            continue
+        try:
+            fn(d)
+        except Exception as exc:                    # a broken check is a failure
+            fail(n, fn.__name__, f"check raised {type(exc).__name__}: {exc}")
+
+    width = max(len(t) for _, t, _, _ in results)
+    for n, title, state, detail in results:
+        print(f"{state:<8} {n:>2}  {title:<{width}}  {detail}")
+
+    failed = sum(1 for r in results if r[2] == "FAIL")
+    pend = sum(1 for r in results if r[2] == "PENDING")
+    passed = sum(1 for r in results if r[2] == "PASS")
+    print(f"\n{passed} passed, {failed} failed, {pend} pending")
+    if pend and not failed:
+        print("Pending checks read the score store. Rerun once the methods have written to it.")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,658 @@
+<title>SOCO Collection Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap">
+
+<style>
+  :root {
+    --ground:   #f5f7f6;
+    --surface:  #ffffff;
+    --raised:   #eef2f0;
+    --ink:      #16211e;
+    --ink-soft: #4a5b56;
+    --muted:    #6f807b;
+    --line:     #dce4e1;
+    --line-firm:#c3cfcb;
+
+    --accent:   #0c6553;
+    --accent-bg:#e2efeb;
+    --amber:    #8a610c;
+    --amber-bg: #f6eedc;
+    --rust:     #a03d2b;
+    --rust-bg:  #f7e7e3;
+
+    --rail: 20.5rem;
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #0c1110;
+      --surface:  #141a19;
+      --raised:   #1c2422;
+      --ink:      #e3eae7;
+      --ink-soft: #b0c0bb;
+      --muted:    #849690;
+      --line:     #243030;
+      --line-firm:#33423f;
+
+      --accent:   #4fbfa4;
+      --accent-bg:#123029;
+      --amber:    #d5a441;
+      --amber-bg: #322713;
+      --rust:     #e0806c;
+      --rust-bg:  #37201b;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #0c1110;
+    --surface:  #141a19;
+    --raised:   #1c2422;
+    --ink:      #e3eae7;
+    --ink-soft: #b0c0bb;
+    --muted:    #849690;
+    --line:     #243030;
+    --line-firm:#33423f;
+
+    --accent:   #4fbfa4;
+    --accent-bg:#123029;
+    --amber:    #d5a441;
+    --amber-bg: #322713;
+    --rust:     #e0806c;
+    --rust-bg:  #37201b;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .wrap {
+    max-width: 78rem;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 2.25rem 4rem;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead { display: flex; flex-wrap: wrap; gap: 1.5rem 2.5rem; align-items: flex-end; justify-content: space-between; }
+  h1 {
+    font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.3rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .sub { color: var(--muted); margin: 0.35rem 0 0; font-size: 0.94rem; }
+  .sub code { font-family: var(--mono); color: var(--ink-soft); font-size: 0.88em; }
+
+  .totals { display: flex; gap: 1.75rem; }
+  .total-n {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .total-l {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--muted); margin-top: 0.2rem;
+  }
+
+  hr.rule { border: 0; border-top: 1px solid var(--line); margin: 1.75rem 0; }
+
+  /* ---------- search ---------- */
+  .searchbar { position: relative; margin-bottom: 1.5rem; }
+  #q {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line-firm);
+    border-radius: 7px;
+    padding: 0.7rem 0.9rem 0.7rem 2.3rem;
+  }
+  #q:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  #q::placeholder { color: var(--muted); }
+  .searchbar::before {
+    content: "⌕"; position: absolute; left: 0.85rem; top: 50%; transform: translateY(-52%);
+    color: var(--muted); font-size: 1.15rem; pointer-events: none;
+  }
+  .hint { font-size: 0.8rem; color: var(--muted); margin: 0.55rem 0 1.75rem; }
+
+  /* ---------- layout ---------- */
+  .panes { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); gap: 1.75rem; align-items: start; }
+  @media (max-width: 62rem) { .panes { grid-template-columns: 1fr; } }
+
+  /* The rail runs to 73 entries; keeping the detail in view while it scrolls is
+     the difference between browsing and hunting. */
+  @media (min-width: 62.01rem) {
+    .detail { position: sticky; top: 1.25rem; max-height: calc(100vh - 2.5rem); overflow-y: auto; }
+  }
+
+  /* ---------- rail ---------- */
+  .rail { min-width: 0; }
+  .group + .group { margin-top: 1.4rem; }
+  .group-h {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--muted); margin-bottom: 0.5rem;
+  }
+  .group-h b { font-family: var(--mono); font-weight: 500; color: var(--ink-soft); letter-spacing: 0; }
+
+  .list { display: flex; flex-direction: column; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .item {
+    display: flex; align-items: center; gap: 0.6rem;
+    background: var(--surface); border: 0; width: 100%; text-align: left;
+    font-family: var(--mono); font-size: 0.85rem; color: var(--ink);
+    padding: 0.5rem 0.7rem; cursor: pointer;
+  }
+  .item:hover { background: var(--raised); }
+  .item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .item[aria-current="true"] { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+  .item .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .ct { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.8rem; }
+  .item[aria-current="true"] .ct { color: var(--accent); }
+  .stripe { width: 3px; align-self: stretch; margin: -0.5rem 0.15rem -0.5rem -0.7rem; background: transparent; }
+  .stripe.m1 { background: var(--accent); }
+  .stripe.trap { background: var(--rust); }
+
+  /* ---------- detail ---------- */
+  .detail { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 1.5rem 1.6rem 1.75rem; min-width: 0; }
+  .detail-h { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: baseline; justify-content: space-between; }
+  .cname { font-family: var(--mono); font-size: 1.3rem; font-weight: 600; margin: 0; word-break: break-word; }
+  .facts { display: flex; gap: 1.25rem; font-family: var(--mono); font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .facts b { color: var(--ink-soft); font-weight: 500; }
+
+  .note { border-radius: 6px; padding: 0.65rem 0.85rem; margin-top: 1.1rem; font-size: 0.88rem; }
+  .note.m1 { background: var(--accent-bg); color: var(--accent); }
+  .note.trap { background: var(--rust-bg); color: var(--rust); }
+  .note.empty { background: var(--amber-bg); color: var(--amber); }
+  .note b { font-weight: 600; }
+
+  .sec-h {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted);
+    margin: 1.6rem 0 0.6rem;
+  }
+
+  .tbl-scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  th {
+    text-align: left; font-weight: 500; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--muted); padding: 0 0.7rem 0.4rem 0; border-bottom: 1px solid var(--line-firm); white-space: nowrap;
+  }
+  td { padding: 0.38rem 0.7rem 0.38rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td.f { font-family: var(--mono); word-break: break-word; }
+  td.f .depth { color: var(--muted); }
+  td.p { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; text-align: right; width: 1%; }
+
+  .ty {
+    display: inline-block; font-family: var(--mono); font-size: 0.75rem;
+    background: var(--raised); color: var(--ink-soft);
+    border-radius: 4px; padding: 0.05rem 0.35rem; margin-right: 0.25rem;
+  }
+  .ty.warn { background: var(--rust-bg); color: var(--rust); font-weight: 600; }
+
+  tr.conflict td.f { color: var(--rust); font-weight: 500; }
+
+  .idx { font-family: var(--mono); font-size: 0.82rem; }
+  .idx li { margin-bottom: 0.3rem; }
+  .idx .u { color: var(--accent); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; margin-left: 0.4rem; }
+  ul { padding-left: 1.1rem; margin: 0; }
+
+  .empty-state { color: var(--muted); font-size: 0.9rem; margin: 1.2rem 0 0; }
+
+  mark { background: var(--accent-bg); color: var(--accent); border-radius: 3px; padding: 0 0.12em; }
+
+  .foot { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.8rem; }
+  .foot code { font-family: var(--mono); }
+
+  /* ---------- view tabs ---------- */
+  .tabs { display: flex; gap: 0.35rem; margin-bottom: 1.75rem; }
+  .tab {
+    font-family: var(--sans); font-size: 0.88rem; font-weight: 500; color: var(--muted);
+    background: transparent; border: 1px solid transparent; border-radius: 6px;
+    padding: 0.4rem 0.8rem; cursor: pointer;
+  }
+  .tab:hover { color: var(--ink); background: var(--raised); }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tab[aria-selected="true"] { color: var(--accent); background: var(--accent-bg); border-color: var(--accent-bg); }
+
+  /* ---------- figures ---------- */
+  figure { margin: 0 0 2.75rem; }
+  figure svg { display: block; width: 100%; max-width: 100%; height: auto; }
+  .fig-frame {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 9px;
+    padding: 1.25rem 1.35rem;
+    overflow-x: auto;
+  }
+  figcaption { color: var(--muted); font-size: 0.87rem; margin-top: 0.85rem; max-width: 62ch; }
+  figcaption b { color: var(--ink-soft); font-weight: 600; }
+  figcaption code { font-family: var(--mono); font-size: 0.88em; }
+
+  /* SVG parts take their colour from the page tokens, so both themes hold. */
+  svg .frame  { fill: none; stroke: var(--line-firm); stroke-width: 1; }
+  svg .panel  { fill: var(--raised); stroke: none; }
+  svg .node   { fill: var(--surface); stroke: var(--line-firm); stroke-width: 1; }
+  svg .engine { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+  svg .target { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+  svg .gone   { fill: none; stroke: var(--line-firm); stroke-width: 1; stroke-dasharray: 5 4; }
+  svg .flag   { fill: var(--rust-bg); stroke: var(--rust); stroke-width: 1; }
+
+  svg text { font-family: var(--sans); fill: var(--ink); }
+  svg .mono { font-family: var(--mono); }
+  svg .dim  { fill: var(--muted); }
+  svg .warn { fill: var(--rust); }
+  svg .good { fill: var(--accent); }
+  svg .eyebrow { font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; fill: var(--muted); }
+
+  svg .edge { stroke: var(--ink-soft); stroke-width: 1.5; fill: none; }
+  svg .edge-warn { stroke: var(--rust); stroke-width: 1.5; fill: none; }
+  svg .edge-good { stroke: var(--accent); stroke-width: 1.5; fill: none; }
+  svg .edge-thin { stroke: var(--muted); stroke-width: 1; fill: none; stroke-dasharray: 4 3; }
+  svg .div { stroke: var(--line); stroke-width: 1; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <h1>SOCO Collection Map</h1>
+      <p class="sub">Database <code id="dbname">soco</code> · read-only credential · <span id="gen"></span></p>
+    </div>
+    <div class="totals">
+      <div>
+        <div class="total-n" id="t-coll">–</div>
+        <div class="total-l">Collections</div>
+      </div>
+      <div>
+        <div class="total-n" id="t-data">–</div>
+        <div class="total-l">With data</div>
+      </div>
+      <div>
+        <div class="total-n" id="t-docs">–</div>
+        <div class="total-l">Documents</div>
+      </div>
+      <div>
+        <div class="total-n" id="t-fields">–</div>
+        <div class="total-l">Fields</div>
+      </div>
+    </div>
+  </header>
+
+  <hr class="rule">
+
+  <div class="tabs" role="tablist" aria-label="View">
+    <button class="tab" id="tab-map"  role="tab" aria-selected="true"  aria-controls="view-map">Collections</button>
+    <button class="tab" id="tab-flow" role="tab" aria-selected="false" aria-controls="view-flow">Where data goes</button>
+  </div>
+
+  <section id="view-map" role="tabpanel" aria-labelledby="tab-map">
+    <div class="searchbar">
+      <input id="q" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Search collections and field names…">
+    </div>
+    <p class="hint">Searching matches field names too — try <code>categories</code>, <code>interest</code>, or <code>user_id</code>.</p>
+
+    <div class="panes">
+      <nav class="rail" id="rail" aria-label="Collections"></nav>
+      <section class="detail" id="detail" aria-live="polite"></section>
+    </div>
+  </section>
+
+  <section id="view-flow" role="tabpanel" aria-labelledby="tab-flow" hidden>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 530" role="img"
+             aria-label="Today the engine reads one cluster and writes to a second; at launch both the application collections and the ml_ score store sit in the same database, with the write arrow turning back on itself.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+            </marker>
+          </defs>
+
+          <!-- ============ ROW 1 : today ============ -->
+          <text x="0" y="14" class="eyebrow">Today — while building</text>
+
+          <rect class="frame" x="0" y="28" width="252" height="164" rx="7"/>
+          <text x="14" y="48" class="mono" font-size="12.5" font-weight="600">SOCO cluster</text>
+          <text x="14" y="65" class="mono dim" font-size="11">cob9whd · db soco</text>
+          <line class="div" x1="14" y1="76" x2="238" y2="76"/>
+          <text x="14" y="95"  class="mono" font-size="11.5">postevents</text><text x="238" y="95"  class="mono dim" font-size="11" text-anchor="end">50</text>
+          <text x="14" y="115" class="mono" font-size="11.5">posts</text>     <text x="238" y="115" class="mono dim" font-size="11" text-anchor="end">8</text>
+          <text x="14" y="135" class="mono" font-size="11.5">users</text>     <text x="238" y="135" class="mono dim" font-size="11" text-anchor="end">13</text>
+          <text x="14" y="155" class="mono" font-size="11.5">orders</text>    <text x="238" y="155" class="mono dim" font-size="11" text-anchor="end">8</text>
+          <text x="14" y="176" class="mono dim" font-size="10.5">readonly_user · read-only</text>
+
+          <rect class="engine" x="312" y="82" width="136" height="56" rx="7"/>
+          <text x="380" y="106" text-anchor="middle" class="mono good" font-size="12.5" font-weight="600">reco</text>
+          <text x="380" y="124" text-anchor="middle" class="dim" font-size="11">the engine</text>
+
+          <line class="edge" x1="252" y1="110" x2="306" y2="110" marker-end="url(#ar)"/>
+          <text x="279" y="102" text-anchor="middle" class="dim" font-size="11">reads</text>
+
+          <line class="edge-warn" x1="448" y1="110" x2="502" y2="110" marker-end="url(#ar)"/>
+          <text x="475" y="102" text-anchor="middle" class="warn" font-size="11">writes</text>
+
+          <rect class="frame" x="508" y="28" width="252" height="164" rx="7"/>
+          <text x="522" y="48" class="mono" font-size="12.5" font-weight="600">Your cluster</text>
+          <text x="522" y="65" class="mono dim" font-size="11">4b7z1ko · db SoCo</text>
+          <line class="div" x1="522" y1="76" x2="746" y2="76"/>
+          <text x="522" y="95"  class="mono good" font-size="11">ml_user_interest_scores</text>
+          <text x="522" y="115" class="mono good" font-size="11">ml_user_interest_scores_demo</text>
+          <rect class="flag" x="522" y="130" width="224" height="46" rx="5"/>
+          <text x="534" y="147" class="warn" font-size="11" font-weight="600">Credential is unscoped</text>
+          <text x="534" y="163" class="mono warn" font-size="10">allen_db_user · atlasAdmin</text>
+
+          <line class="div" x1="0" y1="232" x2="760" y2="232"/>
+
+          <!-- ============ ROW 2 : at launch ============ -->
+          <text x="0" y="266" class="eyebrow">At launch — Q14 Option A</text>
+
+          <rect class="frame" x="0" y="280" width="252" height="212" rx="7"/>
+          <text x="14" y="300" class="mono" font-size="12.5" font-weight="600">SOCO cluster</text>
+          <text x="14" y="317" class="mono dim" font-size="11">cob9whd · db soco</text>
+          <line class="div" x1="14" y1="328" x2="238" y2="328"/>
+          <text x="14" y="347" class="mono" font-size="11.5">postevents</text>
+          <text x="14" y="367" class="mono" font-size="11.5">posts</text>
+          <text x="14" y="387" class="mono" font-size="11.5">users</text>
+          <text x="14" y="405" class="mono" font-size="11.5">orders</text>
+          <text x="132" y="405" class="mono dim" font-size="10.5">readonly_user</text>
+          <rect class="target" x="14" y="420" width="224" height="56" rx="5"/>
+          <text x="26" y="440" class="mono good" font-size="11" font-weight="600">ml_user_interest_scores</text>
+          <text x="26" y="458" class="good" font-size="10.5">same database · prefix convention</text>
+
+          <rect class="engine" x="312" y="330" width="136" height="56" rx="7"/>
+          <text x="380" y="354" text-anchor="middle" class="mono good" font-size="12.5" font-weight="600">reco</text>
+          <text x="380" y="372" text-anchor="middle" class="dim" font-size="11">the engine</text>
+
+          <line class="edge" x1="252" y1="352" x2="306" y2="352" marker-end="url(#ar)"/>
+          <text x="279" y="344" text-anchor="middle" class="dim" font-size="11">reads</text>
+
+          <path class="edge-good" d="M380,386 L380,448 L244,448" marker-end="url(#ar)"/>
+          <text x="392" y="412" class="good" font-size="11">writes</text>
+          <text x="392" y="428" class="mono good" font-size="10">mlWriter · ml_* only</text>
+
+          <rect class="gone" x="508" y="300" width="252" height="120" rx="7"/>
+          <text x="634" y="352" text-anchor="middle" class="dim" font-size="12">No second cluster</text>
+          <text x="634" y="372" text-anchor="middle" class="dim" font-size="10.5">one app connection, one database</text>
+        </svg>
+      </div>
+      <figcaption>
+        <b>The write arrow has to turn around before launch.</b> Today the engine reads
+        SOCO's cluster and writes scores to a separate one, which is fine for building but
+        is not the deployment shape. Q14 settled on a prefix convention <em>inside the
+        application's own database</em> — the app runs a single MongoDB connection and
+        there is no second database. Two things move: the <code>ml_</code> collections
+        cross into <code>soco</code>, and the write credential narrows from full admin to
+        <code>ml_*</code> only.
+      </figcaption>
+    </figure>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 400" role="img"
+             aria-label="Live events carry a post_id and need a join to resolve a category, while generated events carry categories on the row; both are adapted into one internal event shape before scoring.">
+          <defs>
+            <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+            </marker>
+          </defs>
+
+          <text x="0" y="14" class="eyebrow">DATA_PROFILE = live</text>
+
+          <rect class="node" x="0" y="28" width="168" height="62" rx="6"/>
+          <text x="14" y="50" class="mono" font-size="11.5">postevents</text>
+          <text x="14" y="68" class="dim" font-size="10.5">post_id, no categories</text>
+          <text x="14" y="83" class="dim" font-size="10.5">created_at</text>
+
+          <rect class="node" x="0" y="102" width="168" height="44" rx="6"/>
+          <text x="14" y="122" class="mono" font-size="11.5">posts</text>
+          <text x="14" y="138" class="dim" font-size="10.5">categories, title case</text>
+
+          <path class="edge" d="M84,90 L84,102" marker-end="url(#ar2)"/>
+          <text x="94" y="100" class="dim" font-size="10">join on post_id</text>
+
+          <rect class="node" x="0" y="158" width="168" height="26" rx="6"/>
+          <text x="14" y="176" class="mono" font-size="11.5">users · orders</text>
+
+          <rect class="node" x="228" y="60" width="150" height="52" rx="6"/>
+          <text x="303" y="82" text-anchor="middle" class="mono" font-size="11.5">postevent</text>
+          <text x="303" y="99" text-anchor="middle" class="dim" font-size="10.5">adapter</text>
+
+          <line class="edge" x1="168" y1="86" x2="222" y2="86" marker-end="url(#ar2)"/>
+
+          <line class="div" x1="0" y1="212" x2="760" y2="212"/>
+
+          <text x="0" y="242" class="eyebrow">DATA_PROFILE = demo</text>
+
+          <rect class="node" x="0" y="256" width="168" height="62" rx="6"/>
+          <text x="14" y="278" class="mono" font-size="11.5">ml_demo_events</text>
+          <text x="14" y="296" class="dim" font-size="10.5">categories on the row</text>
+          <text x="14" y="311" class="dim" font-size="10.5">timestamp</text>
+
+          <rect class="node" x="0" y="330" width="168" height="26" rx="6"/>
+          <text x="14" y="348" class="mono" font-size="11.5">ml_demo_users · _orders</text>
+
+          <rect class="node" x="228" y="262" width="150" height="52" rx="6"/>
+          <text x="303" y="284" text-anchor="middle" class="mono" font-size="11.5">flat</text>
+          <text x="303" y="301" text-anchor="middle" class="dim" font-size="10.5">adapter</text>
+
+          <line class="edge" x1="168" y1="288" x2="222" y2="288" marker-end="url(#ar2)"/>
+
+          <!-- converge -->
+          <path class="edge" d="M378,86 L432,86 L432,186" marker-end="url(#ar2)"/>
+          <path class="edge" d="M378,288 L432,288 L432,214" marker-end="url(#ar2)"/>
+
+          <rect class="engine" x="452" y="150" width="150" height="72" rx="7"/>
+          <text x="527" y="176" text-anchor="middle" class="mono good" font-size="12" font-weight="600">Event</text>
+          <text x="527" y="194" text-anchor="middle" class="dim" font-size="10.5">one internal shape</text>
+          <text x="527" y="210" text-anchor="middle" class="dim" font-size="10.5">no weight field</text>
+
+          <line class="edge" x1="602" y1="186" x2="656" y2="186" marker-end="url(#ar2)"/>
+          <text x="629" y="176" text-anchor="middle" class="dim" font-size="10">scored</text>
+
+          <rect class="target" x="662" y="150" width="98" height="72" rx="7"/>
+          <text x="711" y="180" text-anchor="middle" class="mono good" font-size="11" font-weight="600">ml_user_</text>
+          <text x="711" y="196" text-anchor="middle" class="mono good" font-size="11" font-weight="600">interest_</text>
+          <text x="711" y="212" text-anchor="middle" class="mono good" font-size="11" font-weight="600">scores</text>
+
+          <rect class="node" x="452" y="278" width="150" height="52" rx="6"/>
+          <text x="527" y="300" text-anchor="middle" class="mono" font-size="11.5">P-06 weights</text>
+          <text x="527" y="317" text-anchor="middle" class="dim" font-size="10.5">from config, not the row</text>
+          <path class="edge-thin" d="M527,278 L527,224" marker-end="url(#ar2)"/>
+        </svg>
+      </div>
+      <figcaption>
+        <b>Swapping a collection name would not have been enough.</b> A live event carries a
+        <code>post_id</code> and no category at all, so the category costs a join through
+        <code>posts</code>; a generated event carries its <code>categories</code> array on
+        the row. Those are structurally different reads, so each source gets its own
+        adapter and both produce the same internal <code>Event</code> — which is why the
+        scoring methods never learn which profile they are running under. The weight comes
+        from P-06 in configuration, never from the <code>weight</code> written on the row.
+      </figcaption>
+    </figure>
+
+  </section>
+
+  <p class="foot">
+    Generated by <code>scripts/introspect_db.py</code> from a sample of up to
+    <span id="samp">40</span> documents per collection. Field names and BSON types only —
+    no document values are recorded.
+  </p>
+</div>
+
+<script>
+const DATA = {"database":"soco","generated_at":"2026-09-10T18:47:41+05:30","collection_count":73,"sample_size":40,"collections":[{"name":"appsessions","count":2,"sampled":2,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"created_at","types":["date"],"presence":1.0},{"name":"device_id","types":["string"],"presence":1.0},{"name":"device_info","types":["object"],"presence":1.0},{"name":"device_info.app_version","types":["string"],"presence":1.0},{"name":"device_info.brand","types":["string"],"presence":1.0},{"name":"device_info.is_physical_device","types":["bool"],"presence":1.0},{"name":"device_info.model","types":["string"],"presence":1.0},{"name":"device_info.os_version","types":["string"],"presence":1.0},{"name":"device_info.platform","types":["string"],"presence":1.0},{"name":"device_info.sdk_int","types":["int"],"presence":1.0},{"name":"duration_seconds","types":["int"],"presence":1.0},{"name":"email","types":["string"],"presence":1.0},{"name":"end_time","types":["null"],"presence":1.0},{"name":"screen_visits","types":["array"],"presence":1.0},{"name":"session_id","types":["string"],"presence":1.0},{"name":"start_time","types":["date"],"presence":1.0},{"name":"status","types":["string"],"presence":1.0},{"name":"user_id","types":["string"],"presence":1.0},{"name":"user_name","types":["string"],"presence":1.0},{"name":"user_role","types":["string"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"session_id_1","key":[["session_id",1]],"unique":true},{"name":"created_at_-1","key":[["created_at",-1]],"unique":false},{"name":"user_id_1_created_at_-1","key":[["user_id",1],["created_at",-1]],"unique":false},{"name":"device_id_1","key":[["device_id",1]],"unique":false},{"name":"status_1","key":[["status",1]],"unique":false}]},{"name":"arapsnapshots","count":1,"sampled":1,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"lastUpdated","types":["date"],"presence":1.0},{"name":"overduePayable","types":["int"],"presence":1.0},{"name":"overdueReceivable","types":["int"],"presence":1.0},{"name":"pendingBillsCount","types":["int"],"presence":1.0},{"name":"pendingInvoices","types":["int"],"presence":1.0},{"name":"sellerId","types":["ObjectId"],"presence":1.0},{"name":"totalPayable","types":["int"],"presence":1.0},{"name":"totalReceivable","types":["int"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":true}]},{"name":"bookmarks","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"user_id_1_post_id_1","key":[["user_id",1],["post_id",1]],"unique":true}]},{"name":"bottemplates","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"sellerId_1_isActive_1","key":[["sellerId",1],["isActive",1]],"unique":false}]},{"name":"bulkupdatetemplates","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"businessId_1","key":[["businessId",1]],"unique":false},{"name":"businessId_1_status_1","key":[["businessId",1],["status",1]],"unique":false},{"name":"scheduledEndAt_1_autoReset_1","key":[["scheduledEndAt",1],["autoReset",1]],"unique":false}]},{"name":"businessregisters","count":20,"sampled":20,"fields":[{"name":"Brand_Name","types":["string"],"presence":1.0},{"name":"GST_NO","types":["string"],"presence":0.1},{"name":"Name","types":["string"],"presence":0.9},{"name":"PAN_NO","types":["string"],"presence":0.1},{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"aadharNo","types":["string"],"presence":0.1},{"name":"aadhar_img","types":["string"],"presence":0.1},{"name":"accessAccountsIds","types":["array"],"presence":1.0},{"name":"accountIsPublic","types":["bool"],"presence":1.0},{"name":"bank_passbook","types":["string"],"presence":0.1},{"name":"brand_logo","types":["string"],"presence":1.0},{"name":"businessAddress","types":["string"],"presence":1.0},{"name":"businessAgree","types":["bool"],"presence":1.0},{"name":"businessCity","types":["string"],"presence":1.0},{"name":"businessEmail","types":["string"],"presence":1.0},{"name":"businessName","types":["string"],"presence":1.0},{"name":"businessPhone","types":["double"],"presence":1.0},{"name":"businessPinCode","types":["int"],"presence":1.0},{"name":"businessRating","types":["double","int"],"presence":0.95},{"name":"businessRatingCount","types":["int"],"presence":0.95},{"name":"businessRatingDistribution","types":["object"],"presence":0.95},{"name":"businessRatingDistribution.1","types":["int"],"presence":0.95},{"name":"businessRatingDistribution.2","types":["int"],"presence":0.95},{"name":"businessRatingDistribution.3","types":["int"],"presence":0.95},{"name":"businessRatingDistribution.4","types":["int"],"presence":0.95},{"name":"businessRatingDistribution.5","types":["int"],"presence":0.95},{"name":"businessState","types":["string"],"presence":1.0},{"name":"businessType","types":["string"],"presence":1.0},{"name":"category","types":["string"],"presence":1.0},{"name":"closeTime","types":["string"],"presence":0.9},{"name":"cover_img","types":["string"],"presence":1.0},{"name":"currentChatRoom","types":["null"],"presence":0.1},{"name":"description","types":["string"],"presence":1.0},{"name":"followerCount","types":["int"],"presence":1.0},{"name":"followingCount","types":["int"],"presence":1.0},{"name":"friendCount","types":["int"],"presence":1.0},{"name":"friendPermission","types":["bool"],"presence":1.0},{"name":"govIdType","types":["string"],"presence":0.95},{"name":"gst_certificate","types":["string"],"presence":0.1},{"name":"is247","types":["bool"],"presence":1.0},{"name":"isThereAnyNotification","types":["bool"],"presence":1.0},{"name":"isTyping","types":["bool"],"presence":1.0},{"name":"isVerified","types":["bool"],"presence":0.9},{"name":"lastOnline","types":["date"],"presence":1.0},{"name":"lat","types":["string"],"presence":1.0},{"name":"launchedIn","types":["date"],"presence":1.0},{"name":"lng","types":["string"],"presence":1.0},{"name":"natureOfBusiness","types":["string"],"presence":0.1},{"name":"needPermissionForFollowing","types":["bool"],"presence":1.0},{"name":"oneSignalIDs","types":["array","array<string>"],"presence":1.0},{"name":"onlineStatus","types":["bool"],"presence":1.0},{"name":"openTime","types":["string"],"presence":0.9},{"name":"org_name","types":["string"],"presence":0.1},{"name":"ownerName","types":["string"],"presence":1.0},{"name":"pan_img","types":["string"],"presence":0.1},{"name":"postCount","types":["int"],"presence":1.0},{"name":"shopImages","types":["array","array<string>"],"presence":1.0},{"name":"shopVideoUrl","types":["string"],"presence":0.1},{"name":"socialMediaLinks","types":["array"],"presence":1.0},{"name":"status","types":["string"],"presence":1.0},{"name":"sub_category","types":["string"],"presence":0.1},{"name":"subscriptionIDs","types":["array","array<string>"],"presence":1.0},{"name":"tagLine","types":["string"],"presence":0.95},{"name":"tags","types":["array<string>","array"],"presence":0.95},{"name":"timestamp","types":["date"],"presence":1.0},{"name":"type_of_service","types":["string"],"presence":1.0},{"name":"unreadMessagesCount","types":["int"],"presence":1.0},{"name":"user_id","types":["string"],"presence":1.0},{"name":"viewCount","types":["int"],"presence":1.0},{"name":"website","types":["string"],"presence":0.05}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"businessreviews","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"businessId_1","key":[["businessId",1]],"unique":false},{"name":"businessId_1_userId_1","key":[["businessId",1],["userId",1]],"unique":true},{"name":"businessId_1_createdAt_-1","key":[["businessId",1],["createdAt",-1]],"unique":false},{"name":"businessId_1_rating_1","key":[["businessId",1],["rating",1]],"unique":false}]},{"name":"carts","count":2,"sampled":2,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"colors","types":["string"],"presence":1.0},{"name":"discount","types":["int"],"presence":1.0},{"name":"gst","types":["int"],"presence":1.0},{"name":"images","types":["array<string>"],"presence":1.0},{"name":"maxPurchaseLimit","types":["int"],"presence":0.5},{"name":"originalPrice","types":["int"],"presence":1.0},{"name":"post_id","types":["ObjectId"],"presence":1.0},{"name":"price","types":["int"],"presence":1.0},{"name":"productName","types":["string"],"presence":1.0},{"name":"product_id","types":["ObjectId"],"presence":1.0},{"name":"quantity","types":["int"],"presence":1.0},{"name":"size","types":["string"],"presence":1.0},{"name":"stockQuantity","types":["int"],"presence":0.5},{"name":"timestamp","types":["date"],"presence":1.0},{"name":"unit","types":["string"],"presence":1.0},{"name":"userModel","types":["string"],"presence":0.5},{"name":"user_id","types":["ObjectId"],"presence":1.0},{"name":"variant_id","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"categories","count":8,"sampled":8,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"attributes","types":["array"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"createdBy","types":["ObjectId"],"presence":1.0},{"name":"displayOrder","types":["int"],"presence":1.0},{"name":"isActive","types":["bool"],"presence":1.0},{"name":"isFeatured","types":["bool"],"presence":1.0},{"name":"level","types":["int"],"presence":1.0},{"name":"name","types":["string"],"presence":1.0},{"name":"parent","types":["ObjectId"],"presence":1.0},{"name":"path","types":["array<string>"],"presence":1.0},{"name":"productCount","types":["int"],"presence":1.0},{"name":"seoKeywords","types":["array"],"presence":1.0},{"name":"slug","types":["string"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0},{"name":"viewCount","types":["int"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"name_1_parent_1","key":[["name",1],["parent",1]],"unique":false},{"name":"slug_1","key":[["slug",1]],"unique":false},{"name":"level_1_isActive_1","key":[["level",1],["isActive",1]],"unique":false},{"name":"createdBy_1","key":[["createdBy",1]],"unique":false},{"name":"path_1","key":[["path",1]],"unique":false},{"name":"slug_1_parent_1_createdBy_1","key":[["slug",1],["parent",1],["createdBy",1]],"unique":true}]},{"name":"chatmembers","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"userId_1","key":[["userId",1]],"unique":false}]},{"name":"chatmessages","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"checkouts","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"comments","count":3,"sampled":3,"fields":[{"name":"__v","types":["int"],"presence":1.0},{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"commentId","types":["string"],"presence":1.0},{"name":"content","types":["string"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"hasMoreReplies","types":["bool"],"presence":1.0},{"name":"likes","types":["array"],"presence":1.0},{"name":"likesCount","types":["int"],"presence":1.0},{"name":"mentions","types":["array"],"presence":1.0},{"name":"parentCommentId","types":["null"],"presence":1.0},{"name":"postId","types":["string"],"presence":1.0},{"name":"replyCount","types":["int"],"presence":1.0},{"name":"userId","types":["string"],"presence":1.0},{"name":"userInfo","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"commentId_1","key":[["commentId",1]],"unique":true}]},{"name":"dailyrevenues","count":4,"sampled":4,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"avgOrderValue","types":["int"],"presence":1.0},{"name":"cancelled","types":["int"],"presence":1.0},{"name":"confirmed","types":["int"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"date","types":["string"],"presence":1.0},{"name":"delivered","types":["int"],"presence":1.0},{"name":"newBuyers","types":["int"],"presence":1.0},{"name":"orders","types":["int"],"presence":1.0},{"name":"rejected","types":["int"],"presence":1.0},{"name":"repeatBuyers","types":["int"],"presence":1.0},{"name":"revenue","types":["int"],"presence":1.0},{"name":"sellerId","types":["ObjectId"],"presence":1.0},{"name":"shipped","types":["int"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"date_1","key":[["date",1]],"unique":false},{"name":"sellerId_1_date_1","key":[["sellerId",1],["date",1]],"unique":true}]},{"name":"deliveryaddresses","count":2,"sampled":2,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"addressType","types":["string"],"presence":1.0},{"name":"apartment","types":["null"],"presence":1.0},{"name":"city","types":["string"],"presence":1.0},{"name":"country","types":["string"],"presence":1.0},{"name":"created_at","types":["date"],"presence":1.0},{"name":"deliveryInstructions","types":["null"],"presence":1.0},{"name":"email","types":["string"],"presence":1.0},{"name":"fullName","types":["string"],"presence":1.0},{"name":"isDefault","types":["bool"],"presence":1.0},{"name":"isVerified","types":["bool"],"presence":1.0},{"name":"landmark","types":["null"],"presence":1.0},{"name":"lat","types":["int"],"presence":1.0},{"name":"lng","types":["int"],"presence":1.0},{"name":"phoneNumber","types":["string"],"presence":1.0},{"name":"postalCode","types":["string"],"presence":1.0},{"name":"state","types":["string"],"presence":1.0},{"name":"status","types":["string"],"presence":1.0},{"name":"streetAddress","types":["string"],"presence":1.0},{"name":"updated_at","types":["date"],"presence":1.0},{"name":"user_id","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"enquiries","count":2,"sampled":2,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"assignedTo","types":["null"],"presence":1.0},{"name":"assignedToModel","types":["string"],"presence":1.0},{"name":"buyerUnreadCount","types":["int"],"presence":1.0},{"name":"buyerViewedAt","types":["date"],"presence":1.0},{"name":"closeConfirmedByBuyer","types":["bool"],"presence":1.0},{"name":"closeRequestedBy","types":["null"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"customer","types":["object"],"presence":1.0},{"name":"customer.contactDetails","types":["object"],"presence":1.0},{"name":"customer.contactDetails.phone","types":["string"],"presence":1.0},{"name":"customer.customerId","types":["ObjectId"],"presence":1.0},{"name":"customer.customerModel","types":["string"],"presence":1.0},{"name":"customer.email","types":["string"],"presence":1.0},{"name":"customer.imageUrl","types":["string"],"presence":1.0},{"name":"customer.name","types":["string"],"presence":1.0},{"name":"customer.phone","types":["string"],"presence":1.0},{"name":"customer.preferredContact","types":["string"],"presence":1.0},{"name":"enquiry","types":["object"],"presence":1.0},{"name":"enquiry.attachments","types":["array"],"presence":1.0},{"name":"enquiry.message","types":["string"],"presence":1.0},{"name":"enquiry.type","types":["string"],"presence":1.0},{"name":"enquiryId","types":["string"],"presence":1.0},{"name":"followUps","types":["array"],"presence":1.0},{"name":"isNewForBuyer","types":["bool"],"presence":1.0},{"name":"isNewForSeller","types":["bool"],"presence":1.0},{"name":"meta","types":["object"],"presence":1.0},{"name":"meta.ipAddress","types":["string"],"presence":1.0},{"name":"meta.source","types":["string"],"presence":1.0},{"name":"meta.userAgent","types":["string"],"presence":1.0},{"name":"orderProposal","types":["object"],"presence":1.0},{"name":"orderProposal.status","types":["string"],"presence":1.0},{"name":"orderProposal.variantSnapshot","types":["object"],"presence":1.0},{"name":"orderProposal.variantSnapshot.images","types":["array"],"presence":1.0},{"name":"priority","types":["string"],"presence":1.0},{"name":"product","types":["object"],"presence":1.0},{"name":"product.imageUrl","types":["string"],"presence":1.0},{"name":"product.price","types":["string"],"presence":1.0},{"name":"product.productId","types":["ObjectId"],"presence":1.0},{"name":"product.productName","types":["string"],"presence":1.0},{"name":"product.quantity","types":["int"],"presence":1.0},{"name":"product.variant","types":["string"],"presence":1.0},{"name":"sellerId","types":["ObjectId"],"presence":1.0},{"name":"sellerUnreadCount","types":["int"],"presence":1.0},{"name":"sellerViewedAt","types":["date"],"presence":1.0},{"name":"status","types":["string"],"presence":1.0},{"name":"statusHistory","types":["array<object>"],"presence":1.0},{"name":"statusHistory[]._id","types":["ObjectId"],"presence":1.0},{"name":"statusHistory[].changedAt","types":["date"],"presence":1.0},{"name":"statusHistory[].changedBy","types":["ObjectId"],"presence":1.0},{"name":"statusHistory[].changedByModel","types":["string"],"presence":1.0},{"name":"statusHistory[].note","types":["string"],"presence":1.0},{"name":"statusHistory[].status","types":["string"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0},{"name":"userId","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"enquiryId_1","key":[["enquiryId",1]],"unique":true},{"name":"userId_1_createdAt_-1","key":[["userId",1],["createdAt",-1]],"unique":false},{"name":"sellerId_1_createdAt_-1","key":[["sellerId",1],["createdAt",-1]],"unique":false},{"name":"sellerId_1_isNewForSeller_1","key":[["sellerId",1],["isNewForSeller",1]],"unique":false},{"name":"status_1_createdAt_-1","key":[["status",1],["createdAt",-1]],"unique":false},{"name":"customer.customerId_1","key":[["customer.customerId",1]],"unique":false}]},{"name":"enquirydashboards","count":1,"sampled":1,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"byPriority","types":["object"],"presence":1.0},{"name":"byPriority.high","types":["int"],"presence":1.0},{"name":"byPriority.low","types":["int"],"presence":1.0},{"name":"byPriority.normal","types":["int"],"presence":1.0},{"name":"byPriority.urgent","types":["int"],"presence":1.0},{"name":"byType","types":["object"],"presence":1.0},{"name":"byType.availability","types":["int"],"presence":1.0},{"name":"byType.customization","types":["int"],"presence":1.0},{"name":"byType.delivery","types":["int"],"presence":1.0},{"name":"byType.feature","types":["int"],"presence":1.0},{"name":"byType.general","types":["int"],"presence":1.0},{"name":"byType.pricing","types":["int"],"presence":1.0},{"name":"byType.technical","types":["int"],"presence":1.0},{"name":"byType.warranty","types":["int"],"presence":1.0},{"name":"cancelled","types":["int"],"presence":1.0},{"name":"closed","types":["int"],"presence":1.0},{"name":"daily","types":["array<object>"],"presence":1.0},{"name":"daily[].closed","types":["int"],"presence":1.0},{"name":"daily[].created","types":["int"],"presence":1.0},{"name":"daily[].date","types":["date"],"presence":1.0},{"name":"daily[].resolved","types":["int"],"presence":1.0},{"name":"daily[].respondedCount","types":["int"],"presence":1.0},{"name":"daily[].totalResponseMs","types":["int"],"presence":1.0},{"name":"inProgress","types":["int"],"presence":1.0},{"name":"lastEnquiryAt","types":["date"],"presence":1.0},{"name":"lastUpdatedAt","types":["date"],"presence":1.0},{"name":"newEnquiries","types":["int"],"presence":1.0},{"name":"pending","types":["int"],"presence":1.0},{"name":"proposals","types":["object"],"presence":1.0},{"name":"proposals.accepted","types":["int"],"presence":1.0},{"name":"proposals.expired","types":["int"],"presence":1.0},{"name":"proposals.rejected","types":["int"],"presence":1.0},{"name":"proposals.total","types":["int"],"presence":1.0},{"name":"proposals.totalRevenue","types":["int"],"presence":1.0},{"name":"resolved","types":["int"],"presence":1.0},{"name":"responseTime","types":["object"],"presence":1.0},{"name":"responseTime.count","types":["int"],"presence":1.0},{"name":"responseTime.totalMs","types":["int"],"presence":1.0},{"name":"sellerId","types":["ObjectId"],"presence":1.0},{"name":"total","types":["int"],"presence":1.0},{"name":"unreadReplies","types":["int"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":true},{"name":"total_-1","key":[["total",-1]],"unique":false},{"name":"newEnquiries_-1","key":[["newEnquiries",-1]],"unique":false}]},{"name":"expenses","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"sellerId_1_expenseDate_-1","key":[["sellerId",1],["expenseDate",-1]],"unique":false}]},{"name":"favorites","count":14,"sampled":14,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"isBusinessAccount","types":["bool"],"presence":1.0},{"name":"isProduct","types":["bool"],"presence":1.0},{"name":"post_id","types":["ObjectId"],"presence":1.0},{"name":"timestamp","types":["date"],"presence":1.0},{"name":"user_id","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"folders","count":9,"sampled":9,"fields":[{"name":"__v","types":["int"],"presence":1.0},{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"description","types":["string"],"presence":1.0},{"name":"folderId","types":["string"],"presence":1.0},{"name":"isDefault","types":["bool"],"presence":1.0},{"name":"isPublic","types":["bool"],"presence":1.0},{"name":"name","types":["string"],"presence":1.0},{"name":"posts","types":["array","array<ObjectId>"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0},{"name":"userId","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"folderId_1","key":[["folderId",1]],"unique":true},{"name":"userId_1","key":[["userId",1]],"unique":false},{"name":"userId_1_name_1","key":[["userId",1],["name",1]],"unique":true}]},{"name":"followers","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"follows","count":93,"sampled":40,"fields":[{"name":"__v","types":["int"],"presence":1.0},{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"followingId","types":["string"],"presence":1.0},{"name":"followingReference","types":["string"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0},{"name":"userId","types":["string"],"presence":1.0},{"name":"userReference","types":["string"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"userId_1","key":[["userId",1]],"unique":false},{"name":"followingId_1","key":[["followingId",1]],"unique":false},{"name":"userId_1_followingId_1","key":[["userId",1],["followingId",1]],"unique":true}]},{"name":"friends","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"userId_1","key":[["userId",1]],"unique":false}]},{"name":"influencerearnings","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"influencer_id_1_created_at_-1","key":[["influencer_id",1],["created_at",-1]],"unique":false},{"name":"influencer_id_1_status_1","key":[["influencer_id",1],["status",1]],"unique":false},{"name":"order_id_1","key":[["order_id",1]],"unique":true}]},{"name":"invoicecounters","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":true}]},{"name":"invoices","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"invoiceNumber_1","key":[["invoiceNumber",1]],"unique":true},{"name":"orderId_1","key":[["orderId",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"sellerId_1_invoiceDate_-1","key":[["sellerId",1],["invoiceDate",-1]],"unique":false}]},{"name":"ledgerentries","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"sellerId_1_accountType_1_entryDate_-1","key":[["sellerId",1],["accountType",1],["entryDate",-1]],"unique":false}]},{"name":"linkaccounts","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"locations","count":3,"sampled":3,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"address","types":["object"],"presence":1.0},{"name":"address.Pincode","types":["int"],"presence":1.0},{"name":"address.city","types":["string"],"presence":1.0},{"name":"address.country","types":["string"],"presence":1.0},{"name":"address.district","types":["string"],"presence":1.0},{"name":"address.lat","types":["double"],"presence":1.0},{"name":"address.lng","types":["double"],"presence":1.0},{"name":"address.state","types":["string"],"presence":1.0},{"name":"address.street","types":["string"],"presence":1.0},{"name":"timestamp","types":["date"],"presence":1.0},{"name":"user_id","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"mentions","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"messages","count":1,"sampled":1,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"messages","types":["array<object>"],"presence":1.0},{"name":"messages[]._id","types":["ObjectId"],"presence":1.0},{"name":"messages[].fileName","types":["null"],"presence":1.0},{"name":"messages[].fileSize","types":["null"],"presence":1.0},{"name":"messages[].message","types":["string"],"presence":1.0},{"name":"messages[].msgType","types":["string"],"presence":1.0},{"name":"messages[].post_id","types":["null"],"presence":1.0},{"name":"messages[].post_url","types":["null"],"presence":1.0},{"name":"messages[].replyToContent","types":["null"],"presence":1.0},{"name":"messages[].replyToId","types":["null"],"presence":1.0},{"name":"messages[].replyToSenderName","types":["null"],"presence":1.0},{"name":"messages[].sender","types":["string"],"presence":1.0},{"name":"messages[].status","types":["string"],"presence":1.0},{"name":"messages[].timestamp","types":["date"],"presence":1.0},{"name":"participants","types":["array<string>"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"mobileotps","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"normalizedMobile_1","key":[["normalizedMobile",1]],"unique":true},{"name":"expiresAt_1","key":[["expiresAt",1]],"unique":false}]},{"name":"notifications","count":6,"sampled":6,"fields":[{"name":"__v","types":["int"],"presence":1.0},{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"actions","types":["array"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"imageUrl","types":["string"],"presence":1.0},{"name":"isBusinessTypeAccount","types":["bool"],"presence":1.0},{"name":"isPerformAction","types":["bool"],"presence":1.0},{"name":"isPerformed","types":["bool"],"presence":1.0},{"name":"isRead","types":["bool"],"presence":1.0},{"name":"linkingId","types":["string"],"presence":1.0},{"name":"message","types":["string"],"presence":1.0},{"name":"notificationType","types":["string"],"presence":1.0},{"name":"operationId","types":["string"],"presence":1.0},{"name":"title","types":["string"],"presence":1.0},{"name":"userId","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"orderchatmessages","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"chatRoomId_1","key":[["chatRoomId",1]],"unique":false},{"name":"chatRoomId_1_createdAt_-1","key":[["chatRoomId",1],["createdAt",-1]],"unique":false},{"name":"chatRoomId_1_readBy.userId_1","key":[["chatRoomId",1],["readBy.userId",1]],"unique":false}]},{"name":"orderchatrooms","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"orderId_1","key":[["orderId",1]],"unique":false},{"name":"buyerId_1","key":[["buyerId",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"buyerId_1_isArchived_1_updatedAt_-1","key":[["buyerId",1],["isArchived",1],["updatedAt",-1]],"unique":false},{"name":"sellerId_1_isArchived_1_updatedAt_-1","key":[["sellerId",1],["isArchived",1],["updatedAt",-1]],"unique":false}]},{"name":"orders","count":8,"sampled":8,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"base_price","types":["int"],"presence":1.0},{"name":"buyer_approval_status","types":["string"],"presence":1.0},{"name":"checkout_id","types":["string"],"presence":0.375},{"name":"created_at","types":["date"],"presence":1.0},{"name":"deliveryTimeUnit","types":["string"],"presence":1.0},{"name":"delivery_address_id","types":["ObjectId"],"presence":1.0},{"name":"delivery_charge","types":["int"],"presence":1.0},{"name":"delivery_partner","types":["object"],"presence":1.0},{"name":"delivery_partner.tracking_number","types":["string"],"presence":1.0},{"name":"delivery_type","types":["string"],"presence":1.0},{"name":"enquiryId","types":["null"],"presence":1.0},{"name":"enquiryObjectId","types":["null"],"presence":1.0},{"name":"isIncognitoMode","types":["bool"],"presence":1.0},{"name":"is_Delivered","types":["bool"],"presence":1.0},{"name":"is_Payment","types":["bool"],"presence":1.0},{"name":"is_Shipped","types":["bool"],"presence":1.0},{"name":"is_fragile","types":["bool"],"presence":1.0},{"name":"needs_signature","types":["bool"],"presence":1.0},{"name":"orderSource","types":["string"],"presence":1.0},{"name":"order_index","types":["int"],"presence":0.375},{"name":"order_status","types":["string"],"presence":1.0},{"name":"payment_status","types":["string"],"presence":1.0},{"name":"post_id","types":["ObjectId"],"presence":0.375},{"name":"product_id","types":["ObjectId"],"presence":1.0},{"name":"promoCode","types":["null"],"presence":1.0},{"name":"quantity","types":["int"],"presence":1.0},{"name":"return_type","types":["string"],"presence":1.0},{"name":"seller_delivery_status","types":["string"],"presence":1.0},{"name":"seller_id","types":["ObjectId"],"presence":1.0},{"name":"seller_review_status","types":["string"],"presence":1.0},{"name":"timestamp","types":["date"],"presence":1.0},{"name":"total_price","types":["int"],"presence":1.0},{"name":"tracking_info","types":["array<object>"],"presence":1.0},{"name":"tracking_info[]._id","types":["ObjectId"],"presence":1.0},{"name":"tracking_info[].status","types":["string"],"presence":1.0},{"name":"tracking_info[].timestamp","types":["date"],"presence":1.0},{"name":"tracking_url","types":["null"],"presence":1.0},{"name":"userModel","types":["string"],"presence":0.375},{"name":"user_id","types":["ObjectId"],"presence":1.0},{"name":"variantSnapshot","types":["object"],"presence":1.0},{"name":"variantSnapshot.color","types":["string"],"presence":1.0},{"name":"variantSnapshot.colorCode","types":["string"],"presence":1.0},{"name":"variantSnapshot.gstPercentage","types":["int"],"presence":1.0},{"name":"variantSnapshot.images","types":["array<string>"],"presence":1.0},{"name":"variantSnapshot.originalPrice","types":["int"],"presence":1.0},{"name":"variantSnapshot.salePrice","types":["int"],"presence":1.0},{"name":"variantSnapshot.size","types":["string"],"presence":1.0},{"name":"variantSnapshot.sku","types":["string"],"presence":1.0},{"name":"variantSnapshot.variant","types":["string"],"presence":1.0},{"name":"variantSnapshot.variantId","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"enquiryId_1","key":[["enquiryId",1]],"unique":false},{"name":"enquiryObjectId_1","key":[["enquiryObjectId",1]],"unique":false},{"name":"orderSource_1_seller_id_1","key":[["orderSource",1],["seller_id",1]],"unique":false},{"name":"promoCode.promoId_1","key":[["promoCode.promoId",1]],"unique":false},{"name":"seller_id_1_timestamp_-1","key":[["seller_id",1],["timestamp",-1]],"unique":false},{"name":"user_id_1_timestamp_-1","key":[["user_id",1],["timestamp",-1]],"unique":false},{"name":"post_id_1","key":[["post_id",1]],"unique":false},{"name":"checkout_id_1","key":[["checkout_id",1]],"unique":false},{"name":"request_id_1","key":[["request_id",1]],"unique":false},{"name":"promoter_id_1","key":[["promoter_id",1]],"unique":false},{"name":"reason_code_1","key":[["reason_code",1]],"unique":false}]},{"name":"otps","count":3,"sampled":3,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"email","types":["string"],"presence":1.0},{"name":"expiresAt","types":["date"],"presence":1.0},{"name":"reg_otp","types":["string"],"presence":1.0},{"name":"timestamp","types":["date"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"payments","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"sellerId_1_paymentDate_-1","key":[["sellerId",1],["paymentDate",-1]],"unique":false}]},{"name":"postcategories","count":2,"sampled":2,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"isCustom","types":["bool"],"presence":1.0},{"name":"name","types":["string"],"presence":1.0},{"name":"postCount","types":["int"],"presence":1.0},{"name":"slug","types":["string"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"slug_1","key":[["slug",1]],"unique":true},{"name":"postCount_-1","key":[["postCount",-1]],"unique":false},{"name":"isCustom_1_postCount_-1","key":[["isCustom",1],["postCount",-1]],"unique":false}]},{"name":"postevents","count":50,"sampled":40,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"created_at","types":["date"],"presence":1.0},{"name":"event_type","types":["string"],"presence":1.0},{"name":"influencer_id","types":["ObjectId"],"presence":1.0},{"name":"order_id","types":["ObjectId"],"presence":1.0},{"name":"post_id","types":["ObjectId"],"presence":1.0},{"name":"product_id","types":["ObjectId"],"presence":1.0},{"name":"referral_code","types":["null"],"presence":1.0},{"name":"session_id","types":["string"],"presence":1.0},{"name":"user_id","types":["ObjectId"],"presence":1.0},{"name":"view_duration_seconds","types":["int"],"presence":1.0},{"name":"viewer_city","types":["string"],"presence":1.0},{"name":"viewer_district","types":["string"],"presence":1.0},{"name":"viewer_gender","types":["string"],"presence":1.0},{"name":"viewer_is_business","types":["bool"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"influencer_id_1_created_at_-1","key":[["influencer_id",1],["created_at",-1]],"unique":false},{"name":"influencer_id_1_event_type_1_created_at_-1","key":[["influencer_id",1],["event_type",1],["created_at",-1]],"unique":false},{"name":"post_id_1_event_type_1","key":[["post_id",1],["event_type",1]],"unique":false},{"name":"post_id_1_event_type_1_viewer_city_1","key":[["post_id",1],["event_type",1],["viewer_city",1]],"unique":false},{"name":"product_id_1_event_type_1","key":[["product_id",1],["event_type",1]],"unique":false},{"name":"session_id_1","key":[["session_id",1]],"unique":false}]},{"name":"postreports","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"postId_1_reportedBy_1","key":[["postId",1],["reportedBy",1]],"unique":true}]},{"name":"posts","count":8,"sampled":8,"fields":[{"name":"Product_status","types":["string"],"presence":1.0},{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"addToCartCount","types":["int"],"presence":1.0},{"name":"ageGroup","types":["string"],"presence":1.0},{"name":"allowSharing","types":["bool"],"presence":0.875},{"name":"aspectRatio","types":["null"],"presence":1.0},{"name":"brand","types":["string"],"presence":0.625},{"name":"caption","types":["string"],"presence":1.0},{"name":"categories","types":["array<string>"],"presence":1.0},{"name":"city","types":["string"],"presence":1.0},{"name":"commentsCount","types":["int"],"presence":1.0},{"name":"completeAddress","types":["string"],"presence":1.0},{"name":"conversionScore","types":["int"],"presence":1.0},{"name":"createdAtIST","types":["string"],"presence":1.0},{"name":"description","types":["string"],"presence":1.0},{"name":"discoveryTags","types":["array<string>"],"presence":0.625},{"name":"district","types":["string"],"presence":1.0},{"name":"enableComments","types":["bool"],"presence":1.0},{"name":"enableFavorites","types":["bool"],"presence":1.0},{"name":"engagementScore","types":["int"],"presence":1.0},{"name":"experienceTags","types":["array"],"presence":1.0},{"name":"feedScore","types":["int"],"presence":1.0},{"name":"hasImage","types":["bool"],"presence":1.0},{"name":"hasVideo","types":["bool"],"presence":1.0},{"name":"hashtags","types":["array","array<string>"],"presence":1.0},{"name":"hideLikeCount","types":["bool"],"presence":0.875},{"name":"isBusinessAccount","types":["bool"],"presence":1.0},{"name":"isBusinessPost","types":["bool"],"presence":0.875},{"name":"isHidden","types":["bool"],"presence":1.0},{"name":"isInfluencerPost","types":["bool"],"presence":1.0},{"name":"isMixedMedia","types":["bool"],"presence":1.0},{"name":"isOwnPost","types":["bool"],"presence":1.0},{"name":"isProductPost","types":["bool"],"presence":1.0},{"name":"isRepost","types":["bool"],"presence":1.0},{"name":"isUserPost","types":["bool"],"presence":0.875},{"name":"isVerified","types":["bool"],"presence":1.0},{"name":"isVideo","types":["bool"],"presence":1.0},{"name":"ispinned","types":["bool"],"presence":1.0},{"name":"languages","types":["array<string>"],"presence":1.0},{"name":"lat","types":["double"],"presence":1.0},{"name":"likesCount","types":["int"],"presence":1.0},{"name":"link","types":["string"],"presence":0.625},{"name":"lng","types":["double"],"presence":1.0},{"name":"mediaCount","types":["int"],"presence":1.0},{"name":"mediaItems","types":["array<object>"],"presence":1.0},{"name":"mediaItems[].addToCartCount","types":["int"],"presence":1.0},{"name":"mediaItems[].aspectRatio","types":["double","int"],"presence":1.0},{"name":"mediaItems[].clicksCount","types":["int"],"presence":1.0},{"name":"mediaItems[].discountPercentage","types":["int"],"presence":1.0},{"name":"mediaItems[].hasDiscount","types":["bool"],"presence":1.0},{"name":"mediaItems[].purchasesCount","types":["int"],"presence":1.0},{"name":"mediaItems[].stockStatus","types":["string"],"presence":1.0},{"name":"mediaItems[].type","types":["string"],"presence":1.0},{"name":"mediaItems[].url","types":["string"],"presence":1.0},{"name":"pinCode","types":["string"],"presence":1.0},{"name":"poll","types":["object"],"presence":0.625},{"name":"poll.allowMultipleVotes","types":["bool"],"presence":0.625},{"name":"poll.allowVoteChange","types":["bool"],"presence":0.625},{"name":"poll.durationHours","types":["int"],"presence":0.625},{"name":"poll.hasPoll","types":["bool"],"presence":0.625},{"name":"poll.hideResultsUntilEnd","types":["bool"],"presence":0.625},{"name":"poll.isAnonymous","types":["bool"],"presence":0.625},{"name":"poll.options","types":["array"],"presence":0.625},{"name":"poll.totalVotes","types":["int"],"presence":0.625},{"name":"postCategory","types":["string"],"presence":0.625},{"name":"postType","types":["string"],"presence":1.0},{"name":"postTypeDetailed","types":["string"],"presence":0.625},{"name":"productClicksCount","types":["int"],"presence":1.0},{"name":"productId","types":["null"],"presence":0.875},{"name":"products","types":["array","array<object>"],"presence":1.0},{"name":"products[]._id","types":["ObjectId"],"presence":0.5},{"name":"products[].clicksCount","types":["int"],"presence":0.125},{"name":"products[].discountPercentage","types":["int"],"presence":0.125},{"name":"products[].hasDiscount","types":["bool"],"presence":0.125},{"name":"products[].imageUrl","types":["string"],"presence":0.125},{"name":"products[].originalPrice","types":["string"],"presence":0.125},{"name":"products[].price","types":["string"],"presence":0.125},{"name":"products[].productId","types":["string"],"presence":0.5},{"name":"products[].productName","types":["string"],"presence":0.125},{"name":"products[].purchasesCount","types":["int"],"presence":0.125},{"name":"products[].stockStatus","types":["string"],"presence":0.125},{"name":"purchasesCount","types":["int"],"presence":1.0},{"name":"rePostCount","types":["int"],"presence":1.0},{"name":"reportCount","types":["int"],"presence":1.0},{"name":"repostDetails","types":["null"],"presence":1.0},{"name":"reviewedProductId","types":["null"],"presence":1.0},{"name":"savesCount","types":["int"],"presence":1.0},{"name":"searchText","types":["string"],"presence":1.0},{"name":"sharesCount","types":["int"],"presence":1.0},{"name":"state","types":["string"],"presence":1.0},{"name":"subcategory","types":["string"],"presence":0.625},{"name":"taggedCount","types":["int"],"presence":0.625},{"name":"taggedUserIds","types":["array"],"presence":0.625},{"name":"taggedUsers","types":["array"],"presence":0.625},{"name":"timestamp","types":["date"],"presence":1.0},{"name":"userAvatar","types":["string"],"presence":1.0},{"name":"userEngagementRate","types":["int"],"presence":1.0},{"name":"userFollowersCount","types":["int"],"presence":1.0},{"name":"userId","types":["string","ObjectId"],"presence":1.0},{"name":"userModel","types":["string"],"presence":0.125},{"name":"userName","types":["string"],"presence":1.0},{"name":"videoDuration","types":["int"],"presence":1.0},{"name":"viewsCount","types":["int"],"presence":1.0},{"name":"visibility","types":["string"],"presence":1.0},{"name":"webSiteLink","types":["null"],"presence":1.0},{"name":"websiteType","types":["string"],"presence":0.625},{"name":"whoCanComment","types":["string"],"presence":0.875}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"feedScore_-1_timestamp_-1","key":[["feedScore",-1],["timestamp",-1]],"unique":false},{"name":"isProductPost_1_feedScore_-1","key":[["isProductPost",1],["feedScore",-1]],"unique":false},{"name":"categories_1_isHidden_1_feedScore_-1","key":[["categories",1],["isHidden",1],["feedScore",-1]],"unique":false},{"name":"hashtags_1_isHidden_1","key":[["hashtags",1],["isHidden",1]],"unique":false},{"name":"userId_1_isHidden_1_timestamp_-1","key":[["userId",1],["isHidden",1],["timestamp",-1]],"unique":false},{"name":"hasVideo_1_isHidden_1_feedScore_-1","key":[["hasVideo",1],["isHidden",1],["feedScore",-1]],"unique":false},{"name":"isMixedMedia_1_isHidden_1_feedScore_-1","key":[["isMixedMedia",1],["isHidden",1],["feedScore",-1]],"unique":false},{"name":"city_1_isHidden_1_timestamp_-1","key":[["city",1],["isHidden",1],["timestamp",-1]],"unique":false},{"name":"pinCode_1_isHidden_1_feedScore_-1","key":[["pinCode",1],["isHidden",1],["feedScore",-1]],"unique":false},{"name":"post_full_text_search","key":[["_fts","text"],["_ftsx",1]],"unique":false},{"name":"postCategory_1","key":[["postCategory",1]],"unique":false},{"name":"postCategory_1_isHidden_1_feedScore_-1","key":[["postCategory",1],["isHidden",1],["feedScore",-1]],"unique":false},{"name":"discoveryTags_1_isHidden_1_feedScore_-1","key":[["discoveryTags",1],["isHidden",1],["feedScore",-1]],"unique":false}]},{"name":"pricehistories","count":16,"sampled":16,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"discount","types":["int"],"presence":1.0},{"name":"originalPrice","types":["int"],"presence":1.0},{"name":"productId","types":["ObjectId"],"presence":1.0},{"name":"recordedAt","types":["date"],"presence":1.0},{"name":"salePrice","types":["int"],"presence":1.0},{"name":"sku","types":["string"],"presence":1.0},{"name":"variantId","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"productId_1","key":[["productId",1]],"unique":false},{"name":"variantId_1","key":[["variantId",1]],"unique":false},{"name":"productId_1_recordedAt_-1","key":[["productId",1],["recordedAt",-1]],"unique":false},{"name":"variantId_1_recordedAt_-1","key":[["variantId",1],["recordedAt",-1]],"unique":false}]},{"name":"products","count":4,"sampled":4,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"availability","types":["object"],"presence":1.0},{"name":"availability.availabilityRegions","types":["array<string>"],"presence":1.0},{"name":"availability.codAvailable","types":["bool"],"presence":1.0},{"name":"availability.deliveryTime","types":["string"],"presence":1.0},{"name":"availability.deliveryTimeUnit","types":["string"],"presence":1.0},{"name":"availability.deliveryTimeValue","types":["int"],"presence":1.0},{"name":"availability.inStock","types":["bool"],"presence":1.0},{"name":"availability.returnPolicy","types":["object"],"presence":1.0},{"name":"availability.returnPolicy.returnApplicable","types":["bool"],"presence":1.0},{"name":"availability.returnPolicy.returnFees","types":["int"],"presence":1.0},{"name":"availability.returnPolicy.returnWindow","types":["int"],"presence":1.0},{"name":"basicInfo","types":["object"],"presence":1.0},{"name":"basicInfo.brand","types":["string"],"presence":1.0},{"name":"basicInfo.brandLogo","types":["string"],"presence":1.0},{"name":"basicInfo.categoryId","types":["ObjectId"],"presence":1.0},{"name":"basicInfo.productTitle","types":["string"],"presence":1.0},{"name":"basicInfo.searchMetadata","types":["object"],"presence":0.75},{"name":"basicInfo.searchMetadata.alternateSpellings","types":["array"],"presence":0.75},{"name":"basicInfo.searchMetadata.synonyms","types":["array"],"presence":0.75},{"name":"basicInfo.seoDescription","types":["string"],"presence":1.0},{"name":"basicInfo.seoKeywords","types":["array<string>"],"presence":1.0},{"name":"basicInfo.seoTitle","types":["string"],"presence":1.0},{"name":"basicInfo.slug","types":["string"],"presence":1.0},{"name":"basicInfo.tags","types":["array<string>"],"presence":1.0},{"name":"careInstructions","types":["string"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"createdBy","types":["ObjectId"],"presence":1.0},{"name":"crossSellProducts","types":["array<object>","array"],"presence":1.0},{"name":"crossSellProducts[]._id","types":["ObjectId"],"presence":0.75},{"name":"crossSellProducts[].currency","types":["string"],"presence":0.75},{"name":"crossSellProducts[].imageUrl","types":["string"],"presence":0.75},{"name":"crossSellProducts[].price","types":["string"],"presence":0.75},{"name":"crossSellProducts[].productId","types":["string"],"presence":0.75},{"name":"crossSellProducts[].productTitle","types":["string"],"presence":0.75},{"name":"deliveryConfig","types":["object"],"presence":1.0},{"name":"deliveryConfig.deliveryPartner","types":["string"],"presence":1.0},{"name":"deliveryConfig.deliveryPinCodes","types":["array"],"presence":1.0},{"name":"deliveryConfig.deliveryScope","types":["string"],"presence":1.0},{"name":"deliveryConfig.fixedCharge","types":["int"],"presence":1.0},{"name":"deliveryConfig.isFreeShipping","types":["bool"],"presence":1.0},{"name":"deliveryConfig.isReturnApplicable","types":["bool"],"presence":1.0},{"name":"deliveryConfig.maxDeliveryDistance","types":["int"],"presence":1.0},{"name":"deliveryConfig.minOrderForFreeShipping","types":["int"],"presence":1.0},{"name":"deliveryConfig.minOrderUnit","types":["string"],"presence":1.0},{"name":"deliveryConfig.returnPolicyFees","types":["int"],"presence":1.0},{"name":"deliveryConfig.returnWindow","types":["int"],"presence":1.0},{"name":"deliveryConfig.selectedStates","types":["array"],"presence":1.0},{"name":"deliveryConfig.type","types":["string"],"presence":1.0},{"name":"descriptionHighlights","types":["object"],"presence":1.0},{"name":"descriptionHighlights.description","types":["string"],"presence":1.0},{"name":"descriptionHighlights.highlights","types":["array<string>"],"presence":1.0},{"name":"images","types":["array<string>"],"presence":1.0},{"name":"materials","types":["array<object>"],"presence":1.0},{"name":"materials[]._id","types":["ObjectId"],"presence":1.0},{"name":"materials[].material","types":["string"],"presence":1.0},{"name":"materials[].percentage","types":["string"],"presence":1.0},{"name":"paymentMethods","types":["object"],"presence":1.0},{"name":"paymentMethods.cod","types":["bool"],"presence":1.0},{"name":"paymentMethods.onlinePayment","types":["bool"],"presence":1.0},{"name":"paymentMethods.upi","types":["bool"],"presence":1.0},{"name":"paymentMethods.wallets","types":["array"],"presence":1.0},{"name":"policySection","types":["object"],"presence":1.0},{"name":"policySection.isChecked","types":["bool"],"presence":1.0},{"name":"policySection.isTermsVisible","types":["bool"],"presence":1.0},{"name":"postCommentsCount","types":["int"],"presence":1.0},{"name":"ratings","types":["object"],"presence":1.0},{"name":"ratings.averageRating","types":["int"],"presence":1.0},{"name":"ratings.ratingDistribution","types":["object"],"presence":1.0},{"name":"ratings.ratingDistribution.1","types":["int"],"presence":1.0},{"name":"ratings.ratingDistribution.2","types":["int"],"presence":1.0},{"name":"ratings.ratingDistribution.3","types":["int"],"presence":1.0},{"name":"ratings.ratingDistribution.4","types":["int"],"presence":1.0},{"name":"ratings.ratingDistribution.5","types":["int"],"presence":1.0},{"name":"ratings.totalReviews","types":["int"],"presence":1.0},{"name":"specifications","types":["array"],"presence":1.0},{"name":"status","types":["string"],"presence":1.0},{"name":"unit","types":["string"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0},{"name":"variantIds","types":["array<ObjectId>"],"presence":1.0},{"name":"whatsInBox","types":["array<string>"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"basicInfo.productTitle_text_basicInfo.tags_text","key":[["_fts","text"],["_ftsx",1]],"unique":false},{"name":"basicInfo.categoryId_1","key":[["basicInfo.categoryId",1]],"unique":false},{"name":"status_1","key":[["status",1]],"unique":false},{"name":"createdBy_1","key":[["createdBy",1]],"unique":false}]},{"name":"productvariants","count":16,"sampled":16,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"additionalTaxes","types":["array"],"presence":1.0},{"name":"buyingPrice","types":["int"],"presence":1.0},{"name":"color","types":["string"],"presence":1.0},{"name":"colorCode","types":["string"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"gstPercentage","types":["int"],"presence":1.0},{"name":"hsnCode","types":["string"],"presence":1.0},{"name":"images","types":["array<string>"],"presence":1.0},{"name":"inStoreStock","types":["int"],"presence":1.0},{"name":"lowStockAlertEnabled","types":["bool"],"presence":1.0},{"name":"lowStockAlertType","types":["string"],"presence":1.0},{"name":"lowStockAlertValue","types":["int"],"presence":1.0},{"name":"maxPurchaseLimit","types":["int"],"presence":1.0},{"name":"originalPrice","types":["int"],"presence":1.0},{"name":"productId","types":["ObjectId"],"presence":1.0},{"name":"quantity","types":["int"],"presence":1.0},{"name":"reservedStock","types":["int"],"presence":1.0},{"name":"restockPrice","types":["int"],"presence":1.0},{"name":"salePrice","types":["int"],"presence":1.0},{"name":"sellerId","types":["ObjectId"],"presence":0.938},{"name":"size","types":["string"],"presence":1.0},{"name":"sizeGuide","types":["string"],"presence":1.0},{"name":"sku","types":["string"],"presence":1.0},{"name":"specifications","types":["object"],"presence":1.0},{"name":"status","types":["string"],"presence":1.0},{"name":"supplierId","types":["null"],"presence":1.0},{"name":"supplierName","types":["string"],"presence":1.0},{"name":"taxProfileId","types":["null"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0},{"name":"variant","types":["string"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"productId_1","key":[["productId",1]],"unique":false},{"name":"sku_1","key":[["sku",1]],"unique":true},{"name":"productId_1_status_1","key":[["productId",1],["status",1]],"unique":false},{"name":"color_1_size_1","key":[["color",1],["size",1]],"unique":false},{"name":"productId_1_color_1","key":[["productId",1],["color",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"sku_1_sellerId_1","key":[["sku",1],["sellerId",1]],"unique":true}]},{"name":"promocodes","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"code_1","key":[["code",1]],"unique":true},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"expiryDate_1","key":[["expiryDate",1]],"unique":false},{"name":"sellerId_1_status_1","key":[["sellerId",1],["status",1]],"unique":false},{"name":"code_1_sellerId_1","key":[["code",1],["sellerId",1]],"unique":false},{"name":"expiryDate_1_status_1","key":[["expiryDate",1],["status",1]],"unique":false}]},{"name":"recommendationclicks","count":35,"sampled":35,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"event_id","types":["string"],"presence":1.0},{"name":"item_id","types":["ObjectId"],"presence":1.0},{"name":"item_type","types":["string"],"presence":1.0},{"name":"position","types":["int"],"presence":1.0},{"name":"request_id","types":["string"],"presence":1.0},{"name":"server_ts","types":["date"],"presence":1.0},{"name":"session_id","types":["string"],"presence":1.0},{"name":"surface","types":["string"],"presence":1.0},{"name":"userModel","types":["string"],"presence":1.0},{"name":"user_id","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"event_id_1","key":[["event_id",1]],"unique":true},{"name":"request_id_1","key":[["request_id",1]],"unique":false},{"name":"item_id_1_server_ts_-1","key":[["item_id",1],["server_ts",-1]],"unique":false},{"name":"user_id_1_session_id_1_server_ts_-1","key":[["user_id",1],["session_id",1],["server_ts",-1]],"unique":false},{"name":"surface_1_server_ts_-1","key":[["surface",1],["server_ts",-1]],"unique":false},{"name":"position_1_server_ts_-1","key":[["position",1],["server_ts",-1]],"unique":false},{"name":"server_ts_1","key":[["server_ts",1]],"unique":false}]},{"name":"recommendationengagements","count":30,"sampled":30,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"client_ts","types":["date"],"presence":1.0},{"name":"engagement_type","types":["string"],"presence":1.0},{"name":"item_id","types":["ObjectId"],"presence":1.0},{"name":"item_type","types":["string"],"presence":1.0},{"name":"position","types":["int"],"presence":1.0},{"name":"product_id","types":["null"],"presence":1.0},{"name":"request_id","types":["string"],"presence":1.0},{"name":"server_ts","types":["date"],"presence":1.0},{"name":"session_id","types":["string"],"presence":1.0},{"name":"surface","types":["string"],"presence":1.0},{"name":"userModel","types":["string"],"presence":1.0},{"name":"user_id","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"request_id_1","key":[["request_id",1]],"unique":false},{"name":"item_id_1_engagement_type_1_server_ts_-1","key":[["item_id",1],["engagement_type",1],["server_ts",-1]],"unique":false},{"name":"user_id_1_engagement_type_1_server_ts_-1","key":[["user_id",1],["engagement_type",1],["server_ts",-1]],"unique":false},{"name":"user_id_1_session_id_1_server_ts_-1","key":[["user_id",1],["session_id",1],["server_ts",-1]],"unique":false},{"name":"surface_1_engagement_type_1_server_ts_-1","key":[["surface",1],["engagement_type",1],["server_ts",-1]],"unique":false},{"name":"product_id_1_engagement_type_1_server_ts_-1","key":[["product_id",1],["engagement_type",1],["server_ts",-1]],"unique":false},{"name":"server_ts_1","key":[["server_ts",1]],"unique":false}]},{"name":"recommendationimpressions","count":23,"sampled":23,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"client_ts","types":["date"],"presence":1.0},{"name":"dwell_ms","types":["int"],"presence":1.0},{"name":"event_id","types":["string"],"presence":1.0},{"name":"is_exploration","types":["bool"],"presence":1.0},{"name":"is_revisit","types":["bool"],"presence":1.0},{"name":"item_id","types":["ObjectId"],"presence":1.0},{"name":"item_type","types":["string"],"presence":1.0},{"name":"position","types":["int"],"presence":1.0},{"name":"request_id","types":["string"],"presence":1.0},{"name":"server_ts","types":["date"],"presence":1.0},{"name":"session_id","types":["string"],"presence":1.0},{"name":"surface","types":["string"],"presence":1.0},{"name":"userModel","types":["string"],"presence":1.0},{"name":"user_id","types":["ObjectId"],"presence":1.0},{"name":"viewport_entered","types":["bool"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"event_id_1","key":[["event_id",1]],"unique":true},{"name":"request_id_1","key":[["request_id",1]],"unique":false},{"name":"item_id_1_viewport_entered_1_server_ts_-1","key":[["item_id",1],["viewport_entered",1],["server_ts",-1]],"unique":false},{"name":"user_id_1_session_id_1_server_ts_-1","key":[["user_id",1],["session_id",1],["server_ts",-1]],"unique":false},{"name":"surface_1_server_ts_-1","key":[["surface",1],["server_ts",-1]],"unique":false},{"name":"position_1_viewport_entered_1","key":[["position",1],["viewport_entered",1]],"unique":false},{"name":"is_exploration_1_server_ts_-1","key":[["is_exploration",1],["server_ts",-1]],"unique":false},{"name":"server_ts_1","key":[["server_ts",1]],"unique":false}]},{"name":"recommendationrequests","count":8,"sampled":8,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"candidate_count","types":["int"],"presence":1.0},{"name":"candidate_ids","types":["array<string>"],"presence":1.0},{"name":"feed_type","types":["null"],"presence":1.0},{"name":"items_returned","types":["int"],"presence":1.0},{"name":"limit","types":["int"],"presence":1.0},{"name":"page","types":["int"],"presence":1.0},{"name":"policy_id","types":["string"],"presence":1.0},{"name":"request_id","types":["string"],"presence":1.0},{"name":"server_ts","types":["date"],"presence":1.0},{"name":"session_id","types":["string"],"presence":1.0},{"name":"surface","types":["string"],"presence":1.0},{"name":"userModel","types":["string"],"presence":1.0},{"name":"user_id","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"request_id_1","key":[["request_id",1]],"unique":true},{"name":"user_id_1_session_id_1_server_ts_-1","key":[["user_id",1],["session_id",1],["server_ts",-1]],"unique":false},{"name":"surface_1_server_ts_-1","key":[["surface",1],["server_ts",-1]],"unique":false},{"name":"policy_id_1_server_ts_-1","key":[["policy_id",1],["server_ts",-1]],"unique":false},{"name":"server_ts_1","key":[["server_ts",1]],"unique":false}]},{"name":"referrallinks","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"link_code_1","key":[["link_code",1]],"unique":true},{"name":"influencer_id_1_created_at_-1","key":[["influencer_id",1],["created_at",-1]],"unique":false}]},{"name":"reviewhelpfuls","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"reviewId_1_userId_1_isBusinessAccount_1","key":[["reviewId",1],["userId",1],["isBusinessAccount",1]],"unique":true}]},{"name":"reviews","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"productId_1","key":[["productId",1]],"unique":false},{"name":"productId_1_createdAt_-1","key":[["productId",1],["createdAt",-1]],"unique":false},{"name":"user_id_1_productId_1","key":[["user_id",1],["productId",1]],"unique":false}]},{"name":"security_events","count":5,"sampled":5,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"deviceId","types":["string"],"presence":1.0},{"name":"eventType","types":["string"],"presence":1.0},{"name":"ipAddress","types":["string"],"presence":1.0},{"name":"message","types":["string"],"presence":1.0},{"name":"metadata","types":["object"],"presence":0.8},{"name":"metadata.sessionId","types":["string"],"presence":0.8},{"name":"occurredAt","types":["date"],"presence":1.0},{"name":"occurredAtIST","types":["string"],"presence":1.0},{"name":"userAgent","types":["string"],"presence":1.0},{"name":"userId","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"userId_1","key":[["userId",1]],"unique":false},{"name":"idx_user_occurredAt","key":[["userId",1],["occurredAt",-1]],"unique":false},{"name":"idx_eventType","key":[["eventType",1],["occurredAt",-1]],"unique":false},{"name":"idx_ip_occurredAt","key":[["ipAddress",1],["occurredAt",-1]],"unique":false},{"name":"ttl_createdAt","key":[["createdAt",1]],"unique":false}]},{"name":"sellerdashboards","count":2,"sampled":2,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"allTime","types":["object"],"presence":1.0},{"name":"allTime.avgOrderValue","types":["int"],"presence":1.0},{"name":"allTime.cancelled","types":["int"],"presence":1.0},{"name":"allTime.delivered","types":["int"],"presence":1.0},{"name":"allTime.orders","types":["int"],"presence":1.0},{"name":"allTime.revenue","types":["int"],"presence":1.0},{"name":"allTime.totalBuyers","types":["int"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"lastMonth","types":["object"],"presence":1.0},{"name":"lastMonth.avgOrderValue","types":["int"],"presence":1.0},{"name":"lastMonth.cancelled","types":["int"],"presence":1.0},{"name":"lastMonth.delivered","types":["int"],"presence":1.0},{"name":"lastMonth.month","types":["string"],"presence":1.0},{"name":"lastMonth.orders","types":["int"],"presence":1.0},{"name":"lastMonth.revenue","types":["int"],"presence":1.0},{"name":"lastUpdatedAt","types":["date"],"presence":1.0},{"name":"pendingActions","types":["object"],"presence":1.0},{"name":"pendingActions.awaitingPayment","types":["int"],"presence":1.0},{"name":"pendingActions.newOrders","types":["int"],"presence":1.0},{"name":"pendingActions.toShip","types":["int"],"presence":1.0},{"name":"sellerId","types":["ObjectId"],"presence":1.0},{"name":"statusCounts","types":["object"],"presence":1.0},{"name":"statusCounts.accepted","types":["int"],"presence":1.0},{"name":"statusCounts.cancelled","types":["int"],"presence":1.0},{"name":"statusCounts.confirmed","types":["int"],"presence":1.0},{"name":"statusCounts.delivered","types":["int"],"presence":1.0},{"name":"statusCounts.payedOff","types":["int"],"presence":1.0},{"name":"statusCounts.pending","types":["int"],"presence":1.0},{"name":"statusCounts.rejected","types":["int"],"presence":1.0},{"name":"statusCounts.shipped","types":["int"],"presence":1.0},{"name":"thisMonth","types":["object"],"presence":1.0},{"name":"thisMonth.avgOrderValue","types":["int"],"presence":1.0},{"name":"thisMonth.cancelled","types":["int"],"presence":1.0},{"name":"thisMonth.delivered","types":["int"],"presence":1.0},{"name":"thisMonth.month","types":["string"],"presence":1.0},{"name":"thisMonth.newBuyers","types":["int"],"presence":1.0},{"name":"thisMonth.orders","types":["int"],"presence":1.0},{"name":"thisMonth.repeatBuyers","types":["int"],"presence":1.0},{"name":"thisMonth.revenue","types":["int"],"presence":1.0},{"name":"thisMonth.topProduct","types":["string"],"presence":1.0},{"name":"thisWeek","types":["object"],"presence":1.0},{"name":"thisWeek.cancelled","types":["int"],"presence":1.0},{"name":"thisWeek.delivered","types":["int"],"presence":1.0},{"name":"thisWeek.orders","types":["int"],"presence":1.0},{"name":"thisWeek.revenue","types":["int"],"presence":1.0},{"name":"thisWeek.weekStart","types":["string"],"presence":1.0},{"name":"today","types":["object"],"presence":1.0},{"name":"today.cancelled","types":["int"],"presence":1.0},{"name":"today.confirmed","types":["int"],"presence":1.0},{"name":"today.date","types":["string"],"presence":1.0},{"name":"today.delivered","types":["int"],"presence":1.0},{"name":"today.orders","types":["int"],"presence":1.0},{"name":"today.rejected","types":["int"],"presence":1.0},{"name":"today.revenue","types":["int"],"presence":1.0},{"name":"today.shipped","types":["int"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":true}]},{"name":"services","count":2,"sampled":2,"fields":[{"name":"__v","types":["int"],"presence":1.0},{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"category","types":["string"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"description","types":["string"],"presence":1.0},{"name":"iconUrl","types":["string"],"presence":1.0},{"name":"isPopular","types":["bool"],"presence":1.0},{"name":"name","types":["string"],"presence":1.0},{"name":"rating","types":["int"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0},{"name":"userCount","types":["int"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"name_1","key":[["name",1]],"unique":true}]},{"name":"stockalerts","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"userId_1","key":[["userId",1]],"unique":false},{"name":"variantId_1","key":[["variantId",1]],"unique":false},{"name":"userId_1_variantId_1","key":[["userId",1],["variantId",1]],"unique":true}]},{"name":"stockhistories","count":26,"sampled":26,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"businessId","types":["ObjectId"],"presence":1.0},{"name":"changeType","types":["string"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"enquiryId","types":["null"],"presence":1.0},{"name":"enquiryObjectId","types":["null"],"presence":1.0},{"name":"metadata","types":["object"],"presence":1.0},{"name":"newQuantity","types":["int"],"presence":1.0},{"name":"newReservedStock","types":["int"],"presence":1.0},{"name":"notes","types":["string"],"presence":0.308},{"name":"orderId","types":["ObjectId"],"presence":1.0},{"name":"performedBy","types":["ObjectId"],"presence":1.0},{"name":"previousQuantity","types":["int"],"presence":1.0},{"name":"previousReservedStock","types":["int"],"presence":1.0},{"name":"priceAtTransaction","types":["object"],"presence":1.0},{"name":"priceAtTransaction.finalPrice","types":["int"],"presence":1.0},{"name":"priceAtTransaction.originalPrice","types":["int"],"presence":1.0},{"name":"priceAtTransaction.salePrice","types":["int"],"presence":1.0},{"name":"productId","types":["ObjectId"],"presence":1.0},{"name":"quantityChanged","types":["int"],"presence":1.0},{"name":"reason","types":["string"],"presence":1.0},{"name":"transferTo","types":["null"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0},{"name":"variantId","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"productId_1","key":[["productId",1]],"unique":false},{"name":"variantId_1","key":[["variantId",1]],"unique":false},{"name":"businessId_1","key":[["businessId",1]],"unique":false},{"name":"productId_1_createdAt_-1","key":[["productId",1],["createdAt",-1]],"unique":false},{"name":"variantId_1_createdAt_-1","key":[["variantId",1],["createdAt",-1]],"unique":false},{"name":"businessId_1_createdAt_-1","key":[["businessId",1],["createdAt",-1]],"unique":false},{"name":"changeType_1","key":[["changeType",1]],"unique":false},{"name":"orderId_1","key":[["orderId",1]],"unique":false},{"name":"enquiryId_1","key":[["enquiryId",1]],"unique":false},{"name":"createdAt_-1","key":[["createdAt",-1]],"unique":false}]},{"name":"storefollows","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"followerId_1","key":[["followerId",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"followerId_1_sellerId_1","key":[["followerId",1],["sellerId",1]],"unique":true}]},{"name":"storefronts","count":1,"sampled":1,"fields":[{"name":"__v","types":["int"],"presence":1.0},{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"accentColor","types":["string"],"presence":1.0},{"name":"bannerImage","types":["string"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"customSlug","types":["string"],"presence":1.0},{"name":"description","types":["string"],"presence":1.0},{"name":"featuredProductIds","types":["array"],"presence":1.0},{"name":"isEnabled","types":["bool"],"presence":1.0},{"name":"logoImage","types":["string"],"presence":1.0},{"name":"offerBanners","types":["array"],"presence":1.0},{"name":"returnPolicy","types":["string"],"presence":1.0},{"name":"sections","types":["array"],"presence":1.0},{"name":"sellerId","types":["ObjectId"],"presence":1.0},{"name":"shippingPolicy","types":["string"],"presence":1.0},{"name":"storeName","types":["string"],"presence":1.0},{"name":"tagline","types":["string"],"presence":1.0},{"name":"template","types":["string"],"presence":1.0},{"name":"totalFollowers","types":["int"],"presence":1.0},{"name":"trendingProductIds","types":["array"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":true},{"name":"customSlug_1","key":[["customSlug",1]],"unique":false}]},{"name":"storyhighlights","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"userId_1","key":[["userId",1]],"unique":false},{"name":"userId_1_createdAt_-1","key":[["userId",1],["createdAt",-1]],"unique":false}]},{"name":"supplierbills","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"sellerId_1_billDate_-1","key":[["sellerId",1],["billDate",-1]],"unique":false}]},{"name":"suppliers","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false},{"name":"sellerId_1_name_1","key":[["sellerId",1],["name",1]],"unique":true}]},{"name":"taggedposts","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"taggedUserId_1_createdAt_-1","key":[["taggedUserId",1],["createdAt",-1]],"unique":false},{"name":"postId_1_taggedUserId_1","key":[["postId",1],["taggedUserId",1]],"unique":true}]},{"name":"taxprofiles","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"sellerId_1","key":[["sellerId",1]],"unique":false}]},{"name":"trackings","count":5,"sampled":5,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"sentPosts","types":["array<object>"],"presence":1.0},{"name":"sentPosts[]._id","types":["ObjectId"],"presence":1.0},{"name":"sentPosts[].isWatched","types":["bool"],"presence":1.0},{"name":"sentPosts[].post_id","types":["ObjectId"],"presence":1.0},{"name":"sentPosts[].viewedAt","types":["date"],"presence":1.0},{"name":"updatedAt","types":["date"],"presence":1.0},{"name":"user_id","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"user_login_histories","count":3,"sampled":3,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"deviceId","types":["string"],"presence":1.0},{"name":"failureReason","types":["null"],"presence":1.0},{"name":"ipAddress","types":["string"],"presence":1.0},{"name":"loginAt","types":["date"],"presence":1.0},{"name":"loginAtIST","types":["string"],"presence":1.0},{"name":"loginStatus","types":["string"],"presence":1.0},{"name":"userAgent","types":["string"],"presence":1.0},{"name":"userId","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"userId_1","key":[["userId",1]],"unique":false},{"name":"idx_userId_loginAt","key":[["userId",1],["loginAt",-1]],"unique":false},{"name":"idx_ip_loginAt","key":[["ipAddress",1],["loginAt",-1]],"unique":false},{"name":"idx_device_loginAt","key":[["deviceId",1],["loginAt",-1]],"unique":false},{"name":"idx_status_loginAt","key":[["loginStatus",1],["loginAt",-1]],"unique":false},{"name":"ttl_createdAt","key":[["createdAt",1]],"unique":false}]},{"name":"user_sessions","count":3,"sampled":3,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"createdAt","types":["date"],"presence":1.0},{"name":"createdAtIST","types":["string"],"presence":1.0},{"name":"deviceId","types":["string"],"presence":1.0},{"name":"expiresAt","types":["date"],"presence":1.0},{"name":"ipAddress","types":["string"],"presence":1.0},{"name":"lastActivityAt","types":["date"],"presence":1.0},{"name":"lastActivityAtIST","types":["string"],"presence":1.0},{"name":"revokedAt","types":["null"],"presence":1.0},{"name":"sessionId","types":["string"],"presence":1.0},{"name":"userAgent","types":["string"],"presence":1.0},{"name":"userId","types":["ObjectId"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"userId_1","key":[["userId",1]],"unique":false},{"name":"sessionId_1","key":[["sessionId",1]],"unique":true},{"name":"idx_userId_active","key":[["userId",1],["revokedAt",1]],"unique":false},{"name":"ttl_expiresAt","key":[["expiresAt",1]],"unique":false}]},{"name":"userevents","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"userId_1","key":[["userId",1]],"unique":false},{"name":"timestamp_1","key":[["timestamp",1]],"unique":false}]},{"name":"userinfos","count":2,"sampled":2,"fields":[{"name":"__v","types":["int"],"presence":1.0},{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"avatarUrl","types":["string"],"presence":1.0},{"name":"id","types":["string"],"presence":1.0},{"name":"name","types":["string"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"users","count":13,"sampled":13,"fields":[{"name":"DOB","types":["string"],"presence":1.0},{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"accountIsPublic","types":["bool"],"presence":1.0},{"name":"achievements","types":["string"],"presence":1.0},{"name":"addNew_Interest","types":["array"],"presence":1.0},{"name":"agree","types":["bool"],"presence":1.0},{"name":"bio","types":["string"],"presence":1.0},{"name":"city","types":["string"],"presence":1.0},{"name":"countryCode","types":["null"],"presence":0.077},{"name":"currentChatRoom","types":["null"],"presence":0.231},{"name":"degree","types":["string"],"presence":1.0},{"name":"deviceToken","types":["array"],"presence":1.0},{"name":"district","types":["string"],"presence":1.0},{"name":"education","types":["string"],"presence":1.0},{"name":"email","types":["string"],"presence":1.0},{"name":"emailVerified","types":["bool"],"presence":1.0},{"name":"field","types":["string"],"presence":1.0},{"name":"followerCount","types":["int"],"presence":1.0},{"name":"followingCount","types":["int"],"presence":1.0},{"name":"full_Name","types":["string"],"presence":1.0},{"name":"gender","types":["string"],"presence":1.0},{"name":"grade","types":["int"],"presence":1.0},{"name":"highlights","types":["array"],"presence":1.0},{"name":"hobbies","types":["string"],"presence":1.0},{"name":"institution","types":["string"],"presence":1.0},{"name":"interest","types":["array<string>"],"presence":1.0},{"name":"interestScores","types":["object"],"presence":0.923},{"name":"interestScores.electronics","types":["int"],"presence":0.077},{"name":"interestScores.fashion & apparel","types":["int"],"presence":0.154},{"name":"interestScores.jewellery","types":["int"],"presence":0.077},{"name":"interestScores.shoes & footwear","types":["int"],"presence":0.154},{"name":"interestScores.toys & kids","types":["int"],"presence":0.077},{"name":"isThereAnyNotification","types":["bool"],"presence":1.0},{"name":"isTyping","types":["bool"],"presence":1.0},{"name":"isVerified","types":["bool"],"presence":1.0},{"name":"languages","types":["array<string>","array"],"presence":1.0},{"name":"lastLoginAt","types":["date"],"presence":0.154},{"name":"lastLoginDeviceId","types":["string"],"presence":0.154},{"name":"lastLoginIp","types":["string"],"presence":0.154},{"name":"lastOnline","types":["date"],"presence":1.0},{"name":"lat","types":["string"],"presence":1.0},{"name":"lng","types":["string"],"presence":1.0},{"name":"location_id","types":["string"],"presence":1.0},{"name":"mobileVerified","types":["bool"],"presence":0.077},{"name":"needPermissionForFollowing","types":["bool"],"presence":1.0},{"name":"normalizedMobile","types":["string"],"presence":0.077},{"name":"oneSignalIDs","types":["array","array<string>"],"presence":1.0},{"name":"onlineStatus","types":["bool"],"presence":1.0},{"name":"password","types":["string"],"presence":1.0},{"name":"phn_number","types":["string"],"presence":1.0},{"name":"pinCode","types":["int"],"presence":1.0},{"name":"postCount","types":["int"],"presence":1.0},{"name":"posts","types":["int"],"presence":0.231},{"name":"profile_url","types":["string"],"presence":1.0},{"name":"reg_otp_id","types":["string"],"presence":0.231},{"name":"registrationIp","types":["string"],"presence":0.077},{"name":"skills","types":["string"],"presence":1.0},{"name":"state","types":["string"],"presence":1.0},{"name":"status","types":["string"],"presence":1.0},{"name":"subscriptionIDs","types":["array","array<string>"],"presence":1.0},{"name":"timestamp","types":["date"],"presence":1.0},{"name":"title","types":["string"],"presence":1.0},{"name":"unreadMessagesCount","types":["int"],"presence":1.0},{"name":"username","types":["string"],"presence":1.0},{"name":"viewCount","types":["int"],"presence":1.0},{"name":"websites","types":["array"],"presence":1.0},{"name":"year","types":["int"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"email_1","key":[["email",1]],"unique":true},{"name":"idx_normalizedMobile","key":[["normalizedMobile",1]],"unique":true},{"name":"idx_countryCode","key":[["countryCode",1]],"unique":false},{"name":"idx_phn_number","key":[["phn_number",1]],"unique":false},{"name":"idx_full_Name_ci","key":[["full_Name",1]],"unique":false},{"name":"idx_username","key":[["username",1]],"unique":false},{"name":"idx_id_mobileVerified","key":[["_id",1],["mobileVerified",1]],"unique":false}]},{"name":"viewspages","count":15,"sampled":15,"fields":[{"name":"_id","types":["ObjectId"],"presence":1.0},{"name":"viewCount","types":["int"],"presence":1.0},{"name":"viewedAt","types":["array<date>"],"presence":1.0},{"name":"viewed_page_account_type","types":["bool"],"presence":1.0},{"name":"viewed_page_id","types":["ObjectId"],"presence":1.0},{"name":"viewer_id","types":["ObjectId"],"presence":1.0},{"name":"viewer_type","types":["string"],"presence":1.0}],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false}]},{"name":"wishlists","count":0,"sampled":0,"fields":[],"indexes":[{"name":"_id_","key":[["_id",1]],"unique":false},{"name":"user_id_1_product_id_1","key":[["user_id",1],["product_id",1]],"unique":true}]}]};
+
+/* What each collection is to M1. Only the ones that carry a consequence. */
+const ROLES = {
+  postevents: { kind: "m1", text: "<b>Live event source.</b> The engine reads events from here. No <code>categories</code> field — the category resolves through <code>posts</code>, which is a join." },
+  posts:      { kind: "m1", text: "<b>Category resolution.</b> The join target for every post event. Categories are stored title case and normalise through <code>toCategoryKey()</code>." },
+  users:      { kind: "m1", text: "<b>Declared-interest floor (P-25).</b> Read from the <code>interest</code> array — never from <code>interestScores</code>, where the seeded floor and tracked events are fused and cannot be decomposed." },
+  orders:     { kind: "m1", text: "<b>Reversal aging.</b> A purchase reversal is aged from this order's <code>created_at</code>, never from the cancellation." },
+  userevents: { kind: "trap", text: "<b>Do not read.</b> Always empty — its TTL index was never created. A query here returns nothing and looks like a user with no activity." },
+  trackings:  { kind: "trap", text: "<b>Carries no duration.</b> <code>view_duration_seconds</code> lives on <code>postevents</code>, not here." },
+  interestscores: { kind: "trap", text: "Not a collection — a field on <code>users</code>." },
+};
+
+const CONFLICT_NOTE = {
+  "posts.userId": "Holds both String and ObjectId across documents. A join matching one type returns a partial result — worse than an empty one, because it looks like the query worked.",
+};
+
+/* An empty array and a typed array are the same field, not a type conflict.
+   Only a genuine disagreement between base types counts. */
+const baseType = t => t.startsWith("array") ? "array" : t;
+const isConflict = f => new Set(f.types.map(baseType)).size > 1;
+
+const byName = Object.fromEntries(DATA.collections.map(c => [c.name, c]));
+let selected = byName.postevents ? "postevents" : DATA.collections[0].name;
+let query = "";
+
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const hl = (s, q) => {
+  if (!q) return esc(s);
+  const i = s.toLowerCase().indexOf(q);
+  if (i < 0) return esc(s);
+  return esc(s.slice(0, i)) + "<mark>" + esc(s.slice(i, i + q.length)) + "</mark>" + esc(s.slice(i + q.length));
+};
+const roleOf = c => ROLES[c.name.toLowerCase()];
+
+function matches(c, q) {
+  if (!q) return { hit: true, fields: 0 };
+  if (c.name.toLowerCase().includes(q)) return { hit: true, fields: 0 };
+  const n = c.fields.filter(f => f.name.toLowerCase().includes(q)).length;
+  return { hit: n > 0, fields: n };
+}
+
+function renderRail() {
+  const q = query;
+  const shown = DATA.collections.map(c => ({ c, m: matches(c, q) })).filter(x => x.m.hit);
+
+  const groups = [
+    { key: "m1",    label: "M1 sources",  items: shown.filter(x => roleOf(x.c)) },
+    { key: "data",  label: "Has data",    items: shown.filter(x => !roleOf(x.c) && x.c.count > 0) },
+    { key: "empty", label: "Empty",       items: shown.filter(x => !roleOf(x.c) && x.c.count === 0) },
+  ];
+
+  const rail = document.getElementById("rail");
+  if (!shown.length) {
+    rail.innerHTML = '<p class="empty-state">Nothing matches that.</p>';
+    return;
+  }
+
+  rail.innerHTML = groups.filter(g => g.items.length).map(g => `
+    <div class="group">
+      <div class="group-h"><span>${g.label}</span><b>${g.items.length}</b></div>
+      <div class="list">
+        ${g.items.map(({ c, m }) => {
+          const role = roleOf(c);
+          const stripe = role ? (role.kind === "trap" ? "trap" : "m1") : "";
+          const tail = m.fields ? `${m.fields} field${m.fields > 1 ? "s" : ""}` : c.count.toLocaleString();
+          return `<button class="item" data-name="${esc(c.name)}" aria-current="${c.name === selected}">
+            <span class="stripe ${stripe}"></span>
+            <span class="nm">${hl(c.name, q)}</span>
+            <span class="ct">${tail}</span>
+          </button>`;
+        }).join("")}
+      </div>
+    </div>`).join("");
+
+  rail.querySelectorAll(".item").forEach(b =>
+    b.addEventListener("click", () => { selected = b.dataset.name; render(); }));
+}
+
+function renderDetail() {
+  const c = byName[selected];
+  const q = query;
+  const role = roleOf(c);
+  const conflicts = c.fields.filter(isConflict);
+
+  let notes = "";
+  if (role) notes += `<div class="note ${role.kind === "trap" ? "trap" : "m1"}">${role.text}</div>`;
+  if (c.count === 0 && !role) notes += `<div class="note empty">Empty. No documents, so no fields could be sampled.</div>`;
+
+  const rows = c.fields.map(f => {
+    const conflict = isConflict(f);
+    const note = CONFLICT_NOTE[c.name + "." + f.name];
+    const depth = f.name.lastIndexOf(".");
+    const shown = depth > -1
+      ? `<span class="depth">${esc(f.name.slice(0, depth + 1))}</span>${hl(f.name.slice(depth + 1), q)}`
+      : hl(f.name, q);
+    return `<tr class="${conflict ? "conflict" : ""}">
+      <td class="f">${shown}${note ? `<div class="sub" style="font-family:var(--sans);font-size:0.78rem;margin-top:0.2rem">${note}</div>` : ""}</td>
+      <td>${f.types.map(t => `<span class="ty ${conflict ? "warn" : ""}">${esc(t)}</span>`).join("")}</td>
+      <td class="p">${f.presence >= 1 ? "all" : Math.round(f.presence * 100) + "%"}</td>
+    </tr>`;
+  }).join("");
+
+  const indexes = c.indexes.length
+    ? `<ul class="idx">${c.indexes.map(i =>
+        `<li>{ ${i.key.map(([k, v]) => `${esc(k)}: ${v}`).join(", ")} }${i.unique ? '<span class="u">unique</span>' : ""}</li>`
+      ).join("")}</ul>`
+    : `<p class="empty-state">No indexes beyond the default.</p>`;
+
+  document.getElementById("detail").innerHTML = `
+    <div class="detail-h">
+      <h2 class="cname">${esc(c.name)}</h2>
+      <div class="facts">
+        <span><b>${c.count.toLocaleString()}</b> docs</span>
+        <span><b>${c.fields.length}</b> fields</span>
+        <span><b>${c.indexes.length}</b> indexes</span>
+        ${conflicts.length ? `<span style="color:var(--rust)"><b style="color:var(--rust)">${conflicts.length}</b> mixed type</span>` : ""}
+      </div>
+    </div>
+    ${notes}
+    ${c.fields.length ? `
+      <div class="sec-h">Fields · sampled from ${c.sampled} document${c.sampled === 1 ? "" : "s"}</div>
+      <div class="tbl-scroll">
+        <table><thead><tr><th>Name</th><th>Type</th><th style="text-align:right">Present</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      </div>` : ""}
+    <div class="sec-h">Indexes</div>
+    ${indexes}`;
+}
+
+function render() { renderRail(); renderDetail(); }
+
+document.getElementById("q").addEventListener("input", e => {
+  query = e.target.value.trim().toLowerCase();
+  const first = DATA.collections.find(c => matches(c, query).hit);
+  if (query && first && !matches(byName[selected], query).hit) selected = first.name;
+  render();
+});
+
+const VIEWS = [["tab-map", "view-map"], ["tab-flow", "view-flow"]];
+VIEWS.forEach(([tabId]) => {
+  document.getElementById(tabId).addEventListener("click", () => {
+    VIEWS.forEach(([t, v]) => {
+      const on = t === tabId;
+      document.getElementById(t).setAttribute("aria-selected", String(on));
+      document.getElementById(v).hidden = !on;
+    });
+  });
+});
+
+document.getElementById("dbname").textContent = DATA.database;
+document.getElementById("gen").textContent = new Date(DATA.generated_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+document.getElementById("samp").textContent = DATA.sample_size;
+document.getElementById("t-coll").textContent = DATA.collection_count;
+document.getElementById("t-data").textContent = DATA.collections.filter(c => c.count > 0).length;
+document.getElementById("t-docs").textContent = DATA.collections.reduce((n, c) => n + c.count, 0).toLocaleString();
+document.getElementById("t-fields").textContent = DATA.collections.reduce((n, c) => n + c.fields.length, 0);
+
+render();
+</script>

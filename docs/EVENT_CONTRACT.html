@@ -1,0 +1,279 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Event Contract</title>
+<style>
+@page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+body {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.2pt;
+  line-height: 1.55;
+  color: #16191d;
+  margin: 0;
+}
+
+/* --- headings ---------------------------------------------------------- */
+h1 {
+  font-size: 21pt;
+  line-height: 1.2;
+  margin: 0 0 2mm 0;
+  letter-spacing: -0.3pt;
+}
+h2 {
+  font-size: 13.5pt;
+  margin: 9mm 0 3mm 0;
+  padding-bottom: 1.6mm;
+  border-bottom: 1.5px solid #d7dbe0;
+  page-break-after: avoid;
+}
+h3 {
+  font-size: 11pt;
+  margin: 6mm 0 2mm 0;
+  color: #0f3d63;
+  page-break-after: avoid;
+}
+h2 + h3 { margin-top: 4mm; }
+
+p { margin: 0 0 2.6mm 0; }
+h1 + p { color: #5a6470; font-size: 10pt; }
+
+/* --- rules ------------------------------------------------------------- */
+hr {
+  border: 0;
+  border-top: 1px solid #e3e7ec;
+  margin: 7mm 0;
+}
+
+/* --- tables ------------------------------------------------------------ */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 3mm 0 4mm 0;
+  font-size: 9.3pt;
+  page-break-inside: avoid;
+}
+th {
+  background: #eef2f6;
+  text-align: left;
+  font-weight: 600;
+  padding: 2mm 2.6mm;
+  border: 1px solid #d0d7de;
+  color: #16191d;
+}
+td {
+  padding: 2mm 2.6mm;
+  border: 1px solid #dde2e8;
+  vertical-align: top;
+}
+tbody tr:nth-child(even) td { background: #fafbfc; }
+
+/* --- code -------------------------------------------------------------- */
+code {
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 8.9pt;
+  background: #f2f4f7;
+  border: 1px solid #e2e6eb;
+  border-radius: 2.5px;
+  padding: 0.4mm 1.1mm;
+  white-space: nowrap;
+}
+pre {
+  background: #f7f9fb;
+  border: 1px solid #dde3ea;
+  border-left: 3px solid #2f6f9f;
+  border-radius: 3px;
+  padding: 3mm 3.5mm;
+  margin: 3mm 0 4mm 0;
+  overflow: hidden;
+  page-break-inside: avoid;
+}
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 8.7pt;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* --- lists ------------------------------------------------------------- */
+ul, ol { margin: 0 0 3mm 0; padding-left: 5.5mm; }
+li { margin-bottom: 1.2mm; }
+
+strong { font-weight: 600; }
+
+/* --- status banner ----------------------------------------------------- */
+.status {
+  background: #fff8e6;
+  border: 1px solid #f0d795;
+  border-left: 3px solid #c9971d;
+  border-radius: 3px;
+  padding: 2.8mm 3.5mm;
+  margin: 0 0 5mm 0;
+  font-size: 9.6pt;
+}
+
+/* --- footer ------------------------------------------------------------ */
+.footer {
+  margin-top: 9mm;
+  padding-top: 2.5mm;
+  border-top: 1px solid #e3e7ec;
+  font-size: 8.2pt;
+  color: #7b858f;
+}
+</style></head>
+<body><h1>Event row contract — v1</h1>
+<p class="status"><strong>Status: proposed, awaiting sign-off.</strong> Agree this before the generator is
+built. Once agreed, the generator and the engine can be built in parallel rather
+than one waiting on the other.</p>
+<p>The contract is enforced in code, not just here: both sides validate against
+<a href="reco/domain/event_contract.py"><code>reco/domain/event_contract.py</code></a>. A field renamed
+on one side fails the other side's tests immediately, rather than on demo day.</p>
+<hr />
+<h2>One row in <code>ml_demo_events</code></h2>
+<pre><code class="language-json">{
+  &quot;user_id&quot;:               &quot;u01&quot;,
+  &quot;event_type&quot;:            &quot;view&quot;,
+  &quot;categories&quot;:            [&quot;fashion &amp; apparel&quot;],
+  &quot;timestamp&quot;:             ISODate(&quot;2026-08-29T12:11:59Z&quot;),
+  &quot;weight&quot;:                2,
+  &quot;view_duration_seconds&quot;: 7.5,
+  &quot;order_id&quot;:              null
+}
+</code></pre>
+<h3>The five every row carries</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user_id</code></td>
+<td>string</td>
+<td>Text form, not ObjectId</td>
+</tr>
+<tr>
+<td><code>event_type</code></td>
+<td>string</td>
+<td>One of: <code>view</code>, <code>search</code>, <code>click</code>, <code>cart</code>, <code>purchase</code>, <code>purchase_reversal</code></td>
+</tr>
+<tr>
+<td><code>categories</code></td>
+<td><strong>array</strong> of string</td>
+<td><code>toCategoryKey()</code> keys — lowercase, trimmed, spaces preserved, no underscores. Array even when there is one</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>date</td>
+<td>UTC, timezone-aware</td>
+</tr>
+<tr>
+<td><code>weight</code></td>
+<td>number</td>
+<td>Written by the generator. <strong>Never read by the engine</strong></td>
+</tr>
+</tbody>
+</table>
+<h3>The two that appear only where they apply</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>On</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>view_duration_seconds</code></td>
+<td><code>view</code> rows only</td>
+<td>P-02 is applied to it by the method, not the generator</td>
+</tr>
+<tr>
+<td><code>order_id</code></td>
+<td><code>purchase</code> and <code>purchase_reversal</code> rows</td>
+<td>Required on both</td>
+</tr>
+</tbody>
+</table>
+<p>Five on every row, seven in total. Both counts are correct and describe the same
+contract.</p>
+<hr />
+<h2>Three points that need explicit agreement</h2>
+<h3>1. <code>categories</code> is plural, and an array</h3>
+<p>The task list says "category". It has to be <code>categories</code>, an array.</p>
+<p>A post carrying several categories contributes <strong>full weight to each</strong>, not a
+divided share — that is U03's entire purpose, and it's one of the narrated demo
+users. A singular <code>category</code> field cannot express it. If the generator emits
+singular, U03 needs a second code path, and a special case built to make a
+demonstration work is a finding about the build, not a shortcut.</p>
+<p>The array holds one element in the ordinary case, so this costs nothing.</p>
+<h3>2. A reversal is an <code>event_type</code>, not a flag</h3>
+<p><code>purchase_reversal</code> is its own event type rather than a boolean on a purchase
+row. That keeps the contract at seven fields, makes a row self-describing when
+someone reads it in Atlas, and means the reversal cannot be created by accident
+through a defaulted flag.</p>
+<p>Its weight is the purchase weight <strong>negated</strong>, and it is aged from the <strong>original
+order's creation</strong>, never from the cancellation — which is why <code>order_id</code> is
+mandatory on it. A cancellation is always more recent than the order it cancels,
+so it decays less, so it is always larger; aged from the cancellation the user
+ends up below someone who never ordered and the raw goes negative.</p>
+<p>The reversal is <strong>not</strong> P-07 negative feedback. P-07 is hide/report/skip and is 0
+at launch; multiplying the reversal by it would zero the reversal silently.</p>
+<h3>3. <code>weight</code> is written and never read</h3>
+<p>The generator writes it so the data checks can do arithmetic a reader can follow.
+The engine derives every weight from <strong>P-06 keyed on <code>event_type</code></strong> and ignores
+the field — <code>domain/events.Event</code> has nowhere to put it and forbids extra fields,
+so an adapter cannot carry one through even by mistake.</p>
+<p>If the engine read it, P-06 would stop being configuration: retuning a weight
+would change no score, the config layer would be decorative, and nothing would
+fail loudly to say so.</p>
+<p>The one legitimate use is a check asserting the generator's belief matches P-06:
+<code>DemoEventRow.expected_weight(tunables)</code> exists for exactly that.</p>
+<hr />
+<h2>What must never appear in this collection</h2>
+<p><strong>A declared interest.</strong> Signup picks are a statement of preference, not an
+action. They carry no timestamp, contribute a constant floor of 10 (P-25), and
+must never be written to the event stream — where Method A's decay term would
+consume them. They live on the user record's <code>interest</code> array and nowhere else.</p>
+<p>This is the single easiest thing in the build to get wrong (G6), so the generator
+carries a test for it and <code>event_contract.is_declared_interest_row()</code> is there to
+make the assertion cheap.</p>
+<hr />
+<h2>The three sibling collections</h2>
+<p>The same profile switch moves all four sources together, so the generator writes
+all four:</p>
+<table>
+<thead>
+<tr>
+<th>Collection</th>
+<th>Carries</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ml_demo_events</code></td>
+<td>This contract</td>
+</tr>
+<tr>
+<td><code>ml_demo_posts</code></td>
+<td><code>_id</code>, <code>categories</code> — so the live join path can be exercised too</td>
+</tr>
+<tr>
+<td><code>ml_demo_users</code></td>
+<td><code>user_id</code>, <code>interest</code> (array), <code>created_at</code> — the P-25 floor source</td>
+</tr>
+<tr>
+<td><code>ml_demo_orders</code></td>
+<td><code>_id</code>, <code>created_at</code>, <code>order_status</code> — the timestamp a reversal is aged from</td>
+</tr>
+</tbody>
+</table>
+<div class="footer">SOCO M1 interest model &nbsp;·&nbsp; EVENT_CONTRACT.md &nbsp;·&nbsp; enforced in code at reco/domain/event_contract.py</div>
+</body></html>

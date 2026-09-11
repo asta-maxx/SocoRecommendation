@@ -1,0 +1,13 @@
+# Pinned. Python 3.12 (RE-00a). Bumping any line is a deliberate act, not a drift.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# PyMongo's own async client (AsyncMongoClient, 4.9+).
+# Motor is deprecated in favour of async support inside PyMongo -- do not add Motor.
+pymongo==4.10.1
+
+pydantic==2.10.4
+python-dotenv==1.0.1
+
+pytest==8.3.4
+pytest-asyncio==0.25.0
