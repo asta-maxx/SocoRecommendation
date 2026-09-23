@@ -14,13 +14,14 @@ from reco.config import Settings
 from reco.slots.interest.events import Event, EventType
 from reco.slots.interest.context import ScoringContext
 from reco.slots.interest.interest_decay import apply_incremental, decay_factor, score
+from tests.conftest import m1_tunables
 
 NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 
 
 def ctx(**overrides) -> ScoringContext:
     fields = {
-        "tunables": Settings().tunables(),
+        "tunables": m1_tunables(),
         "declared_interests": [],
         "order_created_at": {},
         "now": NOW,
@@ -72,7 +73,7 @@ def test_a_future_event_cannot_amplify() -> None:
 
 
 def test_half_life_comes_from_configuration() -> None:
-    slow = ctx(tunables=Settings(decay_half_life_days=60).tunables())
+    slow = ctx(tunables=m1_tunables({"interest.half_life_days": 60}))
 
     raws, _ = score([event(60)], slow)
 
@@ -83,10 +84,10 @@ def test_p05_overrides_the_half_life_for_one_category() -> None:
     """Launch value is none, but a parameter the engine ignores is not really
     configuration. Fashion turns over faster than furniture.
     """
-    settings = Settings(per_category_half_life_days={"Fashion & Apparel": 15})
+    tunables = m1_tunables({"interest.per_category_half_life_days": {"Fashion & Apparel": 15}})
     events = [event(30), event(30, categories=["Home & Living"])]
 
-    raws, _ = score(events, ctx(tunables=settings.tunables()))
+    raws, _ = score(events, ctx(tunables=tunables))
 
     assert raws["Fashion & Apparel"] == pytest.approx(5 * 2 ** (-30 / 15))
     assert raws["Home & Living"] == pytest.approx(2.5)
@@ -132,7 +133,7 @@ def test_a_view_with_no_duration_is_counted_separately() -> None:
 
 
 def test_the_threshold_comes_from_configuration() -> None:
-    lenient = ctx(tunables=Settings(qualified_view_threshold_seconds=1).tunables())
+    lenient = ctx(tunables=m1_tunables({"events.qualified_view_seconds": 1}))
 
     raws, _ = score([event(0, EventType.VIEW, view_duration_seconds=1.5)], lenient)
 
@@ -192,7 +193,7 @@ def test_the_floor_adds_to_events_rather_than_replacing_them() -> None:
 def test_the_floor_comes_from_configuration() -> None:
     raised = ctx(
         declared_interests=["Fashion & Apparel"],
-        tunables=Settings(declared_interest_floor=25).tunables(),
+        tunables=m1_tunables({"interest.declared_floor": 25}),
     )
 
     raws, _ = score([], raised)
@@ -203,7 +204,7 @@ def test_the_floor_comes_from_configuration() -> None:
 def test_a_zero_floor_stores_nothing_for_a_user_with_no_events() -> None:
     zeroed = ctx(
         declared_interests=["Fashion & Apparel"],
-        tunables=Settings(declared_interest_floor=0).tunables(),
+        tunables=m1_tunables({"interest.declared_floor": 0}),
     )
 
     assert score([], zeroed)[0] == {}
@@ -283,7 +284,7 @@ def test_p07_is_not_applied_to_the_reversal() -> None:
     with_p07_zero = ctx(order_created_at={"o1": placed})
     with_p07_set = ctx(
         order_created_at={"o1": placed},
-        tunables=Settings(negative_feedback_weight=-20).tunables(),
+        tunables=m1_tunables({"interest.weights.not_interested_or_hide": -20}),
     )
 
     a, _ = score(events, with_p07_zero)
@@ -319,9 +320,9 @@ def test_a_longer_half_life_moves_the_score_toward_the_plain_sum() -> None:
     events = [event(0), event(1), event(2)]
     plain_sum = 15.0
 
-    fast, _ = score(events, ctx(tunables=Settings(decay_half_life_days=7).tunables()))
+    fast, _ = score(events, ctx(tunables=m1_tunables({"interest.half_life_days": 7})))
     launch, _ = score(events, ctx())
-    slow, _ = score(events, ctx(tunables=Settings(decay_half_life_days=180).tunables()))
+    slow, _ = score(events, ctx(tunables=m1_tunables({"interest.half_life_days": 180})))
 
     fast_v = fast["Fashion & Apparel"]
     launch_v = launch["Fashion & Apparel"]

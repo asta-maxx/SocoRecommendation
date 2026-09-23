@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from reco.config import get_settings  # noqa: E402
+from reco.config import live, sync  # noqa: E402
 from reco.platform import connection as platform_conn  # noqa: E402
 from reco.store import connection as store_conn  # noqa: E402
 from reco.store.writers import ensure_indexes  # noqa: E402
@@ -65,12 +66,13 @@ async def main() -> None:
     print(f"reading          {settings.events_collection}")
     print(f"writing          {settings.scores_collection}")
     print(f"model_version    {settings.model_version}")
-    print(f"half life        {settings.decay_half_life_days} days (P-04)")
     print(f"anchored at      {reference or 'now'}")
     print()
 
     store_conn.init_client(settings)
     platform_conn.init_client(settings)
+    await sync.load_at_start(settings)
+    print(f"half life        {live.current().interest.half_life_days} days (config {live.current().config_version})")
     try:
         await ensure_indexes(settings)
         run = await refresh(

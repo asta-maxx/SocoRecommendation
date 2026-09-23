@@ -19,6 +19,7 @@ import pytest
 from pydantic import ValidationError
 
 from reco.config import Settings
+from tests.conftest import m1_tunables
 from reco.api.contract import (
     BEYOND_THE_REGISTER,
     CONTRACT_VERSION,
@@ -217,7 +218,7 @@ def test_every_event_validates_through_the_one_request_shape() -> None:
 
 def test_every_event_has_a_decision_about_what_m1_reads() -> None:
     assert set(M1_WEIGHT_KEY) == set(EventName)
-    weight_keys = set(Settings().tunables()["P-06"])
+    weight_keys = set(m1_tunables()["P-06"])
     for weight in M1_WEIGHT_KEY.values():
         assert weight is None or weight in weight_keys
     # Every P-06 weight has an event to be paid on.

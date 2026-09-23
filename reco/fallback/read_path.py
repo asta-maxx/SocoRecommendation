@@ -27,6 +27,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from reco.config import Settings
+from reco.config import live
 from reco.platform import readers
 from reco.store.writers import read_user_scores
 from reco.fallback.profile import (
@@ -71,7 +72,7 @@ def is_stale(computed_at: datetime, now: datetime, staleness_hours: float) -> bo
     """P-08. A score older than this is treated as unusable.
 
     The threshold must exceed the refresh interval or every score is stale before
-    it is replaced -- P-08 is 24 hours against a daily cadence for that reason.
+    it is replaced -- the Settings sheet sets 48 hours against a daily refresh.
     """
     return (now - computed_at) > timedelta(hours=staleness_hours)
 
@@ -87,7 +88,7 @@ async def _popularity(
     Not personalised, and it says so. Every user who lands here gets the same
     answer.
     """
-    window = settings.cold_start_popularity_window_days
+    window = live.current().interest.popularity_window_days
     counts = await readers.read_category_popularity(
         settings, window_days=window, reference_date=reference_date
     )
@@ -150,7 +151,7 @@ async def get_profile(
 
     if stored:
         oldest = min(s.computed_at for s in stored)
-        if is_stale(oldest, now, settings.score_staleness_hours):
+        if is_stale(oldest, now, live.current().interest.stale_after_hours):
             # --- rung 4 ------------------------------------------------------
             age_hours = (now - oldest).total_seconds() / 3600
             logger.warning(
@@ -159,7 +160,7 @@ async def get_profile(
                 "rung 3 because no delivered score exists to serve instead.",
                 user_id,
                 age_hours,
-                settings.score_staleness_hours,
+                live.current().interest.stale_after_hours,
             )
             return await _popularity(
                 settings, user_id, reference_date, fell_through_from=Rung.STALE

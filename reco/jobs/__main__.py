@@ -16,7 +16,7 @@ import asyncio
 import sys
 from typing import Awaitable, Callable
 
-from reco.config import Settings, get_settings
+from reco.config import Settings, get_settings, sync
 from reco.jobs.refresh import refresh
 from reco.monitoring.logs import configure_logging, job_logger, job_run
 from reco.platform import connection as platform_conn
@@ -56,6 +56,8 @@ async def run(job: str) -> int:
     try:
         await ensure_engine_collections(settings)
         await ensure_indexes(settings)
+        # A job reads the settings once, at its start (ENG-02 item 3).
+        await sync.load_at_start(settings)
         await JOBS[job](settings)
         return 0
     except Exception:

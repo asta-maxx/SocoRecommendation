@@ -15,8 +15,15 @@ The engine uses lots of **numbers**: how much a "like" counts, how fast old acti
 
 > [!example] Like a thermostat you can turn without switching the heating off. If someone scribbles nonsense on the dial, it keeps the last sensible setting.
 
+## How to change a number
+1. Open `settings/engine.toml` and change the number. Stay inside the range written next to it.
+2. Raise `config_version` by one, and put your name in `changed_by`.
+3. Save. Within about 30 seconds the engine uses the new number, and the change is written in its diary.
+
+If you forget step 2, or type something invalid, nothing breaks. The engine refuses the file and keeps the last good settings.
+
 ## Status
-Being built as parts 3 and 4 of → [[ENG-02 - Service skeleton and settings]].
+Built in parts 3 and 4 of → [[ENG-02 - Service skeleton and settings]]. Checked live: a change took effect in 29 seconds.
 
 ## How this connects
 - Part of the config area of the → [[Recommendation Engine]].

@@ -93,9 +93,9 @@ def test_event_is_immutable() -> None:
 
 def test_p06_covers_every_event_type() -> None:
     """If a type existed with no weight, it would score zero silently."""
-    from reco.config import EventWeights
+    from reco.config.tunables import Tunables
 
-    assert {t.value for t in EventType} == set(EventWeights.model_fields)
+    assert {t.value for t in EventType} == set(Tunables().m1()["P-06"])
 
 
 # --- counters ---------------------------------------------------------------

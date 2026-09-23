@@ -13,6 +13,7 @@ import pytest
 from pydantic import ValidationError
 
 from reco.config import Settings
+from tests.conftest import DS007_M1_TUNABLES
 from reco.platform.demo_event_contract import (
     CONDITIONAL_FIELDS,
     CORE_FIELDS,
@@ -152,7 +153,7 @@ def test_reversal_weight_is_the_purchase_weight_negated() -> None:
     """Not P-07. P-07 is hide/report/skip and is 0 at launch -- multiplying the
     reversal by it would zero the reversal silently.
     """
-    tunables = Settings().tunables()
+    tunables = dict(DS007_M1_TUNABLES)
     row = make_row(
         event_type="purchase_reversal",
         weight=-20,
@@ -206,7 +207,7 @@ def test_expected_weight_matches_p06_for_every_type() -> None:
     """The one legitimate reading of the field: a check that the generator's
     belief and P-06 agree.
     """
-    tunables = Settings().tunables()
+    tunables = dict(DS007_M1_TUNABLES)
     expected = {
         "product_view": 2.0,
         "keyword_search": 3.0,
@@ -227,7 +228,7 @@ def test_expected_weight_matches_p06_for_every_type() -> None:
 
 def test_expected_weight_follows_a_retuned_p06() -> None:
     """Proving P-06 really is configuration: change it, and the expectation moves."""
-    retuned = Settings(event_weights={"view": 7.0}).tunables()
+    retuned = {**DS007_M1_TUNABLES, "P-06": {**DS007_M1_TUNABLES["P-06"], "view": 7.0}}
 
     assert make_row().expected_weight(retuned) == 7.0  # a product_view row
 

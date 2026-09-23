@@ -1,22 +1,18 @@
-"""One settings object for the whole service.
+"""The service's environment settings: connections, environment, data profile.
 
-Two rules, both from S4/S5 and both enforced here rather than by convention:
+Tunable values -- weights, windows, thresholds, every value on the Build List's
+Settings sheet -- are NOT here. They live in one versioned settings file
+(settings/engine.toml), parsed by reco.config.tunables and kept in force by
+reco.config.live (SD-07, SD-09, ENG-02). This module holds what the server
+environment provides: connection strings, database names, which environment
+this is, and the data profile (SD-08).
 
-1. No configuration is read from the database. A method that behaves differently
-   depending on where it runs cannot be evaluated.
-2. Every tunable reaches a scoring method through the context argument, never as
-   a module constant. A method that hard-codes one fails the contract test.
-
-Parameter values are DS-007 v1.1 (10 September 2026), which is the authority.
-v1.0 is superseded: P-25/P-26/P-27 are new, the declared-interest floor moved out
-of P-06, the purchase weight is restated at order creation, and P-07 is rescoped
-to hide/report/skip. Do not build from a v1.0 copy.
+No configuration is read from the database.
 """
 
 from __future__ import annotations
 
 import os
-from typing import Any
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -115,59 +111,9 @@ def _env_str(key: str, default: str) -> str:
     return os.environ.get(key, default)
 
 
-def _env_int(key: str, default: int) -> int:
-    raw = os.environ.get(key)
-    return default if raw is None or raw == "" else int(raw)
-
-
 def _env_float(key: str, default: float) -> float:
     raw = os.environ.get(key)
     return default if raw is None or raw == "" else float(raw)
-
-
-def _env_bool(key: str, default: bool) -> bool:
-    raw = os.environ.get(key)
-    if raw is None or raw == "":
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_floats(key: str, default: list[float]) -> list[float]:
-    raw = os.environ.get(key)
-    if raw is None or raw == "":
-        return list(default)
-    return [float(part) for part in raw.split(",")]
-
-
-def _env_ints(key: str, default: list[int]) -> list[int]:
-    raw = os.environ.get(key)
-    if raw is None or raw == "":
-        return list(default)
-    return [int(part) for part in raw.split(",")]
-
-
-class EventWeights(BaseModel):
-    """P-06. Each weight 0-50.
-
-    The declared-interest floor is NOT in this table. It is P-25 and is held
-    separately, because it is a statement of preference rather than an action and
-    must never reach the event stream where the decay term would consume it.
-    """
-
-    model_config = {"frozen": True}
-
-    view: float = 2.0
-    click: float = 5.0
-    cart: float = 10.0
-    purchase: float = 20.0
-    search: float = 3.0
-
-    @field_validator("view", "click", "cart", "purchase", "search")
-    @classmethod
-    def _in_range(cls, v: float) -> float:
-        if not 0.0 <= v <= 50.0:
-            raise ValueError(f"P-06 event weight must be within 0-50, got {v}")
-        return v
 
 
 class Settings(BaseModel):
@@ -243,151 +189,14 @@ class Settings(BaseModel):
     #              the post -- a join, not a field
     event_shape: str = ""
 
-    # --- DS-007 v1.1 tunables ------------------------------------------------
-    # P-02 qualified view threshold, seconds. Range 1-10.
-    qualified_view_threshold_seconds: float = 3.0
-
-    # P-04 decay half life, days. Range 7-180. Base 2, so an event exactly this
-    # old contributes half its weight.
-    decay_half_life_days: float = 30.0
-
-    # P-05 per-category half life override. Launch value: none. Keys are category
-    # keys as produced by toCategoryKey(); values follow the P-04 range.
-    per_category_half_life_days: dict[str, float] = Field(default_factory=dict)
-
-    # P-06 event weights.
-    event_weights: EventWeights = Field(default_factory=EventWeights)
-
-    # P-07 negative FEEDBACK weight -- hide, report, skip. Range -20 to 0.
-    # This does NOT govern the purchase reversal. Multiplying the reversal by
-    # this zeroes it at launch, and the failure is silent.
-    negative_feedback_weight: float = 0.0
-
-    # P-08 score staleness age, hours. Range 1-72. Rung 4 of the fallback ladder.
-    score_staleness_hours: float = 24.0
-
-    # P-09 refresh cadence. hourly | daily | weekly.
-    refresh_cadence: str = "daily"
-
-    # P-10 window boundaries, days. Three ascending values within 1-365.
-    # The windows they describe are DISJOINT: 0-7, 8-30, 31-90, and nothing
-    # beyond the last boundary. Nested windows would triple-count recent events.
-    window_boundaries_days: list[int] = Field(default_factory=lambda: [7, 30, 90])
-
-    # P-11 per-window weights. Each 0-1, summing to 1.
-    window_weights: list[float] = Field(default_factory=lambda: [0.5, 0.3, 0.2])
-
-    # P-22 variant traffic split, percentage to the incumbent. Range 50-95.
-    # The M1 comparison does not depend on this: both methods are computed for
-    # every user. The split exists so a method can be switched, not measured.
-    variant_split_incumbent: int = 90
-
-    # P-25 declared interest floor. Range 0-50. Read from registerModel.interest,
-    # never from interestScores -- addInterest seeds that map with 10 per declared
-    # category and event tracking increments the same map, so the two are fused
-    # and cannot be decomposed.
-    declared_interest_floor: float = 10.0
-
-    # P-26 whether the declared interest decays. Launch value: No.
-    declared_interest_decays: bool = False
-
-    # P-27 cold start popularity window, days. Range 7-365.
-    cold_start_popularity_window_days: int = 30
+    # --- Settings file ---------------------------------------------------------
+    # ENG-02 / SD-07: every tunable value, versioned. Relative to the repo root.
+    settings_file: str = "settings/engine.toml"
 
     # --- Service -------------------------------------------------------------
     log_level: str = "INFO"
 
     # --- Validation ----------------------------------------------------------
-
-    @field_validator("qualified_view_threshold_seconds")
-    @classmethod
-    def _p02(cls, v: float) -> float:
-        if not 1.0 <= v <= 10.0:
-            raise ValueError(f"P-02 must be within 1-10 seconds, got {v}")
-        return v
-
-    @field_validator("decay_half_life_days")
-    @classmethod
-    def _p04(cls, v: float) -> float:
-        if not 7.0 <= v <= 180.0:
-            raise ValueError(f"P-04 must be within 7-180 days, got {v}")
-        return v
-
-    @field_validator("per_category_half_life_days")
-    @classmethod
-    def _p05(cls, v: dict[str, float]) -> dict[str, float]:
-        for category, half_life in v.items():
-            if not 7.0 <= half_life <= 180.0:
-                raise ValueError(
-                    f"P-05 override for {category!r} must be within 7-180 days, "
-                    f"got {half_life}"
-                )
-        return v
-
-    @field_validator("negative_feedback_weight")
-    @classmethod
-    def _p07(cls, v: float) -> float:
-        if not -20.0 <= v <= 0.0:
-            raise ValueError(f"P-07 must be within -20 to 0, got {v}")
-        return v
-
-    @field_validator("score_staleness_hours")
-    @classmethod
-    def _p08(cls, v: float) -> float:
-        if not 1.0 <= v <= 72.0:
-            raise ValueError(f"P-08 must be within 1-72 hours, got {v}")
-        return v
-
-    @field_validator("refresh_cadence")
-    @classmethod
-    def _p09(cls, v: str) -> str:
-        allowed = {"hourly", "daily", "weekly"}
-        if v not in allowed:
-            raise ValueError(f"P-09 must be one of {sorted(allowed)}, got {v!r}")
-        return v
-
-    @field_validator("window_boundaries_days")
-    @classmethod
-    def _p10(cls, v: list[int]) -> list[int]:
-        if len(v) != 3:
-            raise ValueError(f"P-10 needs exactly three boundaries, got {v}")
-        if not all(1 <= b <= 365 for b in v):
-            raise ValueError(f"P-10 boundaries must each be within 1-365, got {v}")
-        if not v[0] < v[1] < v[2]:
-            raise ValueError(f"P-10 boundaries must be strictly ascending, got {v}")
-        return v
-
-    @field_validator("window_weights")
-    @classmethod
-    def _p11(cls, v: list[float]) -> list[float]:
-        if len(v) != 3:
-            raise ValueError(f"P-11 needs exactly three weights, got {v}")
-        if not all(0.0 <= w <= 1.0 for w in v):
-            raise ValueError(f"P-11 weights must each be within 0-1, got {v}")
-        if abs(sum(v) - 1.0) > 1e-9:
-            raise ValueError(f"P-11 weights must sum to 1, got {sum(v)}")
-        return v
-
-    @field_validator("variant_split_incumbent")
-    @classmethod
-    def _p22(cls, v: int) -> int:
-        if not 50 <= v <= 95:
-            raise ValueError(f"P-22 incumbent share must be within 50-95, got {v}")
-        return v
-
-    @field_validator("declared_interest_floor")
-    @classmethod
-    def _p25(cls, v: float) -> float:
-        if not 0.0 <= v <= 50.0:
-            raise ValueError(f"P-25 must be within 0-50, got {v}")
-        return v
-
-    @field_validator("cold_start_popularity_window_days")
-    @classmethod
-    def _p27(cls, v: int) -> int:
-        if not 7 <= v <= 365:
-            raise ValueError(f"P-27 must be within 7-365 days, got {v}")
-        return v
 
     @field_validator("engine_env")
     @classmethod
@@ -486,15 +295,6 @@ class Settings(BaseModel):
             )
         return self
 
-    @model_validator(mode="after")
-    def _windows_match_weights(self) -> Settings:
-        if len(self.window_boundaries_days) != len(self.window_weights):
-            raise ValueError(
-                "P-10 boundaries and P-11 weights must describe the same "
-                "number of windows"
-            )
-        return self
-
     # --- Construction --------------------------------------------------------
 
     @classmethod
@@ -525,50 +325,9 @@ class Settings(BaseModel):
             orders_collection=_env_str("ORDERS_COLLECTION", ""),
             scores_collection=_env_str("SCORES_COLLECTION", ""),
             event_shape=_env_str("EVENT_SHAPE", ""),
-            qualified_view_threshold_seconds=_env_float(
-                "P02_QUALIFIED_VIEW_SECONDS", 3.0
-            ),
-            decay_half_life_days=_env_float("P04_DECAY_HALF_LIFE_DAYS", 30.0),
-            event_weights=EventWeights(
-                view=_env_float("P06_WEIGHT_VIEW", 2.0),
-                click=_env_float("P06_WEIGHT_CLICK", 5.0),
-                cart=_env_float("P06_WEIGHT_CART", 10.0),
-                purchase=_env_float("P06_WEIGHT_PURCHASE", 20.0),
-                search=_env_float("P06_WEIGHT_SEARCH", 3.0),
-            ),
-            negative_feedback_weight=_env_float("P07_NEGATIVE_FEEDBACK_WEIGHT", 0.0),
-            score_staleness_hours=_env_float("P08_STALENESS_HOURS", 24.0),
-            refresh_cadence=_env_str("P09_REFRESH_CADENCE", "daily"),
-            window_boundaries_days=_env_ints("P10_WINDOW_BOUNDARIES_DAYS", [7, 30, 90]),
-            window_weights=_env_floats("P11_WINDOW_WEIGHTS", [0.5, 0.3, 0.2]),
-            variant_split_incumbent=_env_int("P22_VARIANT_SPLIT_INCUMBENT", 90),
-            declared_interest_floor=_env_float("P25_DECLARED_INTEREST_FLOOR", 10.0),
-            declared_interest_decays=_env_bool("P26_DECLARED_INTEREST_DECAYS", False),
-            cold_start_popularity_window_days=_env_int("P27_COLD_START_WINDOW_DAYS", 30),
+            settings_file=_env_str("SETTINGS_FILE", "settings/engine.toml"),
             log_level=_env_str("LOG_LEVEL", "INFO"),
         )
-
-    def tunables(self) -> dict[str, Any]:
-        """The parameter surface a scoring method is allowed to see.
-
-        Methods receive this through ctx.tunables. Connection strings and service
-        settings are deliberately absent: a method performs no I/O.
-        """
-        return {
-            "P-02": self.qualified_view_threshold_seconds,
-            "P-04": self.decay_half_life_days,
-            "P-05": dict(self.per_category_half_life_days),
-            "P-06": self.event_weights.model_dump(),
-            "P-07": self.negative_feedback_weight,
-            "P-08": self.score_staleness_hours,
-            "P-09": self.refresh_cadence,
-            "P-10": list(self.window_boundaries_days),
-            "P-11": list(self.window_weights),
-            "P-22": self.variant_split_incumbent,
-            "P-25": self.declared_interest_floor,
-            "P-26": self.declared_interest_decays,
-            "P-27": self.cold_start_popularity_window_days,
-        }
 
 
 def _require_production_env_from_server(engine_env: str, server_engine_env: str) -> None:

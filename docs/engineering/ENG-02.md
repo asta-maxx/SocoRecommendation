@@ -6,7 +6,7 @@
 | **Step** | Step 1 (within 7 working days) |
 | **Waits on** | ENG-01 (built on dev; its server parts come later) |
 | **Needed by** | ENG-03, ENG-04, ENG-05, ENG-07 |
-| **Status** | **In progress** (24 Sep 2026). Parts 1, 2, 5 and 6 built on dev; parts 3 and 4 (the settings file) next |
+| **Status** | **Built** (24 Sep 2026). All six parts built; the check **passed on dev** (`Tracing/checks/ENG-02_2026-09-24.md`). Becomes Passed when re-run on test (Definitions: every check runs on test) |
 | **Spec** | Build List ENG-02; SDA SD-01, SD-05 to SD-10, SD-26 to SD-28; Settings sheet |
 
 ---
@@ -34,7 +34,7 @@ From the Build List row:
 
 ## 2. What was built, subtask by subtask
 
-Numbered as in the Obsidian note: 1–6 are the Build List's parts, and A is an extra.
+Numbered as in the Obsidian note: 1–6 are the Build List's parts, and A–B are extras.
 
 ### 1. Two modes: API and jobs: built
 
@@ -77,13 +77,85 @@ All moves used `git mv`, so history is kept.
 - the entry points use only `init_client`, `close_client`, `verify_database` and `ping` on it;
 - no database write call (`insert_*`, `update_*`, `delete_*`, `bulk_write`, `create_index`, `drop`…) outside `store`.
 
-### 3. Versioned settings file with reload: next
+### 3. Versioned settings file with reload: built
 
-Not started yet. See §7.
+**The file:** `settings/engine.toml`, TOML **(choice: read with the standard
+library's `tomllib`, allows comments)**. It holds all **144 values** on the
+Settings sheet, grouped as the sheet groups them, each commented with its item
+and allowed range. The file is committed at `config_version = "1"`, and its
+values equal the sheet's (a test asserts this).
 
-### 4. Settings changes logged in `ml_config_changes`: next
+**The model:** `reco/config/tunables.py`, `Tunables`. Its defaults *are* the
+Settings sheet's starting values. Validation follows the sheet:
 
-Not started yet; built with part 3.
+| Sheet says | Enforced as |
+|---|---|
+| An allowed range | Pydantic `ge`/`le` (`between(value, low, high)`) |
+| Fixed for Wave 1A, no range | Range of one value (`fixed(value)`) |
+| "Sum to 1" | Model validators on each weight group (ranking, retrieval shares, product, opportunity, promoter, window weights) |
+| off / live | `Literal["off", "live"]`: no shadow mode |
+
+- **Unknown keys** are refused (`extra="forbid"`).
+- **Where the pack is silent (choice):**
+  - The promoter slot's method names are `shrinkage` and `cohort_percentile`.
+  - Both surfaces start `off`, because the sheet's value is "live, each only if its checks pass" and none has passed (ENG-24).
+
+**Rules (`reco/config/live.py`, pure, no database):**
+- `read_file(path)`: never raises. It reports a fault for a missing file, invalid TOML, or any value outside the sheet (naming the setting).
+- `decide(in_force, candidate)`:
+  - **accept** when `config_version` changed;
+  - **refuse** when values changed but `config_version` did not (SD-07: every change needs a new version);
+  - **nothing to do** when both are unchanged.
+- `current()`: the `Tunables` in force. Read at the moment of use.
+- `RELOAD_SECONDS = 30`: the sheet asks for at least once a minute.
+
+**Keeping it in force (`reco/config/sync.py`):**
+- **`load_at_start`**, run at API startup and at the start of every job:
+  1. Use the file if good.
+  2. Else use the last good version recorded in `ml_config_changes`.
+  3. Else use the Settings-sheet defaults.
+
+  A good file with the same version as the last record but different values is refused, and the recorded version is used. Because the last good version is recorded in `ml_config_changes`, "no good version has ever loaded" survives restarts, not just the current process.
+- **`reload`**, every 30 s in the API (`reload_loop`, a background task started and cancelled in the lifespan):
+  - skips an unchanged file (by SHA-256 fingerprint);
+  - logs a broken file once, at ERROR, and keeps the settings in force;
+  - applies and records a good change.
+- **Resilience:** if the engine database can't be read or written, the file still goes into force in memory. Only the record is skipped, and the next process to start records it.
+
+**Who reads it:**
+- `reco/jobs/refresh.py`, `reco/fallback/read_path.py` and `reco/api/profiles.py` read `live.current()`.
+- The M1 methods still take the `P-02`…`P-27` map they were written for. `Tunables.m1()` builds it from the sheet's values.
+- `refresh(tunables=...)` lets a caller pin values. Only the demo-dataset tests do that, with DS-007.
+
+**Environment `Settings` (`reco/config/__init__.py`):** every DS-007 tunable
+field, `EventWeights`, `tunables()` and the `P02_…`–`P27_…` environment variables
+are removed. They're replaced by `settings_file` (`SETTINGS_FILE`, default
+`settings/engine.toml`). Tunables now live only in the file (SD-07); the
+environment holds only connections, the environment name, the data profile and
+logging (SD-08).
+
+### 4. Settings changes logged in `ml_config_changes`: built
+
+`reco/store/writers.py`:
+- `record_config_change(settings, record) -> bool` inserts one record.
+- `read_latest_config_change(settings)` returns the newest record by `changed_at`.
+- `ensure_engine_collections` adds two indexes:
+  - `uniq_config_version` (unique), so when the API and a job both see a new version, only one records it; the other gets `False`, which is expected;
+  - `changed_at`.
+
+Each record holds:
+
+| Field | Holds |
+|---|---|
+| `changed_at` | UTC time of the change |
+| `config_version`, `previous_version` | The new version and the one it replaced |
+| `changed_by` | From the file: **who** made the change (choice: the file names its author) |
+| `environment` | dev, test or production |
+| `source` | The file path |
+| `changes` | `[{key, old, new}]` per changed value, keys dotted (`interest.stale_after_hours`) |
+| `values` | The full snapshot, used to recover the last good version |
+
+Each accepted change is also logged: `settings changed`, with `changed_keys` and `recorded`.
 
 ### 5. `GET /health`: 200 or 503: built
 
@@ -125,11 +197,38 @@ line is the structured record.
 - **Collection-name test:** `test_collection_config.py` now exempts the `reco/config` package, not the old `config.py`.
 - **Method-contract test:** `test_method_contract.py` forbids scoring methods from importing either connection.
 
+### B. Extra: behaviour changes from the Settings sheet: done
+
+Moving M1 from DS-007 to the Settings sheet changes these values. The pack sets them:
+
+| Value | Before (DS-007) | Now (Settings sheet) | Effect today |
+|---|---|---|---|
+| Score too old (rung 4) | 24 h | **48 h** | A score is stale only when older than 48 h |
+| Not interested / hide | 0 | **−5** | No effect yet: no reader produces those events. ENG-10 wires it |
+| Search | 3 | **0** (no sheet value; E11 deferred) | A search event scores nothing |
+| Like, save, share, comment, business follow | absent | 3, 4, 4, 4, 5 | In the file; M1 reads them in ENG-10 |
+| Method split | P-22, 90% incumbent | 50 per slot, share on method two | Used by ENG-05 |
+
+**Tests changed to match:**
+- Stale-score cases in `test_read_path.py` use 60-hour-old scores, past the new 48 h.
+- `test_method_a_expected.py`, `test_event_contract.py` and `test_refresh.py` compare against Kala's demo dataset, whose expected answers were generated with DS-007. They pin `DS007_M1_TUNABLES`, labelled as such in `tests/conftest.py`.
+- Every other test uses `m1_tunables({...})`: the Settings sheet with named, validated changes.
+
 ---
 
 ## 3. Configuration reference
 
-No new environment variables yet. Parts 3–4 add the settings file path.
+| Variable | Meaning | Default |
+|---|---|---|
+| `SETTINGS_FILE` | Path to the settings file, relative to the repo root unless absolute | `settings/engine.toml` |
+
+Removed: `P02_QUALIFIED_VIEW_SECONDS` … `P27_COLD_START_WINDOW_DAYS`. Tunables
+come only from the file.
+
+**Changing a setting:**
+1. Edit `settings/engine.toml` inside the value's range.
+2. Raise `config_version` and set `changed_by`.
+3. Save. The API picks it up within 30 seconds; jobs pick it up at their next start.
 
 ---
 
@@ -140,12 +239,17 @@ No new environment variables yet. Parts 3–4 add the settings file path.
 | `tests/test_module_layout.py` | Part 2: twelve modules, gatekeepers, write calls only in `store` (16 tests) |
 | `tests/test_health.py` | Part 5: 200 when both answer; 503 for each failure combination; environment in the body |
 | `tests/test_logs.py` | Parts 1 and 6: JSON fields, extras, request lines (including a raising handler), job start, finish and failure, `--list` |
+| `tests/test_tunables.py` | Parts 3 and 4: the file holds exactly the sheet's values; ranges, fixed values, sums; file faults; the decision rules; load and reload (change, broken file, same-version refusal, defaults, last-good from the database, no double record); the unique change log on Atlas |
+| `tests/test_config.py` | Rewritten: the environment settings hold no tunables; old `P…` variables are ignored |
 
-Result on 24 Sep 2026: **398 unit tests passed** and 1 skipped (pre-existing).
-Before part 6: **30 Atlas database tests passed**.
+Result on 24 Sep 2026: **432 unit tests passed**, 1 skipped (pre-existing), and
+**31 Atlas database tests passed**.
 
-A live run on dev (`uvicorn reco.main:app`) returned `/health` 200 with both
-connections true, and wrote the JSON request lines above.
+**The ENG-02 check** was run live on dev and passed. Full record:
+`Tracing/checks/ENG-02_2026-09-24.md`.
+- A settings change was picked up in 29 s and recorded with old, new and who.
+- A broken file was rejected and the service kept answering.
+- With the engine database unreachable, `/health` returned 503.
 
 ---
 
@@ -158,45 +262,20 @@ connections true, and wrote the JSON request lines above.
 curl -i http://127.0.0.1:8100/health                     # 200, or 503 if a database is down
 ```
 
+Settings changes: see §3. The change history is in `ml_config_changes`, newest first by `changed_at`.
+
 ---
 
 ## 6. Open
 
 | Open item | Needs |
 |---|---|
-| Part 3: settings file, reload, last-good, defaults | Next |
-| Part 4: `ml_config_changes` log | With part 3 |
-| Run the ENG-02 check on dev and save `ENG-02_<date>` | Parts 3–4 |
+| Re-run the check on **test**; then mark Passed | The test server (ENG-01, DB-13) |
+| Copy `Tracing/checks/ENG-02_2026-09-24.md` to the shared "Wave1A checks" folder | Access to the folder (Sanjai) |
 
 ---
 
-## 7. Plan for parts 3 and 4
-
-Everything below follows the pack. Where the pack is silent, the choice is
-marked **(choice)**.
-
-- **One file:** `settings/engine.toml` **(choice: TOML, read with the standard library's `tomllib`, allows comments)**. It holds every value on the Build List's Settings sheet, grouped as the sheet groups them, and each value is validated against the sheet's *Allowed range*.
-- **Versioned:** the file carries `config_version` and `changed_by` **(choice: how "who made it" is recorded)**. A changed file that keeps the same `config_version`, or has no `changed_by`, is treated as broken.
-- **Reload:** the API checks the file every 30 seconds (the sheet asks for at least once a minute); jobs read it at the start of each run.
-  - **Broken file:** keep the last good version and log the fault.
-  - **No good version ever:** use the Settings-sheet defaults.
-- **`ml_config_changes`:** one document per accepted change, holding the time, `config_version`, `changed_by`, and each changed key with its old and new value, plus a full snapshot. A restart with a broken file can then recover the last good version from the database.
-- **Secrets and connections stay in the environment (SD-08):** URIs, database names, `ENGINE_ENV`, `DATA_PROFILE`, `LOG_LEVEL`. The old `P02_…`/`P27_…` environment tunables are removed. Tunables live only in the file (SD-07).
-- **M1 behaviour changes** that follow from moving to the Settings sheet's values:
-
-  | Value | Before (DS-007) | Settings sheet |
-  |---|---|---|
-  | Score too old (rung 4) | 24 h | **48 h** |
-  | Not interested / hide weight | 0 | **−5** (range −20 to 50) |
-  | Search weight | 3 | **removed** (E11 deferred) |
-  | Like, save, share, comment, business follow | not present | **3, 4, 4, 4, 5** (in the file now; M1 reads them in ENG-10) |
-  | Method split | 90% incumbent (P-22) | **50** per slot, share on method two (ENG-05 uses it) |
-
-  Tests that pin DS-007 values are updated to the Settings sheet.
-
----
-
-## 8. Files changed (so far)
+## 7. Files changed
 
 | File | Change |
 |---|---|
@@ -207,6 +286,15 @@ marked **(choice)**.
 | `reco/jobs/__main__.py` | New: jobs mode |
 | `reco/main.py` | JSON logging, request middleware, split connections |
 | `reco/*/__init__.py` | Docstrings for the twelve modules |
+| `settings/engine.toml` | New: the settings file, version 1 |
+| `reco/config/tunables.py`, `live.py`, `sync.py` | New: the model, the rules, load and reload |
+| `reco/config/__init__.py` | DS-007 tunables removed; `settings_file` added |
+| `reco/store/writers.py` | `record_config_change`, `read_latest_config_change`, `ml_config_changes` indexes |
+| `reco/jobs/refresh.py`, `reco/fallback/read_path.py`, `reco/api/profiles.py` | Read the settings in force |
+| `Tracing/checks/ENG-02_2026-09-24.md` | New: the check result |
+| `.env.example` | `SETTINGS_FILE` |
 | `scripts/*.py` | New import paths and split connections |
-| `tests/test_module_layout.py`, `test_health.py`, `test_logs.py` | New |
+| `tests/test_module_layout.py`, `test_health.py`, `test_logs.py`, `test_tunables.py` | New |
+| `tests/test_config.py` | Rewritten for the environment settings only |
+| `tests/conftest.py` | `m1_tunables`, `put_in_force`, `DS007_M1_TUNABLES`; the Settings-sheet defaults are put back in force around every test |
 | Other `tests/*.py` | New import paths; `test_collection_config.py` exempts `reco/config`; `test_method_contract.py` forbids both connections |

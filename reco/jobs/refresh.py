@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from reco.config import Settings
+from reco.config import live
 from reco.platform import readers
 from reco.store.writers import remove_scores_older_than, upsert_user_scores
 from reco.slots.interest.events import Event, ReadStats
@@ -103,6 +104,7 @@ async def refresh(
     settings: Settings,
     method: Method = Method.RECENCY_DECAY,
     reference_date: datetime | None = None,
+    tunables: dict | None = None,
 ) -> RefreshRun:
     """Score every user under one method and write the results.
 
@@ -134,7 +136,9 @@ async def refresh(
     user_ids = await readers.read_all_user_ids(settings)
 
     run.users_seen = len(user_ids)
-    tunables = settings.tunables()
+    # The settings in force, unless a caller pins its own (the demo checks pin
+    # the DS-007 values their expected answers were generated with).
+    tunables = tunables if tunables is not None else live.current().m1()
 
     for user_id in user_ids:
         events: list[Event] = events_by_user.get(user_id, [])

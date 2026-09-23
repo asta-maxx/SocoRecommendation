@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from reco.config import Settings
+from tests.conftest import DS007_M1_TUNABLES
 from reco.slots.interest.events import ReadStats
 from reco.store.scores import Method
 from reco.jobs.refresh import refresh
@@ -108,7 +109,13 @@ def settings() -> Settings:
 
 
 async def run(settings, dataset, method=Method.RECENCY_DECAY):
-    return await refresh(settings, method=method, reference_date=dataset["reference"])
+    return await refresh(
+        settings,
+        method=method,
+        reference_date=dataset["reference"],
+        # The demo expectations were generated with DS-007 values.
+        tunables=dict(DS007_M1_TUNABLES),
+    )
 
 
 # --- the run record ---------------------------------------------------------

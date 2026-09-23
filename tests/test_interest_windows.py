@@ -13,13 +13,15 @@ from reco.slots.interest.events import Event, EventType
 from reco.slots.interest import interest_decay, interest_windows
 from reco.slots.interest.context import ScoringContext
 from reco.slots.interest.interest_windows import score, window_weight
+from reco.config.tunables import Tunables
+from tests.conftest import m1_tunables
 
 NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 
 
 def ctx(**overrides) -> ScoringContext:
     fields = {
-        "tunables": Settings().tunables(),
+        "tunables": m1_tunables(),
         "declared_interests": [],
         "order_created_at": {},
         "now": NOW,
@@ -118,7 +120,7 @@ def test_decay_still_counts_what_windows_discard() -> None:
 
 
 def test_boundaries_come_from_p10() -> None:
-    wide = ctx(tunables=Settings(window_boundaries_days=[14, 60, 180]).tunables())
+    wide = ctx(tunables=m1_tunables({"interest.window_bounds_days": [14, 60, 180]}))
 
     # 10 days is medium under the launch boundaries, recent under these.
     assert raw_of([event(10)], wide) == pytest.approx(5 * 0.5)
@@ -126,7 +128,7 @@ def test_boundaries_come_from_p10() -> None:
 
 
 def test_weights_come_from_p11() -> None:
-    flat = ctx(tunables=Settings(window_weights=[0.4, 0.4, 0.2]).tunables())
+    flat = ctx(tunables=m1_tunables({"interest.window_weights": [0.4, 0.4, 0.2]}))
 
     assert raw_of([event(20)], flat) == pytest.approx(5 * 0.4)
 
@@ -136,7 +138,7 @@ def test_out_of_range_window_weights_are_refused_at_load() -> None:
     from pydantic import ValidationError
 
     with pytest.raises(ValidationError, match="sum to 1"):
-        Settings(window_weights=[0.5, 0.3, 0.3])
+        Tunables().with_changes({"interest.window_weights": [0.5, 0.3, 0.3]})
 
 
 # --- MB6: the reversal ------------------------------------------------------
@@ -241,7 +243,7 @@ def test_p07_is_not_applied_to_the_reversal() -> None:
         events,
         ctx(
             order_created_at=orders,
-            tunables=Settings(negative_feedback_weight=-20).tunables(),
+            tunables=m1_tunables({"interest.weights.not_interested_or_hide": -20}),
         ),
     )
 

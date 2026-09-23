@@ -13,12 +13,52 @@ from datetime import timedelta
 import pytest
 import pytest_asyncio
 
-from reco.config import Settings
+from reco.config import Settings, live
+from reco.config.tunables import Tunables
 from reco.platform import connection as platform_conn
 from reco.store import connection as store_conn
 from reco.store.scores import InterestScore, Method, Window, utc_now
 
 TEST_DB = os.environ.get("TEST_MONGO_DB", "reco_test")
+
+#: The DS-007 v1.1 values Kala's demo generator used (reference/v2). Tests that
+#: compare the engine with the demo dataset's expected answers pin these; every
+#: other test uses the Settings sheet through m1_tunables().
+DS007_M1_TUNABLES = {
+    "P-02": 3.0,
+    "P-04": 30.0,
+    "P-05": {},
+    "P-06": {"view": 2.0, "click": 5.0, "cart": 10.0, "purchase": 20.0, "search": 3.0},
+    "P-07": 0.0,
+    "P-08": 24.0,
+    "P-09": "daily",
+    "P-10": [7, 30, 90],
+    "P-11": [0.5, 0.3, 0.2],
+    "P-25": 10.0,
+    "P-26": False,
+    "P-27": 30,
+}
+
+
+def m1_tunables(changes: dict | None = None) -> dict:
+    """What the M1 methods read, from the Settings sheet, with dotted changes.
+
+    m1_tunables({"interest.half_life_days": 60}) -- validated against the sheet.
+    """
+    return Tunables().with_changes(changes or {}).m1()
+
+
+def put_in_force(changes: dict) -> None:
+    """Make the settings in force the Settings sheet with these changes."""
+    live.put_in_force(Tunables().with_changes(changes), "test")
+
+
+@pytest.fixture(autouse=True)
+def _settings_sheet_in_force():
+    """Every test starts, and ends, with the Settings-sheet defaults in force."""
+    live.reset()
+    yield
+    live.reset()
 #: The engine database is never the platform database (AS-09), so the test
 #: settings name a separate one for the read-only side. Store tests seed and read
 #: ml_ collections only, which live in TEST_DB.

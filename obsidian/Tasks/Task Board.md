@@ -7,7 +7,7 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 
 ## Step 1: foundations
 - [ ] [[ENG-01 - Engine home and databases]]: **waiting** (laptop part done; needs the test and production servers from Aravinth)
-- [ ] [[ENG-02 - Service skeleton and settings]]: **in progress** (4 of 6 parts done; settings file next)
+- [ ] [[ENG-02 - Service skeleton and settings]]: **built** (check passed on laptop; re-run on the test server later)
 - [ ] [[ENG-03 - Reading SOCO's data correctly]]
 - [ ] ENG-04: Receive and store activity events
 - [ ] ENG-05: Give each user the same method every time

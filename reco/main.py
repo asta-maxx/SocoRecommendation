@@ -8,6 +8,8 @@ being made in this file, it is in the wrong file.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -16,7 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from reco.api import health, profiles
-from reco.config import get_settings
+from reco.config import get_settings, live, sync
 from reco.monitoring.logs import configure_logging, log_request
 from reco.platform import connection as platform_conn
 from reco.store import connection as store_conn
@@ -46,10 +48,20 @@ async def lifespan(app: FastAPI):
             "has createIndex on the ml_ prefix"
         )
 
+    # ENG-02 items 3-4: the settings in force, then a reload at least once a minute.
+    await sync.load_at_start(settings)
+    reloader = asyncio.create_task(sync.reload_loop(settings))
+
     logger.info(
-        "reco up: env=%s model_version=%s", settings.engine_env, settings.model_version
+        "reco up: env=%s model_version=%s config_version=%s",
+        settings.engine_env,
+        settings.model_version,
+        live.current().config_version,
     )
     yield
+    reloader.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await reloader
     await platform_conn.close_client()
     await store_conn.close_client()
 

@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Iterable
+from typing import Any, Iterable
 
-from pymongo import UpdateOne
+from pymongo import DESCENDING, UpdateOne
+from pymongo.errors import DuplicateKeyError
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -54,7 +55,7 @@ def _collection(database: AsyncDatabase, name: str) -> AsyncCollection:
 async def ensure_engine_collections(settings: Settings) -> list[str]:
     """Create every engine collection that does not exist yet. ENG-01. Idempotent.
 
-    Also creates the ml_events indexes, which the build list states outright
+    Also creates the ml_config_changes indexes (ENG-02) and the ml_events indexes, which the build list states outright
     (ENG-04, DS-017 section 7): unique on event_id, and indexed on user and time
     and on request_id. No expiry index: ml_events keeps at least 365 days (X-08),
     and no expiry is added unless Allen and Aravinth agree it in writing.
@@ -77,6 +78,14 @@ async def ensure_engine_collections(settings: Settings) -> list[str]:
     await events.create_index([("event_id", 1)], unique=True, name="uniq_event_id")
     await events.create_index([("user_id", 1), ("server_ts", -1)], name="user_time")
     await events.create_index([("request_id", 1)], name="request_id")
+
+    # ENG-02 item 4: one record per settings version. Unique, so when the API and
+    # a job both see the same new version, only one records it.
+    changes = _collection(database, "ml_config_changes")
+    await changes.create_index(
+        [("config_version", 1)], unique=True, name="uniq_config_version"
+    )
+    await changes.create_index([("changed_at", -1)], name="changed_at")
 
     logger.info(
         "Engine collections ensured in %s (%s): %d created",
@@ -271,3 +280,23 @@ async def delete_user_scores(
         }
     )
     return result.deleted_count
+
+
+async def record_config_change(settings: Settings, record: dict[str, Any]) -> bool:
+    """Write one settings change to ml_config_changes. ENG-02 item 4.
+
+    Returns False when this config_version is already recorded -- another process
+    got there first, which is expected, not a fault.
+    """
+    changes = _collection(ml_db(settings), "ml_config_changes")
+    try:
+        await changes.insert_one(dict(record))
+    except DuplicateKeyError:
+        return False
+    return True
+
+
+async def read_latest_config_change(settings: Settings) -> dict[str, Any] | None:
+    """The most recent settings change, with its full snapshot, or None."""
+    changes = ml_db(settings)["ml_config_changes"]
+    return await changes.find_one({}, sort=[("changed_at", DESCENDING)])

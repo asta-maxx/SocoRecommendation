@@ -15,6 +15,7 @@ from collections import Counter
 from fastapi import APIRouter, Depends, Query
 
 from reco.config import Settings, get_settings
+from reco.config import live
 from reco.platform import readers
 from reco.store.connection import ml_db
 from reco.store.scores import Method, utc_now
@@ -143,7 +144,7 @@ async def methods(settings: Settings = Depends(get_settings)) -> dict:
             }
             for name in present
         ],
-        "tunables": settings.tunables(),
+        "tunables": live.current().m1(),
     }
 
 
@@ -166,7 +167,7 @@ async def diagnostics(
 
     events, read_stats = await readers.read_user_events(settings, user_id)
     ctx = ScoringContext(
-        tunables=settings.tunables(),
+        tunables=live.current().m1(),
         declared_interests=await readers.read_declared_interests(settings, user_id),
         order_created_at=await readers.read_all_order_creation_times(settings),
         now=utc_now(),
@@ -182,7 +183,7 @@ async def diagnostics(
         "dropped": [
             {
                 "reason": "view too short to mean anything",
-                "detail": f"under P-02 = {settings.qualified_view_threshold_seconds}s",
+                "detail": f"under P-02 = {live.current().events.qualified_view_seconds}s",
                 "count": stats.sub_threshold_views,
             },
             {
@@ -341,12 +342,12 @@ async def popularity(settings: Settings = Depends(get_settings)) -> dict:
     as not personalised wherever it is served.
     """
     counts = await readers.read_category_popularity(
-        settings, window_days=settings.cold_start_popularity_window_days
+        settings, window_days=live.current().interest.popularity_window_days
     )
     total = sum(counts.values())
 
     return {
-        "window_days": settings.cold_start_popularity_window_days,
+        "window_days": live.current().interest.popularity_window_days,
         "personalised": False,
         "total_events": total,
         "categories": [

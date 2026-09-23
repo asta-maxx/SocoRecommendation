@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from reco.config import get_settings  # noqa: E402
+from reco.config import live, sync  # noqa: E402
 from reco.platform import connection as platform_conn  # noqa: E402
 from reco.store import connection as store_conn  # noqa: E402
 from reco.store.scores import Method  # noqa: E402
@@ -54,12 +55,14 @@ async def main() -> None:
     print(f"profile   {settings.data_profile}")
     print(f"reading   {settings.scores_collection}")
     print(f"anchored  {reference or 'now'}")
-    print(f"P-08      {settings.score_staleness_hours}h   "
-          f"P-27 {settings.cold_start_popularity_window_days}d")
     print()
 
     store_conn.init_client(settings)
     platform_conn.init_client(settings)
+    await sync.load_at_start(settings)
+    interest = live.current().interest
+    print(f"stale     {interest.stale_after_hours}h   "
+          f"popularity window {interest.popularity_window_days}d")
     try:
         for user_id in (args.users or DEFAULT_USERS):
             p = await get_profile(

@@ -1,0 +1,213 @@
+# SOCO recommendation engine: settings. ENG-02, SD-07.
+#
+# Every value on the Wave 1A Build List's Settings sheet, and nothing else.
+# Passwords, tokens and connection strings never go here (SD-08).
+#
+# HOW TO CHANGE A VALUE
+#   1. Change the value, inside its allowed range (shown beside it).
+#   2. Raise config_version, and put your name in changed_by.
+#   3. Save. The engine picks it up within a minute, with no restart, and logs
+#      every changed value in ml_config_changes (time, old, new, who).
+#
+# A file that fails to parse, breaks a range, or changes values without a new
+# config_version is rejected: the engine keeps the last good version and logs
+# the fault. "fixed" means the sheet fixes the value for Wave 1A.
+
+config_version = "1"
+changed_by = "Allen"
+
+[serving]
+service_p95_target_ms = 200              # fixed. ENG-06, APP-15
+soco_be_timeout_ms = 250                 # 100-400. APP-15
+stage_limit_retrieval_ms = 80            # fixed. ENG-12
+stage_limit_ranking_ms = 80              # fixed. ENG-19
+stage_limit_network_ms = 40              # fixed
+circuit_breaker_failures = 5             # 3-20. APP-15
+circuit_breaker_test_call_seconds = 30   # 10-300
+over_fetch_items = 0                     # fixed: the engine applies every filter and returns exactly `limit`
+cache_max_seconds = 60                   # fixed. APP-15
+surface_mode_feed = "off"                # off | live. Live only once its checks pass (ENG-24)
+surface_mode_product = "off"             # off | live
+sample_random_percent = 10               # 1-100. ENG-06: plus every returned item, and all of an exploration list
+exploration_percent = 5                  # 3-5. Feed only, never product
+exploration_top_kept = 3                 # fixed
+page_dedup_hours = 24                    # 1-72. ENG-19
+
+# Method choice. ENG-05. split = the share on method two (0-50); the default is method one.
+[slots.interest]
+method_one = "recency_decay"
+method_two = "time_windows"
+split = 50
+default_method = "method_one"
+
+[slots.product_ranking]
+method_one = "attribute_similarity"
+method_two = "bought_together"
+split = 50
+default_method = "method_one"
+
+[slots.promoter_score]
+method_one = "shrinkage"
+method_two = "cohort_percentile"
+split = 50
+default_method = "method_one"
+
+[events]
+qualified_view_seconds = 3               # 1-10. APP-00, ENG-10
+qualified_view_visible_fraction = 0.5    # 0.1-1.0
+app_batch_seconds = 10                   # fixed. APP-12 (app side): every 10 s, or 20 events, or backgrounding
+app_batch_events = 20                    # fixed
+forward_batch_max = 100                  # fixed. APP-12, ENG-04
+forward_timeout_seconds = 2              # fixed
+retention_days = 365                     # fixed: at least this. No expiry on postevents
+session_background_minutes = 30          # fixed. APP-01
+
+[filters]
+feedback_hide_days = 90                  # 30-365. ENG-08 (E-03)
+
+# M1 interest. ENG-09, ENG-10.
+[interest]
+declared_floor = 10                      # 0-50. Per declared category
+declared_floor_decays = false            # fixed: the floor never decays
+half_life_days = 30                      # 7-180. Method one, recency decay
+per_category_half_life_days = {}         # none at launch; each 7-180
+window_bounds_days = [7, 30, 90]         # method two: 0-7, 8-30, 31-90 days
+window_weights = [0.5, 0.3, 0.2]         # sum to 1
+refresh_cadence = "daily"                # hourly | daily | weekly. ENG-07
+refresh_time_ist = "02:00"
+stale_after_hours = 48                   # 1-72. Ladder rung 4
+personal_min_actions = 5                 # fixed. Ladder rung 1: 5 qualified actions...
+personal_window_days = 90                # fixed. ...in 90 days
+popularity_window_days = 30              # 7-365. Ladder rung 3
+
+[interest.weights]                       # each -20 to 50
+qualified_view = 2
+click = 5
+like = 3
+save = 4
+share = 4
+comment = 4
+add_to_cart = 10
+purchase = 20
+business_follow = 5
+not_interested_or_hide = -5
+
+# M2 retrieval. ENG-12 to ENG-15.
+[retrieval]
+pool_size = 300                          # 100-2000. Cut first if speed is missed
+post_age_days = 30                       # fixed
+shortlist_size = 200                     # fixed
+source_time_limit_ms = 20                # 10-40, each source, in parallel
+similar_engaged_posts = 50               # fixed. ENG-14 method two inputs
+similar_top_stored = 200                 # fixed
+similar_max_posts = 5000                 # fixed
+similar_min_engaged = 3                  # fixed
+
+[retrieval.source_shares]                # sum to 1
+interest = 0.4
+follows = 0.3
+trending = 0.2
+platform_popular = 0.1
+
+# Feed ranking. ENG-19. Commission is never a term.
+[ranking]
+freshness_half_life_days = 3             # fixed
+max_consecutive_same_author = 2          # fixed
+max_per_author_per_page = 3              # fixed
+max_category_fraction = 0.4              # fixed: ceil(0.4 x limit) per category...
+min_category_cap = 2                     # fixed: ...and never fewer than 2
+engagement_shrinkage_views = 50          # 10-500
+
+[ranking.weights]                        # sum to 1
+interest = 0.35
+retrieval = 0.15
+promoter = 0.20
+freshness = 0.20
+engagement_quality = 0.10
+
+# M5 product ranker. ENG-17. The two methods are compared by the split, never blended.
+[product]
+lift_strength = 10                       # fixed
+min_co_purchases = 2                     # fixed
+price_band_fraction = 0.30               # 0.10-0.50
+
+[product.weights]                        # sum to 1
+category = 0.35
+cross_sell = 0.20
+price_band = 0.15
+popularity = 0.20
+same_seller = 0.10
+
+# M6 opportunity. ENG-18. Computed, never shown in Wave 1A.
+[opportunity]
+default_commission_rate = 0.10           # fixed: where no rate is stored
+sell_through_window_days = 30            # 7-180
+
+[opportunity.weights]                    # sum to 1
+commission = 0.30
+sell_through = 0.40
+fit = 0.30
+
+# M8 promoter score. ENG-16.
+[promoter]
+shrinkage_strength = 20                  # 5-100
+cohort_minimum = 20                      # fixed
+fraud_trust_multiplier = 0.5             # fixed
+low_confidence_below = 20                # 10-200 (n = qualified views / 100)
+follower_bands = [1000, 10000]           # under 1,000; 1,000-10,000; over 10,000
+
+[promoter.weights]                       # sum to 1; rescaled over components with data
+reach = 0.20
+content_quality = 0.20
+consistency = 0.10
+net_commerce = 0.25
+conversion = 0.15
+sales_quality = 0.10
+
+[commerce]
+pending_open_days = 14                   # 7-45. A Pending order older than this is not completed
+
+# M9 fraud. ENG-21. Thresholds change only under the calibration rule.
+[fraud]
+r01_actions_per_minute = 30
+r02_actions_per_day = 1000
+r03_orders_for_review = 3
+r03_window_days = 30
+r04_delivered_rate_ratio = 0.5
+r04_min_orders = 10                      # 10-100
+r05_buyer_share = 0.5
+r05_min_orders = 5
+r05_window_days = 30
+r06_exclusive_share = 0.4
+r06_min_accounts = 50
+r06_window_days = 30
+r07_same_day_share = 0.3
+r07_min_followers = 50
+r07_window_days = 7
+r08_multiple = 10
+r08_baseline_days = 14
+r08_min_engagements = 100
+r09_like_share_of_views = 0.8
+r09_min_views = 100
+r11_days_after_creation = 7
+r12_accounts_per_device = 3
+r12_window_days = 30
+watch_only = []                          # rules switched to watch-only by calibration
+watch_clears_days = 30                   # fixed
+strike_months = 12                       # fixed
+review_due_working_days = 5              # fixed
+review_due_urgent_working_days = 1       # fixed
+restricted_days = 14                     # fixed. APP-18
+suspended_days = 30                      # fixed
+appeal_days = 30                         # fixed. APP-19
+appeal_decision_working_days = 10        # fixed
+review_capacity_per_week = 20            # fixed
+
+# Method comparison. ENG-26. Fixed for Wave 1A.
+[comparison]
+min_weeks_live = 4
+min_impressions_per_method = 2000
+min_relative_lift = 0.03
+confidence = 0.95
+rollback_drop = 0.05
+cycle_days = 14

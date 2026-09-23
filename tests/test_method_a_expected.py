@@ -22,6 +22,7 @@ from reco.platform.categories import CategoryVocabulary, resolve_all
 from reco.slots.interest.events import Event, EventType
 from reco.slots.interest.context import ScoringContext
 from reco.slots.interest.interest_decay import score
+from tests.conftest import DS007_M1_TUNABLES
 
 DEMO_DIR = Path(
     os.environ.get(
@@ -145,7 +146,7 @@ def adapt(row: dict, reference_date: datetime) -> Event | None:
 
 def context_for(demo, user_id: str) -> ScoringContext:
     return ScoringContext(
-        tunables=Settings().tunables(),
+        tunables=dict(DS007_M1_TUNABLES),
         declared_interests=demo["declared"].get(user_id, []),
         order_created_at=demo["orders"],
         now=demo["reference_date"],

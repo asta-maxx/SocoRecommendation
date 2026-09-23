@@ -15,6 +15,7 @@ from reco.config import Settings
 from reco.fallback.profile import Profile, Rung, evenly_spread
 from reco.store.scores import InterestScore, Method, Window
 from reco.fallback.read_path import get_profile, is_stale
+from tests.conftest import put_in_force
 
 NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 
@@ -200,9 +201,9 @@ async def test_rung_3_uses_the_p27_window(world, settings) -> None:
         return {"Books": 1}
 
     readers.read_category_popularity = capture
-    tuned = Settings(data_profile="demo", cold_start_popularity_window_days=90)
+    put_in_force({"interest.popularity_window_days": 90})
 
-    p = await get_profile(tuned, "u11", reference_date=NOW)
+    p = await get_profile(settings, "u11", reference_date=NOW)
 
     assert captured["window"] == 90
     assert p.popularity_window_days == 90
@@ -233,7 +234,7 @@ async def test_rung_4_a_stale_score_falls_through_to_rung_3(
     """P-08 is 24 hours. A score older than that is unusable, and the delivered
     score it should fall back to does not exist for most users.
     """
-    world["scores"] = [score("u1", "Fashion & Apparel", 1.0, age_hours=48)]
+    world["scores"] = [score("u1", "Fashion & Apparel", 1.0, age_hours=60)]
     world["popularity"] = {"Books": 10}
 
     with caplog.at_level(logging.WARNING, logger="reco.fallback.read_path"):
@@ -252,11 +253,11 @@ async def test_a_fresh_score_is_not_stale(world, settings) -> None:
 
 
 async def test_staleness_threshold_comes_from_configuration(world, settings) -> None:
-    world["scores"] = [score("u1", "Fashion & Apparel", 1.0, age_hours=48)]
+    world["scores"] = [score("u1", "Fashion & Apparel", 1.0, age_hours=60)]
     world["popularity"] = {"Books": 1}
-    lenient = Settings(data_profile="demo", score_staleness_hours=72)
+    put_in_force({"interest.stale_after_hours": 72})
 
-    assert (await get_profile(lenient, "u1", reference_date=NOW)).rung is Rung.PERSONALISED
+    assert (await get_profile(settings, "u1", reference_date=NOW)).rung is Rung.PERSONALISED
 
 
 async def test_shares_that_do_not_sum_to_one_fail_the_range_check(
@@ -301,7 +302,7 @@ async def test_rungs_4_and_5_are_logged_distinctly(world, settings, caplog) -> N
     """
     world["popularity"] = {"Books": 1}
 
-    world["scores"] = [score("u1", "Books", 1.0, age_hours=48)]
+    world["scores"] = [score("u1", "Books", 1.0, age_hours=60)]
     with caplog.at_level(logging.WARNING, logger="reco.fallback.read_path"):
         await get_profile(settings, "u1", reference_date=NOW)
     stale_log = caplog.text

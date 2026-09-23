@@ -30,4 +30,4 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 ## Tasks
 - [[Task Board]]: every task and where it stands
 - [[ENG-01 - Engine home and databases]]: laptop part done; waiting on servers
-- [[ENG-02 - Service skeleton and settings]]: in progress
+- [[ENG-02 - Service skeleton and settings]]: built; check passed on laptop
