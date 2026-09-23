@@ -8,14 +8,14 @@ from __future__ import annotations
 import pytest
 from pymongo.errors import DuplicateKeyError
 
-from reco.data.mongo import ml_db
-from reco.data.writers import (
+from reco.store.connection import ml_db
+from reco.store.writers import (
     delete_user_scores,
     read_user_scores,
     upsert_score,
     upsert_user_scores,
 )
-from reco.domain.scores import Method, Window, utc_now
+from reco.store.scores import Method, Window, utc_now
 from tests.conftest import make_score, make_user_map
 
 pytestmark = pytest.mark.mongo
@@ -191,7 +191,7 @@ async def test_stale_categories_are_removed_by_a_later_run(store) -> None:
     """
     from datetime import timedelta
 
-    from reco.data.writers import remove_scores_older_than
+    from reco.store.writers import remove_scores_older_than
 
     first_run = utc_now() - timedelta(hours=1)
     await upsert_user_scores(
@@ -224,7 +224,7 @@ async def test_the_sweep_leaves_other_methods_alone(store) -> None:
     Sweeping by timestamp alone would delete them."""
     from datetime import timedelta
 
-    from reco.data.writers import remove_scores_older_than
+    from reco.store.writers import remove_scores_older_than
 
     old = utc_now() - timedelta(hours=1)
     await upsert_user_scores(

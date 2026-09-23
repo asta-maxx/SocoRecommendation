@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import ValidationError
 
-from reco.domain.scores import (
+from reco.store.scores import (
     InterestScore,
     Method,
     ScoreBatch,

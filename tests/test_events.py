@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import ValidationError
 
-from reco.domain.events import Event, EventType, ReadStats
+from reco.slots.interest.events import Event, EventType, ReadStats
 
 
 def make_event(**overrides) -> Event:

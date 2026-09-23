@@ -9,10 +9,10 @@ from pathlib import Path
 import pytest
 
 from reco.config import Settings
-from reco.domain.events import Event, EventType
-from reco.methods import interest_decay, interest_windows
-from reco.methods.context import ScoringContext
-from reco.methods.interest_windows import score, window_weight
+from reco.slots.interest.events import Event, EventType
+from reco.slots.interest import interest_decay, interest_windows
+from reco.slots.interest.context import ScoringContext
+from reco.slots.interest.interest_windows import score, window_weight
 
 NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 

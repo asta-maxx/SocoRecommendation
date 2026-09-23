@@ -20,9 +20,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from reco.config import get_settings  # noqa: E402
-from reco.data import mongo  # noqa: E402
-from reco.domain.scores import Method  # noqa: E402
-from reco.read_path import get_profile  # noqa: E402
+from reco.platform import connection as platform_conn  # noqa: E402
+from reco.store import connection as store_conn  # noqa: E402
+from reco.store.scores import Method  # noqa: E402
+from reco.fallback.read_path import get_profile  # noqa: E402
 
 META = ROOT / "reference" / "demo" / "ml_demo_meta.json"
 DEFAULT_USERS = ["U01", "U04", "U07", "U11", "U20"]
@@ -57,7 +58,8 @@ async def main() -> None:
           f"P-27 {settings.cold_start_popularity_window_days}d")
     print()
 
-    mongo.init_clients(settings)
+    store_conn.init_client(settings)
+    platform_conn.init_client(settings)
     try:
         for user_id in (args.users or DEFAULT_USERS):
             p = await get_profile(
@@ -85,7 +87,8 @@ async def main() -> None:
                 print(f"          {c.category:<28} {c.share:6.3f}{raw}{n}")
             print()
     finally:
-        await mongo.close_clients()
+        await platform_conn.close_client()
+        await store_conn.close_client()
 
 
 if __name__ == "__main__":

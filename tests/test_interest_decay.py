@@ -11,9 +11,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from reco.config import Settings
-from reco.domain.events import Event, EventType
-from reco.methods.context import ScoringContext
-from reco.methods.interest_decay import apply_incremental, decay_factor, score
+from reco.slots.interest.events import Event, EventType
+from reco.slots.interest.context import ScoringContext
+from reco.slots.interest.interest_decay import apply_incremental, decay_factor, score
 
 NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 
@@ -262,7 +262,7 @@ def test_a_reversal_without_its_order_is_logged_loudly(caplog) -> None:
 
     events = [event(5, EventType.PURCHASE, order_id="o1", is_reversal=True)]
 
-    with caplog.at_level(logging.ERROR, logger="reco.methods.interest_decay"):
+    with caplog.at_level(logging.ERROR, logger="reco.slots.interest.interest_decay"):
         _, stats = score(events, ctx())
 
     assert stats.reversals_unaged == 1

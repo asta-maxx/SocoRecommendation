@@ -13,7 +13,7 @@ import pytest
 from pydantic import ValidationError
 
 from reco.config import Settings
-from reco.domain.event_contract import (
+from reco.platform.demo_event_contract import (
     CONDITIONAL_FIELDS,
     CORE_FIELDS,
     ROW_EVENT_TYPES,
@@ -197,7 +197,7 @@ def test_weight_never_reaches_the_engine_event() -> None:
     """The engine derives weight from P-06 keyed on event_type. If it read this
     field, P-06 would stop being configuration.
     """
-    from reco.domain.events import Event
+    from reco.slots.interest.events import Event
 
     assert "weight" not in Event.model_fields
 
@@ -239,7 +239,7 @@ def test_home_and_living_is_three_merges_not_four() -> None:
     """DS-008's 'four' counts map entries. Kala ruled three are genuine merges;
     the fourth is an underscore spelling of the canonical label correcting itself.
     """
-    from reco.domain.event_contract import (
+    from reco.platform.demo_event_contract import (
         HOME_AND_LIVING_MERGES,
         HOME_AND_LIVING_SPELLING_FIX,
     )
@@ -257,7 +257,7 @@ def test_the_spelling_fix_is_carried_not_rejected() -> None:
     supplies and the mapping happens afterwards, which is what lets U06 show the
     repair rather than hiding it behind a validation error.
     """
-    from reco.domain.event_contract import HOME_AND_LIVING_SPELLING_FIX
+    from reco.platform.demo_event_contract import HOME_AND_LIVING_SPELLING_FIX
 
     row = make_row(categories=[HOME_AND_LIVING_SPELLING_FIX])
 
@@ -266,7 +266,7 @@ def test_the_spelling_fix_is_carried_not_rejected() -> None:
 
 def test_the_three_merges_are_valid_category_keys() -> None:
     """They are toCategoryKey() output -- lowercase, spaces preserved."""
-    from reco.domain.event_contract import HOME_AND_LIVING_MERGES
+    from reco.platform.demo_event_contract import HOME_AND_LIVING_MERGES
 
     assert make_row(categories=list(HOME_AND_LIVING_MERGES)).categories == list(
         HOME_AND_LIVING_MERGES

@@ -18,9 +18,9 @@ from pathlib import Path
 import pytest
 
 from reco.config import Settings
-from reco.domain.events import ReadStats
-from reco.domain.scores import Method
-from reco.refresh import refresh
+from reco.slots.interest.events import ReadStats
+from reco.store.scores import Method
+from reco.jobs.refresh import refresh
 from tests.test_method_a_expected import DEMO_DIR, adapt
 
 TOLERANCE = 5e-6
@@ -66,8 +66,8 @@ def dataset():
 @pytest.fixture
 def wired(monkeypatch, dataset):
     """Readers answer from the JSON dataset; writes are captured, not sent."""
-    from reco.data import readers
-    import reco.refresh as refresh_module
+    from reco.platform import readers
+    import reco.jobs.refresh as refresh_module
 
     written: dict[str, list] = {}
 

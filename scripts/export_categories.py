@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUT = ROOT / "reco" / "data" / "categories.json"
+DEFAULT_OUT = ROOT / "reco" / "platform" / "categories.json"
 FALLBACK_LIST = ROOT / "reference" / "post_picker_categories.txt"
 
 

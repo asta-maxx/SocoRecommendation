@@ -12,9 +12,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from reco.config import Settings
-from reco.domain.profile import Profile, Rung, evenly_spread
-from reco.domain.scores import InterestScore, Method, Window
-from reco.read_path import get_profile, is_stale
+from reco.fallback.profile import Profile, Rung, evenly_spread
+from reco.store.scores import InterestScore, Method, Window
+from reco.fallback.read_path import get_profile, is_stale
 
 NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 
@@ -27,8 +27,8 @@ def settings() -> Settings:
 @pytest.fixture
 def world(monkeypatch):
     """Everything the read path depends on, controllable from a test."""
-    from reco.data import readers
-    import reco.read_path as read_path
+    from reco.platform import readers
+    import reco.fallback.read_path as read_path
 
     state = {"scores": [], "declared": {}, "popularity": {}, "raise_on_read": False}
 
@@ -193,7 +193,7 @@ async def test_rung_3_is_not_personalised(world, settings) -> None:
 async def test_rung_3_uses_the_p27_window(world, settings) -> None:
     captured = {}
 
-    from reco.data import readers
+    from reco.platform import readers
 
     async def capture(settings, window_days, reference_date=None):
         captured["window"] = window_days
@@ -216,7 +216,7 @@ async def test_rung_3_with_no_platform_activity_is_empty_not_invented(
     """
     world["popularity"] = {}
 
-    with caplog.at_level(logging.WARNING, logger="reco.read_path"):
+    with caplog.at_level(logging.WARNING, logger="reco.fallback.read_path"):
         p = await get_profile(settings, "u11", reference_date=NOW)
 
     assert p.categories == []
@@ -236,7 +236,7 @@ async def test_rung_4_a_stale_score_falls_through_to_rung_3(
     world["scores"] = [score("u1", "Fashion & Apparel", 1.0, age_hours=48)]
     world["popularity"] = {"Books": 10}
 
-    with caplog.at_level(logging.WARNING, logger="reco.read_path"):
+    with caplog.at_level(logging.WARNING, logger="reco.fallback.read_path"):
         p = await get_profile(settings, "u1", reference_date=NOW)
 
     assert p.rung is Rung.POPULARITY
@@ -269,7 +269,7 @@ async def test_shares_that_do_not_sum_to_one_fail_the_range_check(
     ]
     world["popularity"] = {"Books": 1}
 
-    with caplog.at_level(logging.ERROR, logger="reco.read_path"):
+    with caplog.at_level(logging.ERROR, logger="reco.fallback.read_path"):
         p = await get_profile(settings, "u1", reference_date=NOW)
 
     assert p.rung is Rung.POPULARITY
@@ -286,7 +286,7 @@ async def test_rung_5_an_unreachable_store_falls_through_to_rung_3(
     world["raise_on_read"] = True
     world["popularity"] = {"Books": 10}
 
-    with caplog.at_level(logging.ERROR, logger="reco.read_path"):
+    with caplog.at_level(logging.ERROR, logger="reco.fallback.read_path"):
         p = await get_profile(settings, "u1", reference_date=NOW)
 
     assert p.rung is Rung.POPULARITY
@@ -302,14 +302,14 @@ async def test_rungs_4_and_5_are_logged_distinctly(world, settings, caplog) -> N
     world["popularity"] = {"Books": 1}
 
     world["scores"] = [score("u1", "Books", 1.0, age_hours=48)]
-    with caplog.at_level(logging.WARNING, logger="reco.read_path"):
+    with caplog.at_level(logging.WARNING, logger="reco.fallback.read_path"):
         await get_profile(settings, "u1", reference_date=NOW)
     stale_log = caplog.text
     caplog.clear()
 
     world["scores"] = []
     world["raise_on_read"] = True
-    with caplog.at_level(logging.ERROR, logger="reco.read_path"):
+    with caplog.at_level(logging.ERROR, logger="reco.fallback.read_path"):
         await get_profile(settings, "u2", reference_date=NOW)
 
     assert "REFRESH problem" in stale_log and "SERVING problem" not in stale_log

@@ -20,17 +20,18 @@ from datetime import timedelta
 import pytest
 
 from reco.config import Settings
-from reco.domain.events import Event, EventType
-from reco.methods import interest_decay, interest_windows
-from reco.methods.context import ScoringContext
-from reco.domain.scores import utc_now
+from reco.slots.interest.events import Event, EventType
+from reco.slots.interest import interest_decay, interest_windows
+from reco.slots.interest.context import ScoringContext
+from reco.store.scores import utc_now
 
 #: Every scoring method. Method B is appended here when it exists.
 METHODS = [interest_decay, interest_windows]
 
 FORBIDDEN_IMPORTS = {
     "pymongo", "bson", "requests", "httpx", "urllib", "socket",
-    "reco.data", "reco.data.mongo", "reco.data.readers", "reco.data.writers",
+    "reco.platform", "reco.platform.connection", "reco.platform.readers",
+    "reco.store", "reco.store.connection", "reco.store.writers",
     "open", "pathlib",
 }
 

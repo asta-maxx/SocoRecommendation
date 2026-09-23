@@ -17,8 +17,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from reco.api import health, profiles
 from reco.config import get_settings
-from reco.data import mongo
-from reco.data.writers import ensure_indexes
+from reco.monitoring.logs import configure_logging, log_request
+from reco.platform import connection as platform_conn
+from reco.store import connection as store_conn
+from reco.store.writers import ensure_engine_collections, ensure_indexes
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +28,14 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    logging.basicConfig(
-        level=settings.log_level,
-        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
-    )
+    configure_logging(settings)
 
-    mongo.init_clients(settings)
-    await mongo.verify_databases(settings)
+    store_conn.init_client(settings)
+    platform_conn.init_client(settings)
+    await platform_conn.verify_database(settings)
+    await store_conn.verify_database(settings)
     try:
+        await ensure_engine_collections(settings)
         await ensure_indexes(settings)
     except Exception:
         # A missing index makes scores slow and lets duplicates through; it does
@@ -44,9 +46,12 @@ async def lifespan(app: FastAPI):
             "has createIndex on the ml_ prefix"
         )
 
-    logger.info("reco up: model_version=%s", settings.model_version)
+    logger.info(
+        "reco up: env=%s model_version=%s", settings.engine_env, settings.model_version
+    )
     yield
-    await mongo.close_clients()
+    await platform_conn.close_client()
+    await store_conn.close_client()
 
 
 app = FastAPI(
@@ -77,6 +82,8 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+
+app.middleware("http")(log_request)
 
 app.include_router(health.router)
 app.include_router(profiles.router)

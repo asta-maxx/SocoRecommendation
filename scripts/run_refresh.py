@@ -24,10 +24,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from reco.config import get_settings  # noqa: E402
-from reco.data import mongo  # noqa: E402
-from reco.data.writers import ensure_indexes  # noqa: E402
-from reco.domain.scores import Method  # noqa: E402
-from reco.refresh import refresh  # noqa: E402
+from reco.platform import connection as platform_conn  # noqa: E402
+from reco.store import connection as store_conn  # noqa: E402
+from reco.store.writers import ensure_indexes  # noqa: E402
+from reco.store.scores import Method  # noqa: E402
+from reco.jobs.refresh import refresh  # noqa: E402
 
 META = ROOT / "reference" / "demo" / "ml_demo_meta.json"
 
@@ -68,7 +69,8 @@ async def main() -> None:
     print(f"anchored at      {reference or 'now'}")
     print()
 
-    mongo.init_clients(settings)
+    store_conn.init_client(settings)
+    platform_conn.init_client(settings)
     try:
         await ensure_indexes(settings)
         run = await refresh(
@@ -77,7 +79,8 @@ async def main() -> None:
             reference_date=reference,
         )
     finally:
-        await mongo.close_clients()
+        await platform_conn.close_client()
+        await store_conn.close_client()
 
     print()
     print(run.summary())

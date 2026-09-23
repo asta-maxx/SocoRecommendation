@@ -15,12 +15,12 @@ from collections import Counter
 from fastapi import APIRouter, Depends, Query
 
 from reco.config import Settings, get_settings
-from reco.data import readers
-from reco.data.mongo import ml_db
-from reco.domain.scores import Method, utc_now
-from reco.methods.context import ScoringContext
-from reco.read_path import get_profile
-from reco.refresh import METHODS as REFRESH_METHODS
+from reco.platform import readers
+from reco.store.connection import ml_db
+from reco.store.scores import Method, utc_now
+from reco.slots.interest.context import ScoringContext
+from reco.fallback.read_path import get_profile
+from reco.jobs.refresh import METHODS as REFRESH_METHODS
 
 router = APIRouter(tags=["profiles"])
 

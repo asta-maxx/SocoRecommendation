@@ -14,10 +14,15 @@ import pytest
 import pytest_asyncio
 
 from reco.config import Settings
-from reco.data import mongo
-from reco.domain.scores import InterestScore, Method, Window, utc_now
+from reco.platform import connection as platform_conn
+from reco.store import connection as store_conn
+from reco.store.scores import InterestScore, Method, Window, utc_now
 
 TEST_DB = os.environ.get("TEST_MONGO_DB", "reco_test")
+#: The engine database is never the platform database (AS-09), so the test
+#: settings name a separate one for the read-only side. Store tests seed and read
+#: ml_ collections only, which live in TEST_DB.
+TEST_PLATFORM_DB = f"{TEST_DB}_platform"
 
 #: Fail fast when there is no MongoDB. PyMongo's default server selection
 #: timeout is 30 seconds; across the store tests that is minutes of waiting
@@ -36,7 +41,7 @@ def settings() -> Settings:
     """Settings pointed at a throwaway database, never at the real one."""
     return Settings(
         app_mongo_uri=_test_uri(),
-        app_mongo_db=TEST_DB,
+        app_mongo_db=TEST_PLATFORM_DB,
         ml_mongo_uri=_test_uri(),
         ml_mongo_db=TEST_DB,
         model_version="test-1.0.0",
@@ -46,25 +51,28 @@ def settings() -> Settings:
 @pytest_asyncio.fixture
 async def store(settings: Settings):
     """A live, empty score store. Skips the test if Mongo is unreachable."""
-    mongo.init_clients(settings)
+    store_conn.init_client(settings)
+    platform_conn.init_client(settings)
     try:
-        await mongo.ml_db(settings).command("ping")
+        await store_conn.ml_db(settings).command("ping")
     except Exception as exc:  # pragma: no cover - environment dependent
-        await mongo.close_clients()
+        await platform_conn.close_client()
+        await store_conn.close_client()
         # Never interpolate the URI: it carries the password, and a skip reason
         # is printed in full by -rs and by most CI reporters.
         pytest.skip(f"MongoDB unreachable (db={settings.ml_mongo_db}): {type(exc).__name__}")
 
-    await mongo.ml_db(settings)[settings.scores_collection].drop()
+    await store_conn.ml_db(settings)[settings.scores_collection].drop()
 
-    from reco.data.writers import ensure_indexes
+    from reco.store.writers import ensure_indexes
 
     await ensure_indexes(settings)
     try:
         yield settings
     finally:
-        await mongo.ml_db(settings)[settings.scores_collection].drop()
-        await mongo.close_clients()
+        await store_conn.ml_db(settings)[settings.scores_collection].drop()
+        await platform_conn.close_client()
+        await store_conn.close_client()
 
 
 def make_score(**overrides) -> InterestScore:

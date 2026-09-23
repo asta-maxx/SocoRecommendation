@@ -19,7 +19,7 @@ import pytest
 from pydantic import ValidationError
 
 from reco.config import Settings
-from reco.domain.service_contract import (
+from reco.api.contract import (
     BEYOND_THE_REGISTER,
     CONTRACT_VERSION,
     EVENT_MODELS,

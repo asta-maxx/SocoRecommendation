@@ -15,7 +15,8 @@ import pytest
 from pydantic import ValidationError
 
 from reco.config import PROFILE_COLLECTIONS, Settings
-from reco.data import mongo, readers, writers
+from reco.platform import connection as platform_conn, readers
+from reco.store import writers
 
 
 def test_live_profile_reads_postevents_and_writes_the_live_store() -> None:
@@ -91,19 +92,19 @@ def test_ml_source_routes_to_the_ml_connection(monkeypatch) -> None:
     """Reading ml_demo_events through the read-only application credential would
     query a collection that is not there and return nothing, without raising.
     """
-    monkeypatch.setattr(mongo, "app_db", lambda s: "APP")
-    monkeypatch.setattr(mongo, "ml_db", lambda s: "ML")
+    monkeypatch.setattr(platform_conn, "app_db", lambda s: "APP")
+    monkeypatch.setattr(platform_conn, "ml_db", lambda s: "ML")
     s = Settings(data_profile="demo")
 
-    assert mongo.source_db(s, s.events_collection) == "ML"
+    assert platform_conn.source_db(s, s.events_collection) == "ML"
 
 
 def test_application_source_routes_to_the_app_connection(monkeypatch) -> None:
-    monkeypatch.setattr(mongo, "app_db", lambda s: "APP")
-    monkeypatch.setattr(mongo, "ml_db", lambda s: "ML")
+    monkeypatch.setattr(platform_conn, "app_db", lambda s: "APP")
+    monkeypatch.setattr(platform_conn, "ml_db", lambda s: "ML")
     s = Settings(data_profile="live")
 
-    assert mongo.source_db(s, s.events_collection) == "APP"
+    assert platform_conn.source_db(s, s.events_collection) == "APP"
 
 
 # --- no hardcoded names anywhere else ---------------------------------------
@@ -157,13 +158,13 @@ def test_collection_names_appear_only_in_config(name: str) -> None:
     offenders = [
         f"{path.relative_to(package)}:{line}"
         for path in package.rglob("*.py")
-        if path.name != "config.py"
+        if path.relative_to(package).parts[0] != "config"
         for line, literal in _string_literals(path)
         if name in literal
     ]
 
     assert not offenders, (
-        f"{name!r} is hardcoded outside config.py at {offenders}. "
+        f"{name!r} is hardcoded outside reco/config at {offenders}. "
         f"Collection names are configuration -- read them from Settings."
     )
 

@@ -28,8 +28,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from reco.config import get_settings  # noqa: E402
-from reco.data import mongo  # noqa: E402
-from reco.data.writers import replace_collection  # noqa: E402
+from reco.platform import connection as platform_conn  # noqa: E402
+from reco.store import connection as store_conn  # noqa: E402
+from reco.store.writers import replace_collection  # noqa: E402
 
 DEMO_DIR = ROOT / "reference" / "demo"
 
@@ -73,7 +74,8 @@ async def main() -> None:
             f"{DEMO_DIR} not found. Unpack reference/demo.zip into reference/."
         )
 
-    mongo.init_clients(settings)
+    store_conn.init_client(settings)
+    platform_conn.init_client(settings)
     try:
         total = 0
         for filename, attribute in SOURCES.items():
@@ -92,7 +94,8 @@ async def main() -> None:
 
         print(f"\nLoaded {total} documents into {settings.ml_mongo_db}.")
     finally:
-        await mongo.close_clients()
+        await platform_conn.close_client()
+        await store_conn.close_client()
 
 
 if __name__ == "__main__":
