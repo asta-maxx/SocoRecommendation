@@ -104,6 +104,15 @@ code {
   padding: 0.4mm 1.1mm;
   white-space: nowrap;
 }
+/* A heading that is code reads as a heading, not as a small inline chip. */
+h1 code, h2 code, h3 code {
+  font-size: inherit;
+  font-weight: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+}
 pre {
   background: #f7f9fb;
   border: 1px solid #dde3ea;
@@ -129,6 +138,18 @@ ul, ol { margin: 0 0 3mm 0; padding-left: 5.5mm; }
 li { margin-bottom: 1.2mm; }
 
 strong { font-weight: 600; }
+
+/* --- callouts ---------------------------------------------------------- */
+blockquote {
+  background: #eef5fb;
+  border: 1px solid #c9dcec;
+  border-left: 3px solid #2f6f9f;
+  border-radius: 3px;
+  padding: 2.8mm 3.5mm;
+  margin: 3mm 0 4mm 0;
+  page-break-inside: avoid;
+}
+blockquote p:last-child { margin-bottom: 0; }
 
 /* --- status banner ----------------------------------------------------- */
 .status {
@@ -160,6 +181,14 @@ PAGE = """<!doctype html>
 """
 
 
+#: The module each contract document is enforced by, for the footer. A document
+#: not listed here is not a contract and claims no enforcement.
+ENFORCED_BY = {
+    "EVENT_CONTRACT.md": "reco/domain/event_contract.py",
+    "SERVICE_CONTRACT.md": "reco/domain/service_contract.py",
+}
+
+
 def find_browser() -> str:
     for path in BROWSERS:
         if Path(path).exists():
@@ -186,10 +215,9 @@ def render(source: Path, output: Path) -> None:
         1,
     )
     title = source.stem.replace("_", " ").title()
-    footer = (
-        f"SOCO M1 interest model &nbsp;·&nbsp; {source.name} &nbsp;·&nbsp; "
-        f"enforced in code at reco/domain/event_contract.py"
-    )
+    footer = f"SOCO M1 interest model &nbsp;·&nbsp; {source.name}"
+    if source.name in ENFORCED_BY:
+        footer += f" &nbsp;·&nbsp; enforced in code at {ENFORCED_BY[source.name]}"
 
     output.parent.mkdir(parents=True, exist_ok=True)
 

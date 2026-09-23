@@ -1,0 +1,1148 @@
+{
+  "$defs": {
+    "AddToCartEvent": {
+      "additionalProperties": false,
+      "description": "E4. Emitted by the backend after the cart write succeeds.",
+      "properties": {
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "add_to_cart",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "product_id": {
+          "minLength": 1,
+          "title": "Product Id",
+          "type": "string"
+        },
+        "quantity": {
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Request Id"
+        },
+        "user_id": {
+          "minLength": 1,
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "request_id",
+        "product_id",
+        "quantity",
+        "user_id"
+      ],
+      "title": "AddToCartEvent",
+      "type": "object"
+    },
+    "CommissionStateChangedEvent": {
+      "additionalProperties": false,
+      "description": "E8. All three transitions, not only the first.",
+      "properties": {
+        "amount": {
+          "minimum": 0.0,
+          "title": "Amount",
+          "type": "number"
+        },
+        "commission_id": {
+          "minLength": 1,
+          "title": "Commission Id",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "commission_state_changed",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "new_state": {
+          "enum": [
+            "attributed",
+            "confirmed",
+            "reversed"
+          ],
+          "title": "New State",
+          "type": "string"
+        },
+        "order_id": {
+          "minLength": 1,
+          "title": "Order Id",
+          "type": "string"
+        },
+        "promoter_id": {
+          "minLength": 1,
+          "title": "Promoter Id",
+          "type": "string"
+        },
+        "state_ts": {
+          "format": "date-time",
+          "title": "State Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "commission_id",
+        "promoter_id",
+        "order_id",
+        "new_state",
+        "amount",
+        "state_ts"
+      ],
+      "title": "CommissionStateChangedEvent",
+      "type": "object"
+    },
+    "IdentityStitchedEvent": {
+      "additionalProperties": false,
+      "description": "E12. Needs discussion in the register: no anonymous identifier exists yet.",
+      "properties": {
+        "anonymous_id": {
+          "minLength": 1,
+          "title": "Anonymous Id",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "identity_stitched",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "stitch_ts": {
+          "format": "date-time",
+          "title": "Stitch Ts",
+          "type": "string"
+        },
+        "user_id": {
+          "minLength": 1,
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "anonymous_id",
+        "user_id",
+        "stitch_ts"
+      ],
+      "title": "IdentityStitchedEvent",
+      "type": "object"
+    },
+    "IngestError": {
+      "additionalProperties": false,
+      "description": "400 when the envelope itself is unusable. Nothing in the request is stored.",
+      "properties": {
+        "contract_version": {
+          "const": "1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "detail": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Detail",
+          "type": "array"
+        },
+        "error": {
+          "title": "Error",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contract_version",
+        "error",
+        "detail"
+      ],
+      "title": "IngestError",
+      "type": "object"
+    },
+    "IngestRequest": {
+      "additionalProperties": false,
+      "description": "The request body of POST /v1/events, fully typed.\n\nThis is the shape SOCO_BE builds and the schema it validates against. The server\nparses the envelope and each event separately -- see `parse_batch` -- so one\nmalformed impression does not throw away an order in the same batch.",
+      "properties": {
+        "contract_version": {
+          "const": "1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "events": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "add_to_cart": "#/$defs/AddToCartEvent",
+                "commission_state_changed": "#/$defs/CommissionStateChangedEvent",
+                "identity_stitched": "#/$defs/IdentityStitchedEvent",
+                "opportunity_state_changed": "#/$defs/OpportunityStateChangedEvent",
+                "order_placed": "#/$defs/OrderPlacedEvent",
+                "order_state_changed": "#/$defs/OrderStateChangedEvent",
+                "payment_state_changed": "#/$defs/PaymentStateChangedEvent",
+                "recommendation_click": "#/$defs/RecommendationClickEvent",
+                "recommendation_impression": "#/$defs/RecommendationImpressionEvent",
+                "recommendation_request": "#/$defs/RecommendationRequestEvent",
+                "search_performed": "#/$defs/SearchPerformedEvent",
+                "social_interaction": "#/$defs/SocialInteractionEvent"
+              },
+              "propertyName": "event_name"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/RecommendationRequestEvent"
+              },
+              {
+                "$ref": "#/$defs/RecommendationImpressionEvent"
+              },
+              {
+                "$ref": "#/$defs/RecommendationClickEvent"
+              },
+              {
+                "$ref": "#/$defs/AddToCartEvent"
+              },
+              {
+                "$ref": "#/$defs/OrderPlacedEvent"
+              },
+              {
+                "$ref": "#/$defs/OrderStateChangedEvent"
+              },
+              {
+                "$ref": "#/$defs/PaymentStateChangedEvent"
+              },
+              {
+                "$ref": "#/$defs/CommissionStateChangedEvent"
+              },
+              {
+                "$ref": "#/$defs/SocialInteractionEvent"
+              },
+              {
+                "$ref": "#/$defs/OpportunityStateChangedEvent"
+              },
+              {
+                "$ref": "#/$defs/SearchPerformedEvent"
+              },
+              {
+                "$ref": "#/$defs/IdentityStitchedEvent"
+              }
+            ]
+          },
+          "maxItems": 500,
+          "minItems": 1,
+          "title": "Events",
+          "type": "array"
+        },
+        "sent_at": {
+          "format": "date-time",
+          "title": "Sent At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contract_version",
+        "sent_at",
+        "events"
+      ],
+      "title": "IngestRequest",
+      "type": "object"
+    },
+    "IngestResponse": {
+      "additionalProperties": false,
+      "description": "202 Accepted -- the envelope was valid, whatever happened to each event.\n\n`accepted` means STORED, not that the event will score. A short impression or\nan order state M1 does not read is accepted, then ignored or dropped and counted\nby the reader.\n\n`accepted + duplicates + len(rejected)` always equals the number sent.",
+      "properties": {
+        "accepted": {
+          "minimum": 0,
+          "title": "Accepted",
+          "type": "integer"
+        },
+        "contract_version": {
+          "const": "1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "duplicates": {
+          "minimum": 0,
+          "title": "Duplicates",
+          "type": "integer"
+        },
+        "received_at": {
+          "format": "date-time",
+          "title": "Received At",
+          "type": "string"
+        },
+        "rejected": {
+          "items": {
+            "$ref": "#/$defs/RejectedEvent"
+          },
+          "title": "Rejected",
+          "type": "array"
+        }
+      },
+      "required": [
+        "contract_version",
+        "received_at",
+        "accepted",
+        "duplicates",
+        "rejected"
+      ],
+      "title": "IngestResponse",
+      "type": "object"
+    },
+    "ItemType": {
+      "description": "F10. What an item is.\n\nThe register lists \"product, promotion, promoter or brand\" in F10 and \"product,\npost, promoter or brand\" in F32. Feed items are posts, so both lists are taken\ntogether rather than one silently chosen.",
+      "enum": [
+        "post",
+        "product",
+        "promotion",
+        "promoter",
+        "brand"
+      ],
+      "title": "ItemType",
+      "type": "string"
+    },
+    "LineItem": {
+      "additionalProperties": false,
+      "properties": {
+        "price": {
+          "minimum": 0.0,
+          "title": "Price",
+          "type": "number"
+        },
+        "product_id": {
+          "minLength": 1,
+          "title": "Product Id",
+          "type": "string"
+        },
+        "qty": {
+          "minimum": 1,
+          "title": "Qty",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "product_id",
+        "qty",
+        "price"
+      ],
+      "title": "LineItem",
+      "type": "object"
+    },
+    "OpportunityStateChangedEvent": {
+      "additionalProperties": false,
+      "description": "E10. Deferred in the register: no opportunity model exists yet.",
+      "properties": {
+        "campaign_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Campaign Id"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "opportunity_state_changed",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "new_state": {
+          "enum": [
+            "accepted",
+            "completed",
+            "withdrawn",
+            "expired"
+          ],
+          "title": "New State",
+          "type": "string"
+        },
+        "opportunity_id": {
+          "minLength": 1,
+          "title": "Opportunity Id",
+          "type": "string"
+        },
+        "promoter_id": {
+          "minLength": 1,
+          "title": "Promoter Id",
+          "type": "string"
+        },
+        "state_ts": {
+          "format": "date-time",
+          "title": "State Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "opportunity_id",
+        "promoter_id",
+        "campaign_id",
+        "new_state",
+        "state_ts"
+      ],
+      "title": "OpportunityStateChangedEvent",
+      "type": "object"
+    },
+    "OrderPlacedEvent": {
+      "additionalProperties": false,
+      "description": "E5. Emitted unconditionally after the order document is written, whether or\nnot a post_id is present.",
+      "properties": {
+        "checkout_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Checkout Id"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "order_placed",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "line_items": {
+          "items": {
+            "$ref": "#/$defs/LineItem"
+          },
+          "minItems": 1,
+          "title": "Line Items",
+          "type": "array"
+        },
+        "order_id": {
+          "minLength": 1,
+          "title": "Order Id",
+          "type": "string"
+        },
+        "order_value": {
+          "minimum": 0.0,
+          "title": "Order Value",
+          "type": "number"
+        },
+        "promoter_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Promoter Id"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Request Id"
+        },
+        "server_ts": {
+          "format": "date-time",
+          "title": "Server Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "order_id",
+        "request_id",
+        "line_items",
+        "promoter_id",
+        "order_value",
+        "server_ts",
+        "checkout_id"
+      ],
+      "title": "OrderPlacedEvent",
+      "type": "object"
+    },
+    "OrderState": {
+      "description": "F30. The values of order_status, the canonical field (Q06, PT-04).\n\nPending is the state an order is created in, so it arrives as order_placed.\nReturned and Refunded do not exist: D1 records a return as two fields on the\norder, with the status left unchanged.",
+      "enum": [
+        "Accepted",
+        "Confirmed",
+        "Shipped",
+        "Delivered",
+        "Cancelled",
+        "Rejected"
+      ],
+      "title": "OrderState",
+      "type": "string"
+    },
+    "OrderStateChangedEvent": {
+      "additionalProperties": false,
+      "description": "E6. From every place order_status is written, including admin actions and jobs.",
+      "properties": {
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "order_state_changed",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "new_state": {
+          "$ref": "#/$defs/OrderState"
+        },
+        "order_id": {
+          "minLength": 1,
+          "title": "Order Id",
+          "type": "string"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason Code"
+        },
+        "state_ts": {
+          "format": "date-time",
+          "title": "State Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "order_id",
+        "new_state",
+        "reason_code",
+        "state_ts"
+      ],
+      "title": "OrderStateChangedEvent",
+      "type": "object"
+    },
+    "PaymentStateChangedEvent": {
+      "additionalProperties": false,
+      "description": "E7. Needs discussion in the register: no Razorpay webhook exists.",
+      "properties": {
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "payment_state_changed",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "new_state": {
+          "enum": [
+            "settled",
+            "failed",
+            "charged_back"
+          ],
+          "title": "New State",
+          "type": "string"
+        },
+        "order_id": {
+          "minLength": 1,
+          "title": "Order Id",
+          "type": "string"
+        },
+        "state_ts": {
+          "format": "date-time",
+          "title": "State Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "order_id",
+        "new_state",
+        "state_ts"
+      ],
+      "title": "PaymentStateChangedEvent",
+      "type": "object"
+    },
+    "RecommendationClickEvent": {
+      "additionalProperties": false,
+      "description": "E3. A card-level tap. Carries the same request_id as the impression.",
+      "properties": {
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "recommendation_click",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "item_id": {
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "position": {
+          "minimum": 1,
+          "title": "Position",
+          "type": "integer"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "server_ts": {
+          "format": "date-time",
+          "title": "Server Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "request_id",
+        "item_id",
+        "position",
+        "server_ts"
+      ],
+      "title": "RecommendationClickEvent",
+      "type": "object"
+    },
+    "RecommendationImpressionEvent": {
+      "additionalProperties": false,
+      "description": "E2. An item on a served list, from the list widget's visibility callback.",
+      "properties": {
+        "client_ts": {
+          "format": "date-time",
+          "title": "Client Ts",
+          "type": "string"
+        },
+        "dwell_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Dwell Ms"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "recommendation_impression",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "is_exploration": {
+          "title": "Is Exploration",
+          "type": "boolean"
+        },
+        "item_id": {
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "item_type": {
+          "$ref": "#/$defs/ItemType"
+        },
+        "position": {
+          "minimum": 1,
+          "title": "Position",
+          "type": "integer"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "viewport_entered": {
+          "title": "Viewport Entered",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "request_id",
+        "item_id",
+        "item_type",
+        "position",
+        "viewport_entered",
+        "dwell_ms",
+        "is_exploration",
+        "client_ts"
+      ],
+      "title": "RecommendationImpressionEvent",
+      "type": "object"
+    },
+    "RecommendationRequestEvent": {
+      "additionalProperties": false,
+      "description": "E1. Emitted by the recommendation service as it builds a response.\n\nNot an endpoint of its own. The service writes it to ml_events through the same\nvalidation as everything else. SOCO_BE sends it only when it served the\ndelivered ordering itself, with policy_id DELIVERED_POLICY_ID.",
+      "properties": {
+        "candidate_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Candidate Ids",
+          "type": "array"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "recommendation_request",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "policy_id": {
+          "minLength": 1,
+          "title": "Policy Id",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "server_ts": {
+          "format": "date-time",
+          "title": "Server Ts",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Session Id"
+        },
+        "surface": {
+          "$ref": "#/$defs/Surface"
+        },
+        "user_id": {
+          "minLength": 1,
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "request_id",
+        "surface",
+        "user_id",
+        "session_id",
+        "candidate_ids",
+        "policy_id",
+        "server_ts"
+      ],
+      "title": "RecommendationRequestEvent",
+      "type": "object"
+    },
+    "RecommendationsRequest": {
+      "additionalProperties": false,
+      "description": "What SOCO_BE sends when a surface needs a list.\n\nThe fields /dashboard-feed already receives, renamed to the register's\nspelling. `session_id` (F04) is absent: it is Deferred in the register, and no\napp session identifier exists (DS-003 question 7).",
+      "properties": {
+        "contract_version": {
+          "const": "1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "is_business_account": {
+          "title": "Is Business Account",
+          "type": "boolean"
+        },
+        "limit": {
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "refresh_seed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Refresh Seed"
+        },
+        "surface": {
+          "$ref": "#/$defs/Surface"
+        },
+        "user_id": {
+          "minLength": 1,
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contract_version",
+        "user_id",
+        "surface",
+        "limit",
+        "page",
+        "is_business_account",
+        "refresh_seed"
+      ],
+      "title": "RecommendationsRequest",
+      "type": "object"
+    },
+    "RecommendationsResponse": {
+      "additionalProperties": false,
+      "description": "What the service returns. Budget 200 ms, then SOCO_BE serves the delivered\nordering under DELIVERED_POLICY_ID.\n\nThe client keeps `request_id` and `is_exploration` with the list and echoes\nthem on every event that follows from it (R1, R5). `policy_id` is the stamp for\nthe list (R3). It is not repeated on each event, because request_id joins\nevery event back to the recommendation_request that carries it.",
+      "properties": {
+        "contract_version": {
+          "const": "1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "is_exploration": {
+          "title": "Is Exploration",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/RecommendedItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "personalised": {
+          "title": "Personalised",
+          "type": "boolean"
+        },
+        "policy_id": {
+          "minLength": 1,
+          "title": "Policy Id",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "server_ts": {
+          "format": "date-time",
+          "title": "Server Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contract_version",
+        "request_id",
+        "policy_id",
+        "server_ts",
+        "is_exploration",
+        "personalised",
+        "items"
+      ],
+      "title": "RecommendationsResponse",
+      "type": "object"
+    },
+    "RecommendedItem": {
+      "additionalProperties": false,
+      "properties": {
+        "item_id": {
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "item_type": {
+          "$ref": "#/$defs/ItemType"
+        },
+        "position": {
+          "minimum": 1,
+          "title": "Position",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "item_id",
+        "item_type",
+        "position"
+      ],
+      "title": "RecommendedItem",
+      "type": "object"
+    },
+    "RejectedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "errors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Event Id"
+        },
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "index",
+        "event_id",
+        "errors"
+      ],
+      "title": "RejectedEvent",
+      "type": "object"
+    },
+    "SearchPerformedEvent": {
+      "additionalProperties": false,
+      "description": "E11. Emitted after the search resolves, fire and forget.\n\nM1 credits a search to the categories of its RESULT SET (P-06), and the register\ncarries no result categories -- only query_text and result_count. As registered,\nM1-15 stays not computable. That is an open point in the contract document, not\nsomething added here unasked.",
+      "properties": {
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "search_performed",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "query_text": {
+          "minLength": 1,
+          "title": "Query Text",
+          "type": "string"
+        },
+        "result_count": {
+          "minimum": 0,
+          "title": "Result Count",
+          "type": "integer"
+        },
+        "server_ts": {
+          "format": "date-time",
+          "title": "Server Ts",
+          "type": "string"
+        },
+        "user_id": {
+          "minLength": 1,
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "user_id",
+        "query_text",
+        "result_count",
+        "server_ts"
+      ],
+      "title": "SearchPerformedEvent",
+      "type": "object"
+    },
+    "SocialInteractionEvent": {
+      "additionalProperties": false,
+      "description": "E9. One event per action, with who and when, not a counter.",
+      "properties": {
+        "action": {
+          "enum": [
+            "like",
+            "save",
+            "share",
+            "repost",
+            "follow"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "const": "social_interaction",
+          "title": "Event Name",
+          "type": "string"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Request Id"
+        },
+        "server_ts": {
+          "format": "date-time",
+          "title": "Server Ts",
+          "type": "string"
+        },
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        },
+        "user_id": {
+          "minLength": 1,
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_name",
+        "user_id",
+        "target_id",
+        "action",
+        "request_id",
+        "server_ts"
+      ],
+      "title": "SocialInteractionEvent",
+      "type": "object"
+    },
+    "Surface": {
+      "description": "F02. Which screen asked. Each surface is ranked by a different model.\n\nThe three Wave 1A surfaces: the feed (Engine A), product and cart screens (M5)\nand promoter opportunities (Engine B). Aravinth's F02 note says `feedType`\nalready carries this under another name; its values must be mapped onto these,\nand any surface missing here added by agreement -- the register allows no free\ntext.",
+      "enum": [
+        "feed",
+        "product",
+        "opportunity"
+      ],
+      "title": "Surface",
+      "type": "string"
+    }
+  },
+  "title": "SOCO recommendation service contract v1.0",
+  "x-contract-version": "1.0",
+  "x-endpoints": {
+    "ingest": "POST /v1/events",
+    "recommendations": "POST /v1/recommendations"
+  },
+  "x-register": {
+    "add_to_cart": {
+      "decision": "Accepted",
+      "id": "E4"
+    },
+    "commission_state_changed": {
+      "decision": "Accepted",
+      "id": "E8"
+    },
+    "identity_stitched": {
+      "decision": "Needs discussion",
+      "id": "E12"
+    },
+    "opportunity_state_changed": {
+      "decision": "Deferred",
+      "id": "E10"
+    },
+    "order_placed": {
+      "decision": "Accepted",
+      "id": "E5"
+    },
+    "order_state_changed": {
+      "decision": "Accepted",
+      "id": "E6"
+    },
+    "payment_state_changed": {
+      "decision": "Needs discussion",
+      "id": "E7"
+    },
+    "recommendation_click": {
+      "decision": "Accepted",
+      "id": "E3"
+    },
+    "recommendation_impression": {
+      "decision": "Accepted",
+      "id": "E2"
+    },
+    "recommendation_request": {
+      "decision": "Accepted",
+      "id": "E1"
+    },
+    "search_performed": {
+      "decision": "Accepted",
+      "id": "E11"
+    },
+    "social_interaction": {
+      "decision": "Accepted",
+      "id": "E9"
+    }
+  }
+}

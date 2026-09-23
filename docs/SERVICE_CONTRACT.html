@@ -1,0 +1,606 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Service Contract</title>
+<style>
+@page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+body {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.2pt;
+  line-height: 1.55;
+  color: #16191d;
+  margin: 0;
+}
+
+/* --- headings ---------------------------------------------------------- */
+h1 {
+  font-size: 21pt;
+  line-height: 1.2;
+  margin: 0 0 2mm 0;
+  letter-spacing: -0.3pt;
+}
+h2 {
+  font-size: 13.5pt;
+  margin: 9mm 0 3mm 0;
+  padding-bottom: 1.6mm;
+  border-bottom: 1.5px solid #d7dbe0;
+  page-break-after: avoid;
+}
+h3 {
+  font-size: 11pt;
+  margin: 6mm 0 2mm 0;
+  color: #0f3d63;
+  page-break-after: avoid;
+}
+h2 + h3 { margin-top: 4mm; }
+
+p { margin: 0 0 2.6mm 0; }
+h1 + p { color: #5a6470; font-size: 10pt; }
+
+/* --- rules ------------------------------------------------------------- */
+hr {
+  border: 0;
+  border-top: 1px solid #e3e7ec;
+  margin: 7mm 0;
+}
+
+/* --- tables ------------------------------------------------------------ */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 3mm 0 4mm 0;
+  font-size: 9.3pt;
+  page-break-inside: avoid;
+}
+th {
+  background: #eef2f6;
+  text-align: left;
+  font-weight: 600;
+  padding: 2mm 2.6mm;
+  border: 1px solid #d0d7de;
+  color: #16191d;
+}
+td {
+  padding: 2mm 2.6mm;
+  border: 1px solid #dde2e8;
+  vertical-align: top;
+}
+tbody tr:nth-child(even) td { background: #fafbfc; }
+
+/* --- code -------------------------------------------------------------- */
+code {
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 8.9pt;
+  background: #f2f4f7;
+  border: 1px solid #e2e6eb;
+  border-radius: 2.5px;
+  padding: 0.4mm 1.1mm;
+  white-space: nowrap;
+}
+/* A heading that is code reads as a heading, not as a small inline chip. */
+h1 code, h2 code, h3 code {
+  font-size: inherit;
+  font-weight: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+}
+pre {
+  background: #f7f9fb;
+  border: 1px solid #dde3ea;
+  border-left: 3px solid #2f6f9f;
+  border-radius: 3px;
+  padding: 3mm 3.5mm;
+  margin: 3mm 0 4mm 0;
+  overflow: hidden;
+  page-break-inside: avoid;
+}
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 8.7pt;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* --- lists ------------------------------------------------------------- */
+ul, ol { margin: 0 0 3mm 0; padding-left: 5.5mm; }
+li { margin-bottom: 1.2mm; }
+
+strong { font-weight: 600; }
+
+/* --- callouts ---------------------------------------------------------- */
+blockquote {
+  background: #eef5fb;
+  border: 1px solid #c9dcec;
+  border-left: 3px solid #2f6f9f;
+  border-radius: 3px;
+  padding: 2.8mm 3.5mm;
+  margin: 3mm 0 4mm 0;
+  page-break-inside: avoid;
+}
+blockquote p:last-child { margin-bottom: 0; }
+
+/* --- status banner ----------------------------------------------------- */
+.status {
+  background: #fff8e6;
+  border: 1px solid #f0d795;
+  border-left: 3px solid #c9971d;
+  border-radius: 3px;
+  padding: 2.8mm 3.5mm;
+  margin: 0 0 5mm 0;
+  font-size: 9.6pt;
+}
+
+/* --- footer ------------------------------------------------------------ */
+.footer {
+  margin-top: 9mm;
+  padding-top: 2.5mm;
+  border-top: 1px solid #e3e7ec;
+  font-size: 8.2pt;
+  color: #7b858f;
+}
+</style></head>
+<body><h1>Service contract — v1.0 (RE-00d, DS-017)</h1>
+<p class="status"><strong>Status: proposed, for verification and Aravinth's confirmation.</strong> DS-003 RE-00d:
+<em>"Agree the request and response shape between the app and the recommendation
+service, and agree the single endpoint all twelve events are written to."</em> Nothing
+on the capture register can be marked done until that endpoint exists.</p>
+<p>The twelve events and their fields are the <strong>DS-003 capture register</strong>: events E1
+to E12, fields F01 to F59, with the register's own names. Where this contract adds
+something the register does not have, it is listed under <em>Beyond the register</em>
+along with the reason.</p>
+<p>The contract is also enforced in code, in
+<a href="reco/domain/service_contract.py"><code>reco/domain/service_contract.py</code></a>. One test
+reads the capture register straight out of the workbook and fails if an event
+gains or loses a field. SOCO_BE validates against
+<a href="docs/service_contract.schema.json"><code>docs/service_contract.schema.json</code></a>, which is
+generated from the same models.</p>
+<hr />
+<h2>The two calls</h2>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Direction</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST /v1/recommendations</code></td>
+<td>SOCO_BE → service</td>
+<td>The request and response shape: a surface asks for a list</td>
+</tr>
+<tr>
+<td><code>POST /v1/events</code></td>
+<td>SOCO_BE → service</td>
+<td><strong>The one endpoint all twelve events are written to</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The Flutter app calls SOCO_BE, as it does today. SOCO_BE calls the service. The
+ingest endpoint takes a service token, and an app binary cannot keep a token secret.</p>
+<hr />
+<h2><code>POST /v1/recommendations</code></h2>
+<h3>Request</h3>
+<pre><code class="language-json">{
+  &quot;contract_version&quot;: &quot;1.0&quot;,
+  &quot;user_id&quot;: &quot;usr_4471&quot;,
+  &quot;surface&quot;: &quot;feed&quot;,
+  &quot;limit&quot;: 20,
+  &quot;page&quot;: 1,
+  &quot;is_business_account&quot;: false,
+  &quot;refresh_seed&quot;: &quot;a91f&quot;
+}
+</code></pre>
+<p>These are the fields <code>/dashboard-feed</code> already receives, spelled the way the
+register spells them. <code>surface</code> is F02 and must be one of <code>feed</code>, <code>product</code> or
+<code>opportunity</code>. <code>session_id</code> (F04) is not included: the register defers it, and
+the app has no session identifier.</p>
+<h3>Response — <code>200</code></h3>
+<pre><code class="language-json">{
+  &quot;contract_version&quot;: &quot;1.0&quot;,
+  &quot;request_id&quot;: &quot;req_8f2a1c&quot;,
+  &quot;policy_id&quot;: &quot;wave1a_v1&quot;,
+  &quot;server_ts&quot;: &quot;2026-11-04T09:15:22.140Z&quot;,
+  &quot;is_exploration&quot;: false,
+  &quot;personalised&quot;: true,
+  &quot;items&quot;: [
+    { &quot;item_id&quot;: &quot;pst_3390&quot;, &quot;item_type&quot;: &quot;post&quot;, &quot;position&quot;: 1 },
+    { &quot;item_id&quot;: &quot;prd_5512&quot;, &quot;item_type&quot;: &quot;product&quot;, &quot;position&quot;: 2 }
+  ]
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Register</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>request_id</code></td>
+<td>F01, R1</td>
+<td>The client keeps it and echoes it on every event from this list</td>
+</tr>
+<tr>
+<td><code>policy_id</code></td>
+<td>F06, R3</td>
+<td>The configuration version and, on the three two-method slots, the method that served (PT-10)</td>
+</tr>
+<tr>
+<td><code>server_ts</code></td>
+<td>F07, R7</td>
+<td>UTC</td>
+</tr>
+<tr>
+<td><code>is_exploration</code></td>
+<td>F14, R5</td>
+<td>Set by the service for the randomised slice. The client echoes it and never computes it</td>
+</tr>
+<tr>
+<td><code>personalised</code></td>
+<td>—</td>
+<td><code>false</code> when the list is not built from this user's own profile. Do not label such a list "Recommended for you"</td>
+</tr>
+<tr>
+<td><code>items[].position</code></td>
+<td>F11</td>
+<td>Starts at 1, with no gaps</td>
+</tr>
+</tbody>
+</table>
+<p><code>candidate_ids</code> (F05) is <strong>not</strong> returned to the client. The service writes it on
+the <code>recommendation_request</code> event.</p>
+<p><strong>Timeout: 200 ms (PT-07).</strong> On a timeout or error, SOCO_BE serves the delivered
+ordering. It then generates its own <code>request_id</code>, stamps <code>policy_id: "delivered"</code>,
+and sends a <code>recommendation_request</code> event itself. Impressions from a fallback list
+therefore still join back to a request, and that request says the engine did not
+order the list.</p>
+<hr />
+<h2><code>POST /v1/events</code></h2>
+<h3>Request</h3>
+<pre><code>POST /v1/events
+Authorization: Bearer &lt;INGEST_TOKEN&gt;
+Content-Type: application/json
+</code></pre>
+<pre><code class="language-json">{
+  &quot;contract_version&quot;: &quot;1.0&quot;,
+  &quot;sent_at&quot;: &quot;2026-11-04T09:15:40.002Z&quot;,
+  &quot;events&quot;: [
+    {
+      &quot;event_id&quot;: &quot;0b6f6a52-3c2e-4a8e-9a57-2f1c7f0f4d10&quot;,
+      &quot;event_name&quot;: &quot;recommendation_impression&quot;,
+      &quot;request_id&quot;: &quot;req_8f2a1c&quot;,
+      &quot;item_id&quot;: &quot;pst_3390&quot;,
+      &quot;item_type&quot;: &quot;post&quot;,
+      &quot;position&quot;: 1,
+      &quot;viewport_entered&quot;: true,
+      &quot;dwell_ms&quot;: 2400,
+      &quot;is_exploration&quot;: false,
+      &quot;client_ts&quot;: &quot;2026-11-04T14:45:22+05:30&quot;
+    },
+    {
+      &quot;event_id&quot;: &quot;5d0e2f7e-8a41-4f5b-b1f2-6f3f2b9c1e77&quot;,
+      &quot;event_name&quot;: &quot;order_state_changed&quot;,
+      &quot;order_id&quot;: &quot;ord_2210&quot;,
+      &quot;new_state&quot;: &quot;Cancelled&quot;,
+      &quot;reason_code&quot;: null,
+      &quot;state_ts&quot;: &quot;2026-11-09T11:02:00Z&quot;
+    }
+  ]
+}
+</code></pre>
+<p>A request holds 1 to 500 events. Every event carries <code>event_id</code> and <code>event_name</code>,
+followed by its register fields.</p>
+<h3>The twelve events</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th><code>event_name</code></th>
+<th>Fields</th>
+<th>Register decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E1</td>
+<td><code>recommendation_request</code></td>
+<td><code>request_id</code> · <code>surface</code> · <code>user_id</code> · <code>session_id</code> · <code>candidate_ids</code> · <code>policy_id</code> · <code>server_ts</code></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>E2</td>
+<td><code>recommendation_impression</code></td>
+<td><code>request_id</code> · <code>item_id</code> · <code>item_type</code> · <code>position</code> · <code>viewport_entered</code> · <code>dwell_ms</code> · <code>is_exploration</code> · <code>client_ts</code></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>E3</td>
+<td><code>recommendation_click</code></td>
+<td><code>request_id</code> · <code>item_id</code> · <code>position</code> · <code>server_ts</code></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>E4</td>
+<td><code>add_to_cart</code></td>
+<td><code>request_id</code> · <code>product_id</code> · <code>quantity</code> · <strong><code>user_id</code></strong></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>E5</td>
+<td><code>order_placed</code></td>
+<td><code>order_id</code> · <code>request_id</code> · <code>line_items</code> · <code>promoter_id</code> · <code>order_value</code> · <code>server_ts</code> · <code>checkout_id</code></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>E6</td>
+<td><code>order_state_changed</code></td>
+<td><code>order_id</code> · <code>new_state</code> · <code>reason_code</code> · <code>state_ts</code></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>E7</td>
+<td><code>payment_state_changed</code></td>
+<td><code>order_id</code> · <code>new_state</code> · <code>state_ts</code></td>
+<td>Needs discussion</td>
+</tr>
+<tr>
+<td>E8</td>
+<td><code>commission_state_changed</code></td>
+<td><code>commission_id</code> · <code>promoter_id</code> · <code>order_id</code> · <code>new_state</code> · <code>amount</code> · <code>state_ts</code></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>E9</td>
+<td><code>social_interaction</code></td>
+<td><code>user_id</code> · <code>target_id</code> · <code>action</code> · <code>request_id</code> · <code>server_ts</code></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>E10</td>
+<td><code>opportunity_state_changed</code></td>
+<td><code>opportunity_id</code> · <code>promoter_id</code> · <code>campaign_id</code> · <code>new_state</code> · <code>state_ts</code></td>
+<td>Deferred</td>
+</tr>
+<tr>
+<td>E11</td>
+<td><code>search_performed</code></td>
+<td><code>user_id</code> · <code>query_text</code> · <code>result_count</code> · <code>server_ts</code></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td>E12</td>
+<td><code>identity_stitched</code></td>
+<td><code>anonymous_id</code> · <code>user_id</code> · <code>stitch_ts</code></td>
+<td>Needs discussion</td>
+</tr>
+</tbody>
+</table>
+<p>The contract defines a shape for all twelve, whatever each event's decision. A
+deferred event then arrives later as implementation work, not as a new
+negotiation.</p>
+<h3>Allowed values</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>surface</code></td>
+<td><code>feed</code> · <code>product</code> · <code>opportunity</code></td>
+</tr>
+<tr>
+<td><code>item_type</code></td>
+<td><code>post</code> · <code>product</code> · <code>promotion</code> · <code>promoter</code> · <code>brand</code></td>
+</tr>
+<tr>
+<td><code>order_state_changed.new_state</code></td>
+<td><code>Accepted</code> · <code>Confirmed</code> · <code>Shipped</code> · <code>Delivered</code> · <code>Cancelled</code> · <code>Rejected</code>, the <code>order_status</code> values (Q06)</td>
+</tr>
+<tr>
+<td><code>payment_state_changed.new_state</code></td>
+<td><code>settled</code> · <code>failed</code> · <code>charged_back</code></td>
+</tr>
+<tr>
+<td><code>commission_state_changed.new_state</code></td>
+<td><code>attributed</code> · <code>confirmed</code> · <code>reversed</code></td>
+</tr>
+<tr>
+<td><code>social_interaction.action</code></td>
+<td><code>like</code> · <code>save</code> · <code>share</code> · <code>repost</code> · <code>follow</code></td>
+</tr>
+<tr>
+<td><code>opportunity_state_changed.new_state</code></td>
+<td><code>accepted</code> · <code>completed</code> · <code>withdrawn</code> · <code>expired</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Rules</h3>
+<ul>
+<li><strong>Every field listed is required.</strong> A field that can be empty is sent as
+  <code>null</code>, never left out. A missing key means the caller has a bug; <code>null</code> means
+  "not known".</li>
+<li><strong>These fields can be <code>null</code>:</strong> <code>session_id</code> (deferred) · <code>dwell_ms</code> (not
+  measured) · <code>request_id</code> on <code>add_to_cart</code>, <code>order_placed</code> and
+  <code>social_interaction</code> (not reached from a list) · <code>promoter_id</code> and
+  <code>checkout_id</code> (direct order) · <code>reason_code</code> · <code>campaign_id</code> (until Q02).</li>
+<li><strong>Server times are UTC</strong> (R7): <code>server_ts</code>, <code>state_ts</code>, <code>stitch_ts</code>. A time
+  with any other offset is rejected.</li>
+<li><strong><code>client_ts</code> must carry the device's offset</strong> (R7), for example <code>+05:30</code>. It
+  is stored exactly as sent and never converted.</li>
+<li><strong>Any field not listed is rejected</strong>, and that includes a <code>weight</code>. Weights come
+  from P-06 only.</li>
+</ul>
+<h3>Response — <code>202 Accepted</code></h3>
+<p>This is the response you would get if the impression above had sent
+<code>"position": 0</code>:</p>
+<pre><code class="language-json">{
+  &quot;contract_version&quot;: &quot;1.0&quot;,
+  &quot;received_at&quot;: &quot;2026-11-04T09:15:40.118Z&quot;,
+  &quot;accepted&quot;: 1,
+  &quot;duplicates&quot;: 0,
+  &quot;rejected&quot;: [
+    { &quot;index&quot;: 0, &quot;event_id&quot;: &quot;0b6f6a52-3c2e-4a8e-9a57-2f1c7f0f4d10&quot;,
+      &quot;errors&quot;: [&quot;recommendation_impression.position: Input should be greater than or equal to 1&quot;] }
+  ]
+}
+</code></pre>
+<ul>
+<li><code>accepted + duplicates + rejected</code> always equals the number of events sent.</li>
+<li><strong>Each event is judged on its own.</strong> A bad impression does not throw away a good
+  order sent in the same batch.</li>
+<li><strong>Accepted means stored, not scored.</strong> The server adds <code>received_at</code>, which is
+  kept separate from the event's own time, as R7 requires.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>When</th>
+<th>What SOCO_BE does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400</code></td>
+<td>The request wrapper is unusable: bad JSON, unknown <code>contract_version</code>, 0 or more than 500 events</td>
+<td>Nothing was stored. Fix the caller</td>
+</tr>
+<tr>
+<td><code>401</code></td>
+<td>Token missing or wrong</td>
+<td>Nothing was stored</td>
+</tr>
+<tr>
+<td><code>503</code></td>
+<td>The event store cannot be reached</td>
+<td>Retry later with the <strong>same</strong> <code>event_id</code>s. Duplicates are counted, not stored twice</td>
+</tr>
+</tbody>
+</table>
+<p>Never block a user request on this call: send it after responding, or from a
+queue. Use a 2-second timeout; a retry is always safe.</p>
+<p>Accepted events go into <code>ml_events</code>. It has a unique index on <code>event_id</code> and
+indexes for a user's history and for joining on <code>request_id</code>.</p>
+<hr />
+<h2>Beyond the register</h2>
+<table>
+<thead>
+<tr>
+<th>Addition</th>
+<th>On</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>event_id</code> (UUID)</td>
+<td>every event</td>
+<td>The idempotency key. Without it, a timeout followed by a retry counts every event in the batch twice</td>
+</tr>
+<tr>
+<td><code>event_name</code></td>
+<td>every event</td>
+<td>Says which of the twelve an event is. The register's "Event name" column, carried as a field</td>
+</tr>
+<tr>
+<td><code>user_id</code></td>
+<td><code>add_to_cart</code></td>
+<td>The register links a cart add to a user only through <code>request_id</code>, which is null whenever the product was not reached from a list. The engagement call already sends <code>user_id</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>What M1 reads from these events</h2>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>M1 signal (P-06)</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>recommendation_impression</code></td>
+<td>view</td>
+<td><code>viewport_entered</code> is true and <code>dwell_ms</code> ≥ P-02 (3 s). A <code>null</code> dwell scores nothing and is counted separately</td>
+</tr>
+<tr>
+<td><code>recommendation_click</code></td>
+<td>click</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>add_to_cart</code></td>
+<td>cart</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>order_placed</code></td>
+<td>purchase</td>
+<td>Credited at order creation, not at Delivered</td>
+</tr>
+<tr>
+<td><code>order_state_changed</code></td>
+<td>purchase, <strong>negated</strong></td>
+<td>Only when <code>new_state</code> is <code>Cancelled</code> or <code>Rejected</code>. Aged from the original <code>order_placed.server_ts</code>, never from <code>state_ts</code></td>
+</tr>
+<tr>
+<td><code>search_performed</code></td>
+<td>search</td>
+<td>Not computable as registered: see point 5 below</td>
+</tr>
+</tbody>
+</table>
+<p>The rest are captured for the other model families. M1 does not read them.</p>
+<hr />
+<h2>Points that need a ruling</h2>
+<p><strong>1. Position counts from 1.</strong> The register says positions start at 1 (F11, F18).
+Aravinth's F11 note describes a 0-based index. The contract uses 1, and rejects 0.</p>
+<p><strong>2. Should impressions be sent for items never seen?</strong> E2's check says one event
+per item that entered the screen, and <em>none</em> for items never reached. F12's check
+says <code>viewport_entered</code> must show <em>both</em> true and false. Both cannot hold. The
+contract accepts both until this is ruled on.</p>
+<p><strong>3. <code>request_id</code> can be <code>null</code> on three events.</strong> Register checks F20, F24 and
+F45 say "no nulls". That is right for events that came from a served list. It
+cannot hold for a cart add from search, a direct order, or a follow from a
+profile page. The contract allows <code>null</code> on those three and nowhere else.</p>
+<p><strong>4. Surface values.</strong> Aravinth's F02 note says <code>feedType</code> already carries the
+surface. Its current values need mapping onto <code>feed</code>, <code>product</code> and
+<code>opportunity</code>, or those values need adding here. The register allows no free
+text.</p>
+<p><strong>5. Search cannot feed M1 as registered.</strong> P-06 credits a search to the
+categories of its <em>result set</em>. E11 carries <code>query_text</code> and <code>result_count</code> but
+no result categories, so M1-15 stays not computable. The proposal is to add
+<code>result_categories</code> to E11.</p>
+<p><strong>6. Item types.</strong> F10 lists product, promotion, promoter or brand. F32 lists
+product, post, promoter or brand. Feed items are posts, so the contract accepts
+both lists combined.</p>
+<p><strong>7. Returns (D1).</strong> A return is recorded as <code>return_requested</code> and
+<code>return_requested_at</code> on the order, with <code>order_status</code> unchanged, so it is not an
+<code>order_state_changed</code>. The service reads those two fields from the order until an
+event is agreed for them.</p>
+<hr />
+<h2>Not built yet</h2>
+<p>This is the contract, not the routes. Both routes are built once it is agreed.
+Two things are needed first:</p>
+<ul>
+<li><strong><code>ml_events</code> is added to the <code>mlWriter</code> role</strong>, next to
+  <code>ml_user_interest_scores</code> in <a href="HANDOFF.md">HANDOFF.md</a> §3.</li>
+<li><strong>An <code>INGEST_TOKEN</code> is agreed</strong> and stored on both sides.</li>
+</ul>
+<div class="footer">SOCO M1 interest model &nbsp;·&nbsp; SERVICE_CONTRACT.md &nbsp;·&nbsp; enforced in code at reco/domain/service_contract.py</div>
+</body></html>

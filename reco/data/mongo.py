@@ -66,8 +66,18 @@ def init_clients(settings: Settings) -> None:
 
     # tz_aware so computed_at comes back as an aware datetime rather than a naive
     # one that would then fail the model's own validator on read.
-    _app_client = AsyncMongoClient(settings.app_mongo_uri, tz_aware=True)
-    _ml_client = AsyncMongoClient(settings.ml_mongo_uri, tz_aware=True)
+    # A bounded wait on server selection, so an unreachable cluster fails loudly
+    # at startup instead of hanging on it. PyMongo's default is 30 seconds and
+    # every later operation waits it out again, which looks like a wedged
+    # process rather than a database that is not there -- and a paused Atlas
+    # cluster is the ordinary way this happens.
+    timeout = int(settings.mongo_timeout_seconds * 1000)
+    _app_client = AsyncMongoClient(
+        settings.app_mongo_uri, tz_aware=True, serverSelectionTimeoutMS=timeout
+    )
+    _ml_client = AsyncMongoClient(
+        settings.ml_mongo_uri, tz_aware=True, serverSelectionTimeoutMS=timeout
+    )
 
     logger.info(
         "Mongo clients opened: app db=%s (read-only), ml db=%s (ml_ writes only)",

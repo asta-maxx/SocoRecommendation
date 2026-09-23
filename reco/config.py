@@ -148,6 +148,11 @@ class Settings(BaseModel):
     ml_mongo_uri: str = Field(default="mongodb://localhost:27017", repr=False)
     ml_mongo_db: str = "soco"
 
+    #: How long to wait for a server before giving up. Not a DS-007 parameter --
+    #: an operational bound, so an unreachable cluster fails at startup with a
+    #: message rather than hanging.
+    mongo_timeout_seconds: float = 10.0
+
     # --- Model identity ------------------------------------------------------
     model_version: str = "1.0.0"
 
@@ -428,6 +433,7 @@ class Settings(BaseModel):
             app_mongo_db=_env_str("APP_MONGO_DB", "soco"),
             ml_mongo_uri=_env_str("ML_MONGO_URI", "mongodb://localhost:27017"),
             ml_mongo_db=_env_str("ML_MONGO_DB", "soco"),
+            mongo_timeout_seconds=_env_float("MONGO_TIMEOUT_SECONDS", 10.0),
             model_version=_env_str("MODEL_VERSION", "1.0.0"),
             category_vocabulary_path=_env_str(
                 "CATEGORY_VOCABULARY_PATH", "reco/data/categories.json"
