@@ -53,6 +53,9 @@ obsidian/
   Tasks/
     Task Board.md              every ENG item with its status
     <ITEM> - <plain title>.md  one note per task
+  Demos/
+    How to demo a task.md      the general guide; lists every demo
+    Demo - <ITEM>.md           one demo per task that has something to show
 ```
 
 ### Task note: `obsidian/Tasks/<ITEM> - <plain title>.md`
@@ -81,6 +84,7 @@ Sections:
   - **Before it:** `[[…]]`
   - **Built on:** `[[…]]`
   - **Next:** `[[<next item> - <title>]]`, with one line on what it adds.
+  - **Demo:** `[[Demo - <ITEM>]]`, once the demo exists
   - **Technical version:** `docs/engineering/<ITEM>.md`
 
 ### Subtasks, one by one (required in every task note)
@@ -100,6 +104,33 @@ Each subtask is a `###` heading with a status mark: ✅ done, ⏳ waiting (say o
 End the subtask with a link to the concept note it relies on (`→ [[Concept]]`).
 
 While a task is in progress, update each subtask as it moves. Don't wait for the whole task to finish. `obsidian/Tasks/ENG-01 - Engine home and databases.md` is the model.
+
+### Demo note: `obsidian/Demos/Demo - <ITEM>.md` (required once a task has anything to show)
+
+A script for showing the task working to someone, live. `obsidian/Demos/Demo - ENG-02.md` is the model. Frontmatter: `tags: [demo]`, `task: <ITEM>`, `duration: about N minutes`.
+
+Sections:
+
+- **What this demo proves:** quote the item's *How to check it is done* line from the Build List. The demo acts that check out.
+- **Setup:** what to start before the audience watches, and which terminal window does what.
+- **Steps:** one `###` heading per step, each with:
+  - **Say:** one plain sentence for the audience;
+  - **Run:** the exact command, in a code block;
+  - **They should see:** the output, abridged.
+- **What you can't show yet:** a table of *part / why not / waiting on*. Be upfront.
+- **Clean up:** what to stop or delete.
+- **How this connects:** Proves → the task note; → [[How to demo a task]]; previous and next demo.
+
+Rules for demo commands:
+
+- **Run every command before writing it down.** Paste real output, trimmed, never invented.
+- **Anything that writes uses a throwaway database** (`ML_MONGO_DB=reco_demo`) and a throwaway copy of any file it edits. Clean up by dropping `reco_demo`.
+- **Never print a secret.** No `cat .env`, no connection strings. Use scripts that print hosts and database names only.
+- **Prefer a script in `scripts/`** over a long inline command when a step would otherwise need more than a few lines of Python.
+
+When adding a demo, also:
+- link it from the task note's **How this connects** (`**Demo:**`);
+- add it to `Home.md` → *Demos*, to `How to demo a task` → *The demos*, and to the Task Board line (`· [[Demo - <ITEM>|demo]]`).
 
 ### Plain-language style
 

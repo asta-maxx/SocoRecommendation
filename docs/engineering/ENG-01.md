@@ -271,7 +271,16 @@ db.runCommand({connectionStatus: 1, showPrivileges: true})
 | Reads `users`, `posts`, `postevents`, `orders`, `follows`, `products` | All readable (`users`: 13 documents) |
 
 This login is used for now. When Aravinth rotates it (DB-02), only the password
-in `APP_MONGO_URI` changes. Re-run the same check afterwards.
+in `APP_MONGO_URI` changes. Re-run the same check afterwards:
+
+```bash
+.venv/bin/python scripts/check_platform_access.py
+```
+
+The script (added 25 Sep 2026) prints hosts, database names, role names, any
+data-writing actions, and whether six platform collections are readable. It
+never prints a connection string, and exits 0 only if the login can read and
+holds no data-writing action.
 
 ---
 
@@ -284,6 +293,12 @@ in `APP_MONGO_URI` changes. Re-run the same check afterwards.
 | `reco/main.py` | Calls it at startup; logs the environment |
 | `reco/api/health.py` | `environment` in the body |
 | `scripts/setup_engine_db.py` | New |
+| `scripts/check_platform_access.py` | New (25 Sep): the read-only check in section C, repeatable |
 | `.env.example` | `ENGINE_ENV`; engine database is its own (AS-09) |
 | `tests/test_engine_environment.py` | New |
 | `tests/conftest.py`, `tests/test_readers.py`, `tests/test_namespace_guard.py` | Separate platform test DB; guard coverage |
+
+## 9. Demo
+
+The live demo script, in plain language, is the Obsidian note
+`obsidian/Demos/Demo - ENG-01.md`.

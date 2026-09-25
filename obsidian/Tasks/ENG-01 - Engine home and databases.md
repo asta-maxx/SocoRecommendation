@@ -94,4 +94,5 @@ More detail → [[Environments]]
 - **Before it:** [[Before Wave 1A - the M1 demo]]
 - **Built on:** [[Environments]], [[Engine Database]], [[Collections]], [[Indexes]], [[Secrets and passwords]]
 - **Next:** [[ENG-02 - Service skeleton and settings]]. It organises the engine into 12 tidy parts and adds a settings file that can change without a restart.
+- **Demo:** [[Demo - ENG-01]]. How to show this task working, step by step.
 - **Technical version:** `docs/engineering/ENG-01.md` in the repo.

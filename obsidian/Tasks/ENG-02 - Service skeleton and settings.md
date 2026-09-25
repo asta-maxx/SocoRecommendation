@@ -101,4 +101,5 @@ The full record is in `Tracing/checks/ENG-02_2026-09-24.md`.
 - **Before it:** [[ENG-01 - Engine home and databases]]
 - **Built on:** [[Recommendation Engine]], [[Platform Database]], [[Engine Database]], [[Logs]], [[Settings file]]
 - **Next:** [[ENG-03 - Reading SOCO's data correctly]]. It teaches the platform part exactly how SOCO stores things, so nothing is missed or counted twice.
+- **Demo:** [[Demo - ENG-02]]. How to show this task working, step by step.
 - **Technical version:** `docs/engineering/ENG-02.md` in the repo.

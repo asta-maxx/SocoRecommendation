@@ -262,7 +262,15 @@ Result on 24 Sep 2026: **432 unit tests passed**, 1 skipped (pre-existing), and
 curl -i http://127.0.0.1:8100/health                     # 200, or 503 if a database is down
 ```
 
-Settings changes: see §3. The change history is in `ml_config_changes`, newest first by `changed_at`.
+Settings changes: see §3. The change history is in `ml_config_changes`. Print it with:
+
+```bash
+.venv/bin/python scripts/show_config_changes.py                    # the engine database in .env
+ML_MONGO_DB=reco_demo .venv/bin/python scripts/show_config_changes.py
+```
+
+One line per version (when, previous → new, who), then each changed key with
+its old and new value. Read-only.
 
 ---
 
@@ -293,8 +301,17 @@ Settings changes: see §3. The change history is in `ml_config_changes`, newest 
 | `reco/jobs/refresh.py`, `reco/fallback/read_path.py`, `reco/api/profiles.py` | Read the settings in force |
 | `Tracing/checks/ENG-02_2026-09-24.md` | New: the check result |
 | `.env.example` | `SETTINGS_FILE` |
+| `scripts/show_config_changes.py` | New (25 Sep): prints the change log |
 | `scripts/*.py` | New import paths and split connections |
 | `tests/test_module_layout.py`, `test_health.py`, `test_logs.py`, `test_tunables.py` | New |
 | `tests/test_config.py` | Rewritten for the environment settings only |
 | `tests/conftest.py` | `m1_tunables`, `put_in_force`, `DS007_M1_TUNABLES`; the Settings-sheet defaults are put back in force around every test |
 | Other `tests/*.py` | New import paths; `test_collection_config.py` exempts `reco/config`; `test_method_contract.py` forbids both connections |
+
+## 8. Demo
+
+The live demo script, in plain language, is the Obsidian note
+`obsidian/Demos/Demo - ENG-02.md`. It runs against a throwaway settings copy and
+the throwaway database `reco_demo`. Rehearsed on 25 Sep 2026: 200 → settings
+change recorded (30 → 45, by "Demo") → 503 with the engine database unreachable.
+`reco_demo` was dropped afterwards.

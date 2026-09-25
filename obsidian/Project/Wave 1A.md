@@ -11,7 +11,7 @@ tags: [project]
 
 ## What else it does, behind the scenes
 - **Scores promoters:** people who sell through their posts get a quality score. It helps order the feed but is never shown.
-- **Scores opportunities:** which products suit which promoter. Computed, but not shown yet.
+- **Scores opportunities:** which products suit which promoter. Computed, but not shown yet. 
 - **Spots possible fraud:** flags suspicious activity for a *person* to review. Nothing is ever punished automatically.
 
 ## What it does *not* promise
