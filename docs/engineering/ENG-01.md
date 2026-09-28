@@ -242,6 +242,13 @@ build cluster).
 
 ---
 
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `pymongo.errors.ConfigurationError: no nameservers` from `init_client` | A `mongodb+srv://` URI needs a DNS SRV lookup. dnspython found no resolver in `/etc/resolv.conf`, which happens briefly while Wi-Fi reconnects or a VPN changes state | Retry. Check with `cat /etc/resolv.conf` and `dig SRV _mongodb._tcp.<cluster host>`. If persistent, toggle the VPN or set fixed DNS servers. Seen on dev on 28 Sep 2026; the next run passed |
+| TCP connects, then `TLSV1_ALERT_INTERNAL_ERROR` | The Atlas cluster is paused | Resume it in Atlas |
+
 ## 7. Open
 
 | Open item | Needs |

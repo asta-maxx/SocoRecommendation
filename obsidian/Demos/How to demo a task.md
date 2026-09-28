@@ -33,6 +33,7 @@ A demo proves one thing: **the task's check in the Build List passes**. Every ta
 
 ## If something goes wrong
 - A command hangs for about 10 seconds, then fails: the cluster is probably paused. Resume it and retry.
+- **`ConfigurationError: no nameservers`**: the laptop couldn't look up Atlas's address, because for a moment it had no DNS server. This happens when Wi-Fi reconnects or a VPN switches. Wait a few seconds and run the command again. To check, run `cat /etc/resolv.conf`; it should list a `nameserver`. If it keeps happening, switch the VPN off or on, or set DNS to `1.1.1.1` and `8.8.8.8` in System Settings → Network → Wi-Fi → Details → DNS. Seen on 28 Sep 2026; it passed on the next run.
 - An unexpected result: say so, and note it. A demo that finds a real problem has done its job.
 
 ## The demos
