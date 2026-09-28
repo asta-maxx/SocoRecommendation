@@ -274,6 +274,8 @@ its old and new value. Read-only.
 
 ---
 
+**Re-checked 28 Sep 2026 on dev: all checks pass.** Record: `Tracing/checks/Checklist_2026-09-28.md`.
+
 ## 6. Open
 
 | Open item | Needs |

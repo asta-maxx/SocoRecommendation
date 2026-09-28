@@ -91,6 +91,9 @@ The official ENG-02 check, run live on my laptop:
 
 The full record is in `Tracing/checks/ENG-02_2026-09-24.md`.
 
+## Re-checked (28 Sep 2026)
+The whole checklist was run again on my laptop, and everything passed. The record is in `Tracing/checks/Checklist_2026-09-28.md`.
+
 ## Still to do
 | What | Waiting on |
 |---|---|

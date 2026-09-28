@@ -32,7 +32,7 @@ Wait for `Application startup complete`. Keep this window visible: its log lines
   ls reco
   .venv/bin/python -m pytest tests/test_module_layout.py -q
   ```
-- **They should see:** the 12 folders (api, config, eligibility, events, fallback, fraud, jobs, monitoring, platform, ranking, slots, store), then **16 passed**. → [[Recommendation Engine]]
+- **They should see:** the 12 folders (api, config, eligibility, events, fallback, fraud, jobs, monitoring, platform, ranking, slots, store), then **16 passed**. `ls` also shows `__init__.py` and `main.py` (the package and its start-up wiring) and Python's `__pycache__`, which aren't modules. → [[Recommendation Engine]]
 
 ### 2. One engine, two ways to run
 - **Say:** "The same code runs as the API, which is what's running in window A, or as jobs that do the heavy work and stop."

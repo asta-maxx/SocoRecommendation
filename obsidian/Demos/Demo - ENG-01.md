@@ -53,12 +53,12 @@ One terminal, in the repo folder. Nothing needs to be running.
 
 ### 4. The safety lock between the two databases
 - **Say:** "If someone ever points the engine's database at SOCO's, the engine refuses to start."
-- **Run** (fake addresses, no real passwords):
+- **Run** (made-up addresses, with no passwords at all):
   ```bash
   .venv/bin/python -c "
   from reco.config import Settings
-  Settings(app_mongo_uri='mongodb+srv://reader:hidden@cluster0.example.net/', app_mongo_db='soco',
-           ml_mongo_uri='mongodb+srv://writer:hidden@cluster0.example.net/', ml_mongo_db='soco')"
+  Settings(app_mongo_uri='mongodb+srv://reader@cluster0.example.net/', app_mongo_db='soco',
+           ml_mongo_uri='mongodb+srv://writer@cluster0.example.net/', ml_mongo_db='soco')"
   ```
 - **They should see** an error ending: *"the engine database ('soco') is the platform database … (AS-09, SD-06): set ML_MONGO_DB to a different name."*
 

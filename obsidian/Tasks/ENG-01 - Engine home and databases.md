@@ -82,6 +82,9 @@ The Build List splits ENG-01 into four numbered parts (1–4). We added three sm
 
 More detail → [[Environments]]
 
+## Re-checked (28 Sep 2026)
+The whole checklist was run again on my laptop, and everything passed. The record is in `Tracing/checks/Checklist_2026-09-28.md`.
+
 ## Still to do
 | What                                                             | Waiting on                          |
 | ---------------------------------------------------------------- | ----------------------------------- |
