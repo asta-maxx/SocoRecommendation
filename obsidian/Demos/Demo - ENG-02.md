@@ -21,7 +21,13 @@ SETTINGS_FILE=/tmp/soco-demo.toml ML_MONGO_DB=reco_demo \
 ```
 Wait for `Application startup complete`. Keep this window visible: its log lines are part of the show.
 
-**Terminal B** is for the commands below. Open `/tmp/soco-demo.toml` in an editor, ready for step 5.
+**Terminal B** is for the commands below. Open `/tmp/soco-demo.toml` in an editor, ready for step 5:
+```bash
+open -a "Visual Studio Code" /tmp/soco-demo.toml
+```
+> [!warning] Use VS Code, not TextEdit: TextEdit turns `"2"` into curly quotes, which breaks the file. The `code` command only works after VS Code → Cmd+Shift+P → **Shell Command: Install 'code' command in PATH**; `open -a` always works.
+>
+> **No editor?** Each editing step below also has a one-line command. It's the safest choice for a live demo.
 
 ## Steps
 
@@ -76,6 +82,10 @@ Wait for `Application startup complete`. Keep this window visible: its log lines
   - change `config_version = "1"` to `"2"`;
   - change `changed_by = "Allen"` to `"Demo"`;
   - save.
+- **Or run (B), without an editor:**
+  ```bash
+  sed -i '' 's/config_version = "1"/config_version = "2"/; s/changed_by = "Allen"/changed_by = "Demo"/; s/popularity_window_days = 30 /popularity_window_days = 45 /' /tmp/soco-demo.toml
+  ```
 - **They should see**, in window A within **30 seconds**, a line with `"message": "settings changed"`, `"config_version": "2"`, `"changed_by": "Demo"` and `"changed_keys": ["interest.popularity_window_days"]`. → [[Settings file]]
 
 ### 6. The diary shows who changed what
@@ -94,9 +104,17 @@ Wait for `Application startup complete`. Keep this window visible: its log lines
 
 ### 7. Break the file: the engine keeps running
 - **Say:** "Now a typo. The engine must shrug it off."
-- **In the editor**, type `this is = not [valid` on the first line and save.
+- **In the editor**, type `this is = not [valid` on the first line and save. **Or run (B):**
+  ```bash
+  { echo 'this is = not [valid'; cat /tmp/soco-demo.toml; } > /tmp/soco-demo.new && mv /tmp/soco-demo.new /tmp/soco-demo.toml
+  ```
 - **They should see**, in window A within 30 seconds, an **ERROR** line: `"settings file rejected; keeping the settings in force"`, with `"config_version_in_force": "2"`. Then **run (B)** the health `curl` from step 3: still **HTTP 200**.
 - *Optional:* fix the typo, change a number **without** raising `config_version`, and save. It's rejected with *"raise config_version for every change"*.
+  **Or run (B):**
+  ```bash
+  sed -i '' '1d' /tmp/soco-demo.toml
+  sed -i '' 's/pool_size = 300 /pool_size = 250 /' /tmp/soco-demo.toml
+  ```
 
 ## What you can't show yet
 The pack says every check runs on the **test** server. It doesn't exist yet, so this demo is on my laptop. The same steps work unchanged on the test server once it's there.
