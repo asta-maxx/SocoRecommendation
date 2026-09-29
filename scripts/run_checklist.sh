@@ -109,9 +109,9 @@ check "3.3 one source per kind; the day-by-day switch" "$PY -m pytest -q tests/t
 check "3.4 ignored platform data is never read" "$PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider -k ignored" "4 passed"
 check "3.5 every real platform document reads cleanly" "$PY scripts/check_platform_records.py" "PASS: 0 document(s) could not be read"
 
-echo "== 5. ENG-04: receiving events (throwaway reco_demo, throwaway token)"
-check "5.1 event checks, duplicates and reply (tests)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_events_ingest.py -p no:cacheprovider" " passed"
-check "5.2 daily reconciliation and the switch date (tests)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_events_reconcile.py -p no:cacheprovider" " passed"
+echo "== 4. ENG-04: receiving events (throwaway reco_demo, throwaway token)"
+check "4.1 event checks, duplicates and reply (tests)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_events_ingest.py -p no:cacheprovider" " passed"
+check "4.2 daily reconciliation and the switch date (tests)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_events_reconcile.py -p no:cacheprovider" " passed"
 TOKEN=$($PY scripts/generate_ingest_token.py)
 INGEST_TOKEN="$TOKEN" SETTINGS_FILE="$SETTINGS_COPY" ML_MONGO_DB=reco_demo $PY -m uvicorn reco.main:app --port 8192 >"$WORK/events.log" 2>&1 &
 disown
@@ -127,11 +127,11 @@ cat >"$WORK/batch.json" <<'JSON'
 JSON
 POST="curl -s -X POST http://127.0.0.1:8192/v1/events -H 'Content-Type: application/json' --data @$WORK/batch.json"
 if wait_for "curl -sf http://127.0.0.1:8192/health" 60; then
-  check "5.3 first send stores the good events" "$POST -H 'Authorization: Bearer $TOKEN'" '"accepted":2,"duplicates":0'
-  check "5.4 the same batch again is all duplicates (the ENG-04 check)" "$POST -H 'Authorization: Bearer $TOKEN'" '"accepted":0,"duplicates":2'
-  check "5.5 position 0 is rejected with a reason (the ENG-04 check)" "$POST -H 'Authorization: Bearer $TOKEN'" "position 0 is not allowed"
-  check "5.6 no token: 401" "$POST -w ' HTTP%{http_code}'" "HTTP401"
-else fail "5.3-5.6 events endpoint" "engine did not start: $(tail -1 "$WORK/events.log")"; fi
+  check "4.3 first send stores the good events" "$POST -H 'Authorization: Bearer $TOKEN'" '"accepted":2,"duplicates":0'
+  check "4.4 the same batch again is all duplicates (the ENG-04 check)" "$POST -H 'Authorization: Bearer $TOKEN'" '"accepted":0,"duplicates":2'
+  check "4.5 position 0 is rejected with a reason (the ENG-04 check)" "$POST -H 'Authorization: Bearer $TOKEN'" "position 0 is not allowed"
+  check "4.6 no token: 401" "$POST -w ' HTTP%{http_code}'" "HTTP401"
+else fail "4.3-4.6 events endpoint" "engine did not start: $(tail -1 "$WORK/events.log")"; fi
 pkill -f "uvicorn reco.main:app --port 8192" >/dev/null 2>&1
 
 cleanup
@@ -142,8 +142,8 @@ from pymongo import AsyncMongoClient
 from reco.config import get_settings
 async def m():
     c = AsyncMongoClient(get_settings().ml_mongo_uri); gone = 'reco_demo' not in await c.list_database_names(); await c.close(); raise SystemExit(0 if gone else 1)
-asyncio.run(m())" && ! pgrep -f "uvicorn reco.main:app --port 819" >/dev/null; then pass "4.1 clean up: reco_demo dropped, no engine left running"
-else fail "4.1 clean up: reco_demo dropped, no engine left running"; fi
+asyncio.run(m())" && ! pgrep -f "uvicorn reco.main:app --port 819" >/dev/null; then pass "Z.1 clean up: reco_demo dropped, no engine left running"
+else fail "Z.1 clean up: reco_demo dropped, no engine left running"; fi
 
 echo
 echo "== Result: $PASSES passed, $FAILS failed"

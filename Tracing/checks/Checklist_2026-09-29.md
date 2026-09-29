@@ -1,4 +1,13 @@
-# Full checklist run: 29 Sep 2026, dev (laptop)
+# Full checklist runs: 29 Sep 2026, dev (laptop)
+
+## Second run, after ENG-04 (commit ef3f94f): 31 passed, 0 failed
+
+The same 25 lines as below, all passing, plus ENG-04 (4.1–4.6): the event
+rules and reconciliation tests, and, live, first send stored, the same batch
+again all duplicates, position 0 rejected with a reason, and no token 401.
+Cleanup passed. No slowness this time.
+
+## First run
 
 `bash scripts/run_checklist.sh`, from a clean, pushed working tree (commit e7b9ef1).
 

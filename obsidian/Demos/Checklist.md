@@ -9,7 +9,7 @@ One command runs every check for every finished task and prints **PASS** or **FA
 bash scripts/run_checklist.sh
 ```
 
-It takes about 3 minutes. It ends with `Result: N passed, 0 failed` when all is well. It only **reads** SOCO's data. Anything it writes goes into a throwaway database (`reco_demo`) that it deletes at the end. It uses its own ports (8190/8191), so a demo already running isn't disturbed.
+It takes about 4 minutes. It ends with `Result: N passed, 0 failed` when all is well. It only **reads** SOCO's data. Anything it writes goes into a throwaway database (`reco_demo`) that it deletes at the end. It uses its own ports (8190/8191), so a demo already running isn't disturbed.
 
 ## What each line checks, in plain words
 
@@ -53,20 +53,20 @@ It takes about 3 minutes. It ends with `Result: N passed, 0 failed` when all is 
 | 3.4 | The fields the pack forbids are never read |
 | 3.5 | Every real document in SOCO's database reads without a single failure |
 
-### 5. ENG-04: receiving events → [[ENG-04 - Receiving activity events]]
+### 4. ENG-04: receiving events → [[ENG-04 - Receiving activity events]]
 | Line | Checks |
 |---|---|
-| 5.1 | Every rule for refusing a bad event, and duplicates, work (tests) |
-| 5.2 | The daily comparison fixes the switch date only after 7 good days (tests) |
-| 5.3 | A real batch sent to the running engine is stored |
-| 5.4 | The same batch again comes back as all duplicates (the task's official check) |
-| 5.5 | An event with position 0 is refused with a reason (the task's official check) |
-| 5.6 | Without the token, the door says 401 |
+| 4.1 | Every rule for refusing a bad event, and duplicates, work (tests) |
+| 4.2 | The daily comparison fixes the switch date only after 7 good days (tests) |
+| 4.3 | A real batch sent to the running engine is stored |
+| 4.4 | The same batch again comes back as all duplicates (the task's official check) |
+| 4.5 | An event with position 0 is refused with a reason (the task's official check) |
+| 4.6 | Without the token, the door says 401 |
 
-### 4. Clean up
+### Last line: clean up
 | Line | Checks |
 |---|---|
-| 4.1 | The throwaway database is gone and no test engine is left running |
+| Z.1 | The throwaway database is gone and no test engine is left running |
 
 ## If a line fails
 - **0.1 or 0.2:** save and push your work first (or ask Claude to commit and push).
@@ -75,7 +75,7 @@ It takes about 3 minutes. It ends with `Result: N passed, 0 failed` when all is 
 - **Anything else:** it's a real problem. Note which line failed and look at the message under it.
 
 ## Last full run
-29 Sep 2026: **25 passed, 0 failed.** Record: `Tracing/checks/Checklist_2026-09-29.md`.
+29 Sep 2026 (with ENG-04): **31 passed, 0 failed.** Record: `Tracing/checks/Checklist_2026-09-29.md`.
 
 ## What the checklist can't check yet
 - The test and production servers, production's own login, and the private network: all waiting on Aravinth → [[People]].
