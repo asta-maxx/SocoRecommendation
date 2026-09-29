@@ -35,6 +35,7 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[ENG-03 - Reading SOCO's data correctly]]: built; check passed on laptop
 
 ## Demos
+- [[Checklist]]: one command that checks everything still works
 - [[How to demo a task]]: how every demo is run
 - [[Demo - ENG-01]]: the engine's home and databases
 - [[Demo - ENG-02]]: skeleton, health check, logs, live settings

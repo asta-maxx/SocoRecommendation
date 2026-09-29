@@ -11,6 +11,7 @@ A demo proves one thing: **the task's check in the Build List passes**. Every ta
 > [!tip] Start by reading the check out loud. Then show it passing. The audience always knows what they're looking for.
 
 ## Before any demo
+0. **Run the checklist:** `bash scripts/run_checklist.sh`. If everything passes, the demo will work → [[Checklist]].
 1. **Open the repo in a terminal:** `cd ~/vultrx/SocoRecommendation`.
 2. **Make sure the build cluster is awake.** Paused Atlas clusters look like a security (TLS) error. If a command hangs or complains about TLS, resume the cluster in Atlas → [[MongoDB Atlas]].
 3. **Have two or three terminal windows ready:** one for the engine, one or two for commands.

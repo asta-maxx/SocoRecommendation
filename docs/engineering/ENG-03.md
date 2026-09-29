@@ -233,3 +233,5 @@ No new environment variables or settings. Two new constants in `reco/config`:
 ## 9. Demo
 
 The live demo script, in plain language, is `obsidian/Demos/Demo - ENG-03.md`.
+
+**Whole checklist:** `bash scripts/run_checklist.sh` re-runs this item's checks, with those of every other finished item. It prints PASS/FAIL per line and cleans up after itself.

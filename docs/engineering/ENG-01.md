@@ -311,3 +311,5 @@ holds no data-writing action.
 
 The live demo script, in plain language, is the Obsidian note
 `obsidian/Demos/Demo - ENG-01.md`.
+
+**Whole checklist:** `bash scripts/run_checklist.sh` re-runs this item's checks, with those of every other finished item. It prints PASS/FAIL per line and cleans up after itself.

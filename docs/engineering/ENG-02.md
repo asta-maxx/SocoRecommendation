@@ -317,3 +317,5 @@ The live demo script, in plain language, is the Obsidian note
 the throwaway database `reco_demo`. Rehearsed on 25 Sep 2026: 200 → settings
 change recorded (30 → 45, by "Demo") → 503 with the engine database unreachable.
 `reco_demo` was dropped afterwards.
+
+**Whole checklist:** `bash scripts/run_checklist.sh` re-runs this item's checks, with those of every other finished item. It prints PASS/FAIL per line and cleans up after itself.

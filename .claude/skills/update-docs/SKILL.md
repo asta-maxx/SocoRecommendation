@@ -128,6 +128,8 @@ Rules for demo commands:
 - **Never print a secret.** No `cat .env`, no connection strings. Use scripts that print hosts and database names only.
 - **Prefer a script in `scripts/`** over a long inline command when a step would otherwise need more than a few lines of Python.
 
+**The checklist script.** `scripts/run_checklist.sh` runs every finished task's check and prints PASS/FAIL per line. When a task is built, add a numbered section for it there (its Build List check plus any real-data check), and the matching rows to `obsidian/Demos/Checklist.md`. Run the whole script before reporting the task done.
+
 When adding a demo, also:
 - link it from the task note's **How this connects** (`**Demo:**`);
 - add it to `Home.md` → *Demos*, to `How to demo a task` → *The demos*, and to the Task Board line (`· [[Demo - <ITEM>|demo]]`).
