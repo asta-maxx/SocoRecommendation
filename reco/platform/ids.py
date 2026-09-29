@@ -10,6 +10,7 @@ forms rather than guessing which one a collection uses.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from bson import ObjectId
@@ -68,3 +69,46 @@ def id_match(value: Any) -> dict[str, list[Any]]:
     if ObjectId.is_valid(text):
         forms.append(ObjectId(text))
     return {"$in": forms}
+
+
+def maybe_str(value: Any) -> str | None:
+    """The text form of an identifier, or None when the field is empty.
+
+    For optional references (an order's post_id, a cart line's request_id). A
+    required identifier uses to_str(), which raises instead.
+    """
+    if value is None or value == "":
+        return None
+    return to_str(value)
+
+
+def as_utc(value: Any) -> datetime | None:
+    """A stored time as an aware UTC datetime, or None if it is not a time."""
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return None
+
+
+def time_of(doc: dict[str, Any], *fields: str) -> datetime | None:
+    """ENG-03: the record's time from its named field, else from its _id.
+
+    "Where a time field is missing, the time is read from the record's _id": an
+    ObjectId carries the second it was created. Returns None only when neither
+    the field nor the _id gives a time.
+    """
+    for field in fields:
+        found = as_utc(doc.get(field))
+        if found is not None:
+            return found
+    raw_id = doc.get("_id")
+    if isinstance(raw_id, str) and ObjectId.is_valid(raw_id):
+        raw_id = ObjectId(raw_id)
+    if isinstance(raw_id, ObjectId):
+        return raw_id.generation_time.astimezone(timezone.utc)
+    return None

@@ -26,13 +26,16 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[Secrets and passwords]]: keeping logins safe
 - [[Settings file]]: every tunable number, in one place
 - [[Logs]]: the engine's diary
+- [[Event source switch]]: moving from SOCO's old logs to the new one, day by day
 
 ## Tasks
 - [[Task Board]]: every task and where it stands
 - [[ENG-01 - Engine home and databases]]: laptop part done; waiting on servers
 - [[ENG-02 - Service skeleton and settings]]: built; check passed on laptop
+- [[ENG-03 - Reading SOCO's data correctly]]: built; check passed on laptop
 
 ## Demos
 - [[How to demo a task]]: how every demo is run
 - [[Demo - ENG-01]]: the engine's home and databases
 - [[Demo - ENG-02]]: skeleton, health check, logs, live settings
+- [[Demo - ENG-03]]: reading SOCO's data correctly

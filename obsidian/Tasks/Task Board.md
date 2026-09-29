@@ -8,8 +8,8 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 ## Step 1: foundations
 - [ ] [[ENG-01 - Engine home and databases]]: **waiting** (laptop part done; needs the test and production servers from Aravinth) · [[Demo - ENG-01|demo]]
 - [ ] [[ENG-02 - Service skeleton and settings]]: **built** (check passed on laptop; re-run on the test server later) · [[Demo - ENG-02|demo]]
-- [ ] [[ENG-03 - Reading SOCO's data correctly]]
-- [ ] ENG-04: Receive and store activity events
+- [ ] [[ENG-03 - Reading SOCO's data correctly]]: **built** (check passed on laptop; re-run on the test server later) · [[Demo - ENG-03|demo]]
+- [ ] [[ENG-04 - Receiving activity events]]
 - [ ] ENG-05: Give each user the same method every time
 - [ ] ENG-20 (part 1): Time today's feed (due this week)
 

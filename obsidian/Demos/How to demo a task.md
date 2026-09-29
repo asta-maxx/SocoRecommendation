@@ -39,6 +39,7 @@ A demo proves one thing: **the task's check in the Build List passes**. Every ta
 ## The demos
 - [[Demo - ENG-01]]: the engine's home and databases (about 5 minutes)
 - [[Demo - ENG-02]]: the skeleton, health check, logs and live settings (about 10 minutes)
+- [[Demo - ENG-03]]: reading SOCO's data correctly (about 5 minutes, read-only)
 
 ## How this connects
 - Every demo acts out a task's check from → [[Task Board]].

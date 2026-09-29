@@ -47,6 +47,38 @@ ENGINE_COLLECTIONS: tuple[str, ...] = (
     "ml_measurements",
 )
 
+#: ENG-03: the platform collections the engine reads, by record kind. Read-only,
+#: through reco.platform. The names are SOCO's; ENG-03 fixes which field means what.
+PLATFORM_COLLECTIONS: dict[str, str] = {
+    "user": "users",
+    "business": "businessregisters",
+    "post": "posts",
+    "postevent": "postevents",
+    "follow": "follows",
+    "order": "orders",
+    "cart_line": "carts",
+    "product": "products",
+    "variant": "productvariants",
+    "category": "categories",
+    # The old recommendation event collections: read for any day before the
+    # ENG-04 switch date, never after it (ENG-03 source switch).
+    "legacy_request": "recommendationrequests",
+    "legacy_impression": "recommendationimpressions",
+    "legacy_click": "recommendationclicks",
+    "legacy_content_feedback": "contentfeedbacks",
+}
+
+#: ENG-03 "Ignored": platform data the engine must not read, and the only place
+#: each exception is allowed. users.addNew_Interest and userevents: never.
+#: users.interestScores (the delivered score): only as the old score in the
+#: fallback ladder. feedScore: only SOCO_BE's own fallback ordering, never the engine.
+IGNORED_PLATFORM_DATA: dict[str, str] = {
+    "addNew_Interest": "never",
+    "userevents": "never",
+    "interestScores": "reco/fallback only",
+    "feedScore": "never (SOCO_BE's fallback ordering only)",
+}
+
 
 #: Every collection each profile selects. The one place in the service where a
 #: collection name is written down.

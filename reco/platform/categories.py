@@ -172,3 +172,65 @@ def resolve_all(
             resolved.append(canonical)
 
     return CategoryResolution(resolved=resolved, dropped=dropped)
+
+
+# --- ENG-03: the 23, matched by name ----------------------------------------------
+
+
+def canonical_name(vocabulary: CategoryVocabulary, label: object) -> str | None:
+    """ENG-03: the one of the 23 this label names, or None to drop it.
+
+    Matched by NAME only -- case and spacing ignored, nothing else. The legacy map
+    is deliberately not consulted here: ENG-03 says a category is matched by name
+    to the 23, and anything that does not map is dropped, not scored.
+    """
+    if not isinstance(label, str) or not label.strip():
+        return None
+    return vocabulary._canonical_by_key().get(to_category_key(label))
+
+
+def post_categories(vocabulary: CategoryVocabulary, supplied: object) -> CategoryResolution:
+    """A post's categories, each matched by name to the 23. Unmatched ones are dropped."""
+    labels = [supplied] if isinstance(supplied, str) else supplied if isinstance(supplied, list) else []
+    resolved: list[str] = []
+    dropped: list[str] = []
+    for label in labels:
+        name = canonical_name(vocabulary, label)
+        if name is None:
+            dropped.append(str(label))
+        elif name not in resolved:
+            resolved.append(name)
+    return CategoryResolution(resolved=resolved, dropped=dropped)
+
+
+class ProductCategoryIndex(BaseModel):
+    """ENG-03: products.basicInfo.categoryId -> one of the 23, via the categories tree.
+
+    "A product's basicInfo.categoryId is looked up in categories, and the first
+    name in its path must be one of the 23." Built once from the categories
+    collection; a product whose top name is not one of the 23 maps to None.
+    """
+
+    model_config = {"frozen": True}
+
+    by_id: dict[str, str | None] = Field(default_factory=dict)
+
+    @classmethod
+    def build(cls, vocabulary: CategoryVocabulary, category_docs: list[dict]) -> ProductCategoryIndex:
+        from reco.platform.ids import maybe_str
+
+        by_id: dict[str, str | None] = {}
+        for doc in category_docs:
+            category_id = maybe_str(doc.get("_id"))
+            if category_id is None:
+                continue
+            path = doc.get("path") if isinstance(doc.get("path"), list) else []
+            top = path[0] if path else doc.get("name")
+            by_id[category_id] = canonical_name(vocabulary, top)
+        return cls(by_id=by_id)
+
+    def category_of(self, category_id: object) -> str | None:
+        from reco.platform.ids import maybe_str
+
+        key = maybe_str(category_id) if category_id is not None else None
+        return self.by_id.get(key) if key else None
