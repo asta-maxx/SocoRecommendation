@@ -53,6 +53,16 @@ It takes about 3 minutes. It ends with `Result: N passed, 0 failed` when all is 
 | 3.4 | The fields the pack forbids are never read |
 | 3.5 | Every real document in SOCO's database reads without a single failure |
 
+### 5. ENG-04: receiving events → [[ENG-04 - Receiving activity events]]
+| Line | Checks |
+|---|---|
+| 5.1 | Every rule for refusing a bad event, and duplicates, work (tests) |
+| 5.2 | The daily comparison fixes the switch date only after 7 good days (tests) |
+| 5.3 | A real batch sent to the running engine is stored |
+| 5.4 | The same batch again comes back as all duplicates (the task's official check) |
+| 5.5 | An event with position 0 is refused with a reason (the task's official check) |
+| 5.6 | Without the token, the door says 401 |
+
 ### 4. Clean up
 | Line | Checks |
 |---|---|

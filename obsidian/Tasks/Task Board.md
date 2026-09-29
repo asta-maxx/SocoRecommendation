@@ -9,8 +9,8 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 - [ ] [[ENG-01 - Engine home and databases]]: **waiting** (laptop part done; needs the test and production servers from Aravinth) · [[Demo - ENG-01|demo]]
 - [ ] [[ENG-02 - Service skeleton and settings]]: **built** (check passed on laptop; re-run on the test server later) · [[Demo - ENG-02|demo]]
 - [ ] [[ENG-03 - Reading SOCO's data correctly]]: **built** (check passed on laptop; re-run on the test server later) · [[Demo - ENG-03|demo]]
-- [ ] [[ENG-04 - Receiving activity events]]
-- [ ] ENG-05: Give each user the same method every time
+- [ ] [[ENG-04 - Receiving activity events]]: **built** (check passed on laptop; real token and APP-12 to come) · [[Demo - ENG-04|demo]]
+- [ ] [[ENG-05 - Same method for each user]]
 - [ ] ENG-20 (part 1): Time today's feed (due this week)
 
 ## Step 2: serving lists

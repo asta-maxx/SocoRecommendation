@@ -225,6 +225,13 @@ class Settings(BaseModel):
     # ENG-02 / SD-07: every tunable value, versioned. Relative to the repo root.
     settings_file: str = "settings/engine.toml"
 
+    # --- Tokens (SD-08: server environment only, never a file in production) -
+    # ENG-04: SOCO_BE sends Authorization: Bearer <INGEST_TOKEN> on
+    # POST /v1/events (and, AS-04, on POST /v1/recommendations). repr=False, so
+    # it never appears in a log line, error page or test header. Empty means no
+    # token is configured, and every call is refused.
+    ingest_token: str = Field(default="", repr=False)
+
     # --- Service -------------------------------------------------------------
     log_level: str = "INFO"
 
@@ -358,6 +365,7 @@ class Settings(BaseModel):
             scores_collection=_env_str("SCORES_COLLECTION", ""),
             event_shape=_env_str("EVENT_SHAPE", ""),
             settings_file=_env_str("SETTINGS_FILE", "settings/engine.toml"),
+            ingest_token=_env_str("INGEST_TOKEN", ""),
             log_level=_env_str("LOG_LEVEL", "INFO"),
         )
 

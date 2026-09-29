@@ -211,7 +211,7 @@ No new environment variables or settings. Two new constants in `reco/config`:
 | Open item | Needs |
 |---|---|
 | The M1 reader (`platform/readers.py`) still reads through its demo-era path, not these records | **ENG-10**, whose row redefines M1's sources, moves it onto `fetch` / `records` |
-| Where the switch date is stored | **ENG-04**, which fixes the date |
+| ~~Where the switch date is stored~~ | Done in ENG-04: `ml_measurements` (`measure: event_source_switch`); read with `reco.events.reconcile.switch_date(settings)` |
 | Re-run the check on **test**, then mark Passed | The test server |
 | Categories (DB-07), `contentfeedbacks`, `checkout_id`, cart `request_id` | Aravinth (§4) |
 

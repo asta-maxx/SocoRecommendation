@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from reco.api import health, profiles
+from reco.api import events, health, profiles
 from reco.config import get_settings, live, sync
 from reco.monitoring.logs import configure_logging, log_request
 from reco.platform import connection as platform_conn
@@ -98,4 +98,5 @@ app.add_middleware(
 app.middleware("http")(log_request)
 
 app.include_router(health.router)
+app.include_router(events.router)
 app.include_router(profiles.router)

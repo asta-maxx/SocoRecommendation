@@ -26,6 +26,7 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[Secrets and passwords]]: keeping logins safe
 - [[Settings file]]: every tunable number, in one place
 - [[Logs]]: the engine's diary
+- [[Activity events]]: what shoppers did, as the engine receives it
 - [[Event source switch]]: moving from SOCO's old logs to the new one, day by day
 
 ## Tasks
@@ -33,6 +34,7 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[ENG-01 - Engine home and databases]]: laptop part done; waiting on servers
 - [[ENG-02 - Service skeleton and settings]]: built; check passed on laptop
 - [[ENG-03 - Reading SOCO's data correctly]]: built; check passed on laptop
+- [[ENG-04 - Receiving activity events]]: built; check passed on laptop
 
 ## Demos
 - [[Checklist]]: one command that checks everything still works
@@ -40,3 +42,4 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[Demo - ENG-01]]: the engine's home and databases
 - [[Demo - ENG-02]]: skeleton, health check, logs, live settings
 - [[Demo - ENG-03]]: reading SOCO's data correctly
+- [[Demo - ENG-04]]: receiving activity events

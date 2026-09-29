@@ -55,7 +55,7 @@ The Build List splits ENG-03 into seven numbered parts (1–7). There are two ex
 - **What it asks:** views, clicks, requests and feedback are being moved from SOCO's old logs to the engine's new one. For days before the switch date, read the old logs; from the switch date on, read the new one. Never both for the same day.
 - **What we did:** built that rule. A 90-day window that crosses the switch reads part from each, with no day missed and no day counted twice.
 - **Why it matters:** nothing is lost in the move, and nothing is double-counted during it.
-- **Status:** done. The switch date itself is set by ENG-04 (next), once the two logs agree for 7 days in a row. → [[Event source switch]]
+- **Status:** done. The switch date is set by the daily comparison built in [[ENG-04 - Receiving activity events]], once the two logs agree for 7 days in a row. → [[Event source switch]]
 
 ### 7. Data the engine must not read ✅
 - **What it asks:** a few fields must be ignored: an old interest list, an unused events table, SOCO's own feed score, and the old interest scores (allowed only as a last-resort fallback).
