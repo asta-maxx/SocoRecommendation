@@ -61,7 +61,11 @@ It takes about 3 minutes. It ends with `Result: N passed, 0 failed` when all is 
 ## If a line fails
 - **0.1 or 0.2:** save and push your work first (or ask Claude to commit and push).
 - **0.4, or everything touching the database:** the Atlas cluster may be paused, or the network blinked. See [[How to demo a task]] → *If something goes wrong*.
+- **The run is very slow** (more than 5 minutes) but nothing fails: your router's DNS is probably giving broken answers. Seen on 29 Sep 2026, when the router at `192.168.1.1` returned malformed replies and the run took over 10 minutes. Set DNS to `1.1.1.1` and `8.8.8.8` in System Settings → Network → Wi-Fi → Details → DNS.
 - **Anything else:** it's a real problem. Note which line failed and look at the message under it.
+
+## Last full run
+29 Sep 2026: **25 passed, 0 failed.** Record: `Tracing/checks/Checklist_2026-09-29.md`.
 
 ## What the checklist can't check yet
 - The test and production servers, production's own login, and the private network: all waiting on Aravinth → [[People]].
