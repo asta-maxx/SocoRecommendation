@@ -488,3 +488,8 @@ async def record_served_list(settings: Settings, record: dict[str, Any]) -> None
 
 async def read_served_list(settings: Settings, request_id: str) -> dict[str, Any] | None:
     return await ml_db(settings)["ml_events"].find_one({"_id": request_id, "event_code": "E1"})
+
+
+async def record_measurement(settings: Settings, key: dict[str, Any], fields: dict[str, Any]) -> None:
+    """One document per key in ml_measurements, replaced when the same key is measured again."""
+    await _collection(ml_db(settings), "ml_measurements").replace_one(key, {**key, **fields}, upsert=True)

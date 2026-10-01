@@ -440,6 +440,24 @@ class OrderStatusValues(_Section):
     returned: str = "Returned"
 
 
+TrackingStage = Literal["created", "accepted", "confirmed", "shipped", "paid", "delivered",
+                        "return_requested", "returned", "cancelled", "rejected"]
+
+#: The beginnings seen in tracking_info on 1 Oct 2026, and the stages the pack names.
+TRACKING_STAGES: dict[str, str] = {
+    "order created": "created",
+    "order accepted": "accepted",
+    "confirmed": "confirmed",
+    "shipped": "shipped",
+    "payment completed": "paid",
+    "delivered": "delivered",
+    "return requested": "return_requested",
+    "returned": "returned",
+    "cancelled": "cancelled",
+    "rejected": "rejected",
+}
+
+
 class Lists(_Section):
     """Maintained by Allen; every change is a new config_version, logged in ml_config_changes."""
 
@@ -451,10 +469,20 @@ class Lists(_Section):
     #: engine compares with (ENG-29 item 2), e.g. {"activated": "activate"}.
     status_spellings: dict[str, str] = Field(default_factory=dict)
     order_status: OrderStatusValues = OrderStatusValues()
+    #: ENG-29 item 4: tracking_info entries are free text ("Delivered (Urban Vogue
+    #: ...)", "Cancelled by seller"). An entry is at a stage when its text starts
+    #: with one of these words, ignoring case; the longest match wins.
+    tracking_stages: dict[str, TrackingStage] = Field(default_factory=lambda: dict(TRACKING_STAGES))
     #: Flagged, never actioned (ENG-21, X-21).
     exemptions: list[AccountEntry] = Field(default_factory=list)
     #: Left out of learning, measurement and fraud; the accounts internal mode serves.
     test_accounts: list[AccountEntry] = Field(default_factory=list)
+
+    @field_validator("status_spellings", "tracking_stages")
+    @classmethod
+    def _lower_keys(cls, v: dict[str, str]) -> dict[str, str]:
+        """Keys are compared ignoring case and surrounding spaces."""
+        return {k.strip().lower(): (val.strip().lower() if isinstance(val, str) else val) for k, val in v.items()}
 
 
 # --- the whole file -----------------------------------------------------------------

@@ -8,12 +8,14 @@ platform field. Collection names come from reco.config.PLATFORM_COLLECTIONS.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Callable
 
 from reco.config import PLATFORM_COLLECTIONS, Settings, live
 from reco.platform import records
-from reco.platform.categories import ProductCategoryIndex
+from reco.platform.categories import ProductCategoryIndex, canonical_name
 from reco.platform.connection import app_db
+from reco.platform.ids import maybe_str
 from reco.platform.readers import vocabulary
 
 
@@ -35,7 +37,7 @@ async def _parser(settings: Settings, kind: str) -> Callable[[dict[str, Any]], A
         index = await product_categories(settings)
         return lambda doc: records.parse_product(doc, index)
     if kind == "order":
-        return lambda doc: records.parse_order(doc, lists.order_status)
+        return lambda doc: records.parse_order(doc, lists.order_status, lists.tracking_stages)
     return getattr(records, f"parse_{kind}")
 
 
@@ -125,10 +127,12 @@ _NEWEST_BY = {"post": "timestamp", "product": "createdAt"}
 
 #: Narrowed at the database so fewer rows travel; the eligibility module still
 #: checks every record (ENG-06: re-checked when each list is built).
-_SERVABLE = {
-    "post": {"visibility": "public", "isHidden": {"$ne": True}},
-    "product": {"status": {"$regex": r"^\s*activate\s*$", "$options": "i"}, "availability.inStock": True},
-}
+def _servable(kind: str) -> dict[str, Any]:
+    if kind == "post":
+        return {"visibility": "public", "isHidden": {"$ne": True}}
+    # 'Activate', ignoring case, or any spelling the settings map to it (ENG-29 item 2).
+    spellings = "|".join(re.escape(v) for v in records.spellings_of("activate"))
+    return {"status": {"$regex": rf"^\s*({spellings})\s*$", "$options": "i"}, "availability.inStock": True}
 
 _EMPTY_INDEX = ProductCategoryIndex()
 
@@ -142,9 +146,59 @@ async def read_newest(settings: Settings, kind: str, limit: int, skip: int = 0) 
         parse = await _parser(settings, kind)
     cursor = (
         app_db(settings)[PLATFORM_COLLECTIONS[kind]]
-        .find(_SERVABLE[kind])
+        .find(_servable(kind))
         .sort([(_NEWEST_BY[kind], -1), ("_id", -1)])
         .skip(skip)
         .limit(limit)
     )
     return [parse(doc) async for doc in cursor]
+
+
+# --- categories in use (ENG-29 item 1) ----------------------------------------------------
+
+
+async def categories_in_use(settings: Settings) -> dict[str, dict[str, int]]:
+    """Every category label the platform uses, and how many items use it, by where it
+    is used: post categories, users' interests, business categories, and the top
+    of each product's category path (categoryPathIds[0], else basicInfo.categoryId,
+    looked up in the categories tree)."""
+    db = app_db(settings)
+    found: dict[str, dict[str, int]] = {}
+
+    def add(label: Any, where: str, count: int) -> None:
+        if isinstance(label, str) and label.strip():
+            found.setdefault(label.strip(), {}).setdefault(where, 0)
+            found[label.strip()][where] += count
+
+    for kind, field, where in (("post", "categories", "posts"), ("user", "interest", "user interests"),
+                               ("business", "category", "businesses")):
+        pipeline = [{"$project": {"v": f"${field}"}}, {"$unwind": "$v"}, {"$group": {"_id": "$v", "n": {"$sum": 1}}}]
+        async for row in await db[PLATFORM_COLLECTIONS[kind]].aggregate(pipeline):
+            add(row["_id"], where, row["n"])
+
+    tree = {
+        maybe_str(doc["_id"]): (doc.get("path") or [doc.get("name")])[0]
+        async for doc in db[PLATFORM_COLLECTIONS["category"]].find({}, {"path": 1, "name": 1})
+    }
+    pipeline = [
+        {"$project": {"c": {"$ifNull": [{"$arrayElemAt": ["$categoryPathIds", 0]}, "$basicInfo.categoryId"]}}},
+        {"$group": {"_id": "$c", "n": {"$sum": 1}}},
+    ]
+    async for row in await db[PLATFORM_COLLECTIONS["product"]].aggregate(pipeline):
+        top = tree.get(maybe_str(row["_id"]))
+        label = top if top else ("(no category id)" if row["_id"] is None else f"(category id {maybe_str(row['_id'])} not in the tree)")
+        add(label, "products", row["n"])
+    return found
+
+
+async def unmapped_categories(settings: Settings) -> list[dict[str, Any]]:
+    """Labels in use that match none of the 23 by name or through the category map:
+    left out of category scoring until mapped, never guessed."""
+    vocab = vocabulary(settings)
+    category_map = live.current().lists.category_map
+    return sorted(
+        ({"label": label, "used_by": uses, "items": sum(uses.values())}
+         for label, uses in (await categories_in_use(settings)).items()
+         if canonical_name(vocab, label, category_map) is None),
+        key=lambda row: -row["items"],
+    )

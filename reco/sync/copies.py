@@ -19,7 +19,7 @@ A copy is keyed on the platform row's _id. It carries:
     platform               the platform row as read, so the reconciliation can
                            compare field values exactly (item 8)
 
-ENG-29 adds rec_serve_log here, read the same way as recommendationrequests.
+rec_serve_log (ENG-29 item 7) is read the same way as recommendationrequests.
 """
 
 from __future__ import annotations
@@ -45,13 +45,17 @@ class SyncSource:
         return PLATFORM_COLLECTIONS[self.kind]
 
 
-#: Item 1: postevents, orders and recommendationrequests. For orders,
+#: Item 1: postevents, orders and recommendationrequests; ENG-29 adds rec_serve_log. For orders,
 #: tracking_info is compared in place of statusLog and return_info, which the
 #: platform does not have (ENG-29 item 4).
 SYNC_SOURCES: tuple[SyncSource, ...] = (
     SyncSource("postevent", "ml_events", ("created_at",), ("undone_at", "undo_of", "updated_at")),
     SyncSource("order", "ml_orders", ("created_at",), ("order_status", "tracking_info", "updated_at")),
     SyncSource("served_list", "ml_events", ("server_ts", "created_at"), ("seen_ids", "updated_at")),
+    # ENG-29 item 7: read the same way as recommendationrequests. It has no
+    # updated_at today (Kala question 3), so the incremental read finds nothing;
+    # the backfill and the daily reconciliation copy it.
+    SyncSource("serve_log", "ml_events", ("time", "timestamp", "created_at"), ("origin", "outcome", "elapsed_ms", "updated_at")),
 )
 
 
@@ -67,7 +71,7 @@ def make_copy(source: SyncSource, doc: dict[str, Any], statuses: OrderStatusValu
     if source.kind == "postevent":
         fields = records.parse_postevent(doc).model_dump()
     elif source.kind == "order":
-        fields = records.parse_order(doc, statuses).model_dump()
+        fields = records.parse_order(doc, statuses).model_dump()  # tracking stages from the settings in force
     elif source.kind == "served_list":
         fields = records.parse_served_list(doc).model_dump()
         # The served list is the E1 record. Copies of the platform's lists are
@@ -78,7 +82,9 @@ def make_copy(source: SyncSource, doc: dict[str, Any], statuses: OrderStatusValu
             "scored": False,
             "seen_ids": [to_str(i) for i in doc.get("seen_ids") or []],
         }
-    else:  # pragma: no cover - SYNC_SOURCES lists only the three
+    elif source.kind == "serve_log":
+        fields = records.parse_serve_log(doc).model_dump() | {"event_type": "serve_log", "event_code": None, "scored": False}
+    else:  # pragma: no cover - SYNC_SOURCES lists only these
         raise ValueError(f"no copy rule for {source.kind!r}")
     return {
         **fields,

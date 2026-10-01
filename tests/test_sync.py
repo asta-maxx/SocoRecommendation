@@ -92,8 +92,8 @@ def test_status_history_adds_only_a_new_status() -> None:
     assert [h["status"] for h in later["status_history"]] == ["Placed", "Delivered"]
 
 
-def test_the_sync_reads_the_three_sources() -> None:
-    assert [s.collection for s in SYNC_SOURCES] == [POSTEVENTS, ORDERS, SERVED]
+def test_the_sync_reads_the_four_sources() -> None:
+    assert [s.collection for s in SYNC_SOURCES] == [POSTEVENTS, ORDERS, SERVED, "rec_serve_log"]
 
 
 def test_retention_is_the_setting() -> None:
@@ -118,7 +118,7 @@ async def synced(settings):
     engine = store_conn.ml_db(settings)
 
     async def clear() -> None:
-        for name in (POSTEVENTS, ORDERS, SERVED):
+        for name in (POSTEVENTS, ORDERS, SERVED, "rec_serve_log"):
             await platform[name].drop()
         for name in ENGINE:
             await engine[name].drop()
@@ -311,8 +311,8 @@ async def test_reconciliation_passes_when_ids_and_fields_match(synced) -> None:
     results = await reconcile.reconcile_day(settings, today)
 
     assert all(r["passed"] for r in results), results
-    assert {r["source"]: r["platform_ids"] for r in results} == {POSTEVENTS: 2, ORDERS: 1, SERVED: 1}
-    assert await engine["ml_measurements"].count_documents({"measure": "sync_reconciliation", "day": today}) == 3
+    assert {r["source"]: r["platform_ids"] for r in results} == {POSTEVENTS: 2, ORDERS: 1, SERVED: 1, "rec_serve_log": 0}
+    assert await engine["ml_measurements"].count_documents({"measure": "sync_reconciliation", "day": today}) == 4
 
 
 @pytest.mark.mongo

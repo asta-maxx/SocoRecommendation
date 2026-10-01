@@ -8,6 +8,7 @@ exits. Nothing here serves a request, so a failed job never touches the feed.
     python -m reco.jobs sync_loop           # a pass every sync_interval_minutes
     python -m reco.jobs sync_check          # the sync lag alert, on its own
     python -m reco.jobs reconcile_sync      # yesterday's reconciliation (IST day)
+    python -m reco.jobs category_check      # categories outside the 23 (ENG-29)
     python -m reco.jobs nightly             # every nightly job once, now (ENG-07)
     python -m reco.jobs scheduler           # the nightly jobs at 2 AM IST, every day
     python -m reco.jobs --list
@@ -22,7 +23,7 @@ import sys
 from typing import Awaitable, Callable
 
 from reco.config import Settings, get_settings, sync
-from reco.jobs import scheduler
+from reco.jobs import category_check, scheduler
 from reco.jobs.batches import recorded_run, run_batch
 from reco.jobs.refresh import data_window, refresh
 from reco.monitoring.logs import configure_logging, job_logger, job_run
@@ -103,6 +104,15 @@ async def _reconcile_sync(settings: Settings) -> None:
         )
 
 
+async def _category_check(settings: Settings) -> None:
+    """ENG-29 item 1: report categories outside the 23 and not in the category map."""
+    async with job_run("category_check"), recorded_run(settings, "category_check") as run:
+        unmapped = await category_check.check_categories(settings)
+        run["detail"] = {"unmapped": len(unmapped)}
+        job_logger.info("category check", extra={"job": "category_check", "unmapped": len(unmapped),
+                                                 "labels": [row["label"] for row in unmapped[:20]]})
+
+
 async def _nightly(settings: Settings) -> None:
     """ENG-07: every nightly job once, now."""
     async with job_run("nightly", jobs=list(scheduler.NIGHTLY)):
@@ -124,6 +134,7 @@ JOBS: dict[str, Callable[[Settings], Awaitable[None]]] = {
     "sync_loop": _sync_loop,
     "sync_check": _sync_check,
     "reconcile_sync": _reconcile_sync,
+    "category_check": _category_check,
     "nightly": _nightly,
     "scheduler": _scheduler,
 }

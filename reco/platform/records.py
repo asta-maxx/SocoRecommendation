@@ -41,6 +41,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from reco.config import live
 from reco.config.tunables import OrderStatusValues
 from reco.platform.categories import (
     CategoryVocabulary,
@@ -54,13 +55,26 @@ from reco.platform.native_events import PAGE_VISIT_SURFACE, engine_surface, nati
 Actor = Literal["user", "business", "unknown"]
 
 
+def _spelled(value: str) -> str:
+    """ENG-29 item 2: a stored spelling mapped by the settings' status_spellings."""
+    key = value.strip().lower()
+    return live.current().lists.status_spellings.get(key, key)
+
+
 def status_is(value: Any, expected: str) -> bool:
     """ENG-03: status fields are compared ignoring case (and surrounding spaces).
 
     'Activate', 'activate ' and 'ACTIVATE' are one value. Different words stay
-    different unless the settings' status spellings map them (ENG-29 item 2).
+    different unless the settings' status spellings map them (ENG-29 item 2:
+    {"activated": "activate"} makes 'Activated' read as 'Activate').
     """
-    return isinstance(value, str) and value.strip().lower() == expected.strip().lower()
+    return isinstance(value, str) and isinstance(expected, str) and _spelled(value) == _spelled(expected)
+
+
+def spellings_of(expected: str) -> list[str]:
+    """Every stored spelling that reads as `expected` (for a database filter)."""
+    target = _spelled(expected)
+    return sorted({target} | {k for k, v in live.current().lists.status_spellings.items() if v == target})
 
 
 def actor_kind(value: Any) -> Actor:
@@ -372,12 +386,73 @@ def parse_served_list(doc: dict[str, Any]) -> ServedListRecord:
     )
 
 
+class ServeLogRecord(_Record):
+    """A rec_serve_log row: SOCO_BE's own log of every list request (DS-017 4.3, APP-15).
+
+    request_id, user_id, surface, page, origin (engine, fallback or cache),
+    outcome (ok, timeout, error, off or skipped), elapsed_ms and the time. The
+    operational fallback rate and the speed seen by SOCO_BE come from it (ENG-24).
+    """
+
+    source_id: str
+    request_id: str | None  # opaque
+    user_id: str | None
+    native_surface: str | None
+    surface: str | None
+    page: int | None
+    origin: str | None  # engine | fallback | cache
+    outcome: str | None  # ok | timeout | error | off | skipped
+    elapsed_ms: float | None
+    created_at: datetime | None  # its time field, else created_at, else _id
+    updated_at: datetime | None
+
+
+def parse_serve_log(doc: dict[str, Any]) -> ServeLogRecord:
+    page = doc.get("page")
+    lowered = lambda v: v.strip().lower() if isinstance(v, str) else None  # noqa: E731
+    return ServeLogRecord(
+        source_id=to_str(doc["_id"]),
+        request_id=_opaque(doc.get("request_id")),
+        user_id=maybe_str(doc.get("user_id")),
+        native_surface=doc.get("surface"),
+        surface=engine_surface(doc.get("surface")) or (doc.get("surface") if doc.get("surface") in ("feed", "product") else None),
+        page=page if isinstance(page, int) and not isinstance(page, bool) else None,
+        origin=lowered(doc.get("origin")),
+        outcome=lowered(doc.get("outcome")),
+        elapsed_ms=_number(doc.get("elapsed_ms")),
+        created_at=time_of(doc, "time", "timestamp", "created_at"),
+        updated_at=as_utc(doc.get("updated_at")),
+    )
+
+
 # --- commerce ----------------------------------------------------------------------
 
 
 class TrackingEntry(_Record):
-    status: str
+    status: str  # the entry's text, as stored
     at: datetime | None
+    stage: str | None  # from the settings' tracking_stages (ENG-29 item 4); None if no beginning matches
+    actor: Literal["buyer", "seller"] | None  # "... by buyer" / "... by seller" in the text
+
+
+def tracking_stage(text: str, stages: dict[str, str]) -> str | None:
+    """The stage an entry's text begins with, ignoring case; the longest beginning wins."""
+    lowered = text.strip().lower()
+    matches = [prefix for prefix in stages if lowered.startswith(prefix)]
+    return stages[max(matches, key=len)] if matches else None
+
+
+def tracking_actor(text: str) -> Literal["buyer", "seller"] | None:
+    lowered = f" {text.strip().lower()} "
+    if " by buyer " in lowered:
+        return "buyer"
+    if " by seller " in lowered:
+        return "seller"
+    return None
+
+
+def _first(entries: list[TrackingEntry], stage: str) -> TrackingEntry | None:
+    return next((e for e in entries if e.stage == stage), None)
 
 
 class OrderRecord(_Record):
@@ -395,9 +470,13 @@ class OrderRecord(_Record):
     quantity: float | None
     status: str | None  # orders.order_status
     buyer_approval_status: str | None
-    tracking: list[TrackingEntry]  # orders.tracking_info: the order's history (ENG-29)
-    is_returned: bool  # reached Return Requested or Returned (X-18, AS-23)
-    cancelled_by: Literal["buyer", "seller"] | None  # worked out, not stored (DS-017 6.4)
+    tracking: list[TrackingEntry]  # orders.tracking_info: the order's history (ENG-29), in time order
+    delivered_at: datetime | None  # the FIRST time it reached Delivered (ENG-29 item 4)
+    return_requested_at: datetime | None
+    returned_at: datetime | None
+    cancelled_at: datetime | None  # first cancellation or rejection
+    is_returned: bool  # reached Return Requested or Returned, now or in its history (ENG-29 item 5)
+    cancelled_by: Literal["buyer", "seller"] | None  # worked out, not stored (DS-017 6.4; ENG-29 item 4)
     cancel_reasons: dict[str, str]  # whatever exists; stored, never scored
     is_incognito: bool  # purchase privacy only: counts for the buyer, never names them
     created_at: datetime | None
@@ -418,16 +497,29 @@ def _cancelled_by(status: str | None, approval: str | None, statuses: OrderStatu
     return None
 
 
-def parse_order(doc: dict[str, Any], statuses: OrderStatusValues = OrderStatusValues()) -> OrderRecord:
-    tracking = [
-        TrackingEntry(status=str(entry.get("status")), at=as_utc(entry.get("timestamp")))
-        for entry in doc.get("tracking_info") or []
-        if isinstance(entry, dict) and entry.get("status")
-    ]
+def parse_order(
+    doc: dict[str, Any], statuses: OrderStatusValues = OrderStatusValues(), stages: dict[str, str] | None = None
+) -> OrderRecord:
+    """ENG-29 item 4: tracking_info is the order's history. Each entry's stage comes
+    from how its text begins (the settings' tracking_stages), its actor from
+    "by buyer" / "by seller". order_status and buyer_approval_status decide the
+    canceller first (DS-017 6.4); the entry decides it where they don't."""
+    stages = stages if stages is not None else live.current().lists.tracking_stages
+    tracking = sorted(
+        (
+            TrackingEntry(status=str(entry.get("status")), at=as_utc(entry.get("timestamp")),
+                          stage=tracking_stage(str(entry.get("status")), stages), actor=tracking_actor(str(entry.get("status"))))
+            for entry in doc.get("tracking_info") or []
+            if isinstance(entry, dict) and entry.get("status")
+        ),
+        key=lambda e: (e.at is None, e.at or datetime.min),
+    )
     status = doc.get("order_status")
-    returned_values = (statuses.return_requested, statuses.returned)
-    is_returned = any(status_is(status, v) for v in returned_values) or any(
-        status_is(entry.status, v) for entry in tracking for v in returned_values
+    delivered, requested, returned = _first(tracking, "delivered"), _first(tracking, "return_requested"), _first(tracking, "returned")
+    cancelled = next((e for e in tracking if e.stage in ("cancelled", "rejected")), None)
+    is_returned = (
+        any(status_is(status, v) for v in (statuses.return_requested, statuses.returned))
+        or requested is not None or returned is not None
     )
     reasons = {
         field: str(doc[field])
@@ -450,8 +542,12 @@ def parse_order(doc: dict[str, Any], statuses: OrderStatusValues = OrderStatusVa
         status=status,
         buyer_approval_status=doc.get("buyer_approval_status"),
         tracking=tracking,
+        delivered_at=delivered.at if delivered else None,
+        return_requested_at=requested.at if requested else None,
+        returned_at=returned.at if returned else None,
+        cancelled_at=cancelled.at if cancelled else None,
         is_returned=is_returned,
-        cancelled_by=_cancelled_by(status, doc.get("buyer_approval_status"), statuses),
+        cancelled_by=_cancelled_by(status, doc.get("buyer_approval_status"), statuses) or (cancelled.actor if cancelled else None),
         cancel_reasons=reasons,
         is_incognito=bool(doc.get("isIncognitoMode")),
         created_at=time_of(doc, "created_at"),
@@ -565,5 +661,5 @@ def parse_category(doc: dict[str, Any], vocabulary: CategoryVocabulary, category
 #: Every record kind, for the readers and the ENG-03 check.
 RECORD_KINDS: tuple[str, ...] = (
     "user", "business", "post", "postevent", "follow", "order", "cart_line",
-    "product", "variant", "category", "served_list",
+    "product", "variant", "category", "served_list", "serve_log",
 )

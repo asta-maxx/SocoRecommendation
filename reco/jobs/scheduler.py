@@ -12,6 +12,7 @@ The Build List's nightly list, and the item that brings each job:
       monthly copy on the 1st
     M6                               ENG-18
     the fraud rules                  ENG-21
+    unmapped categories (daily)      category_check  here now (ENG-29 item 1)
 
 Each item adds its job to NIGHTLY when it is built. The jobs run one after
 another; a failed job is recorded and alerted, the others still run, and the
@@ -39,7 +40,7 @@ logger = logging.getLogger("reco.job")
 IST = timezone(timedelta(hours=5, minutes=30))
 
 #: Job names (in reco.jobs JOBS) run every night, in this order.
-NIGHTLY: tuple[str, ...] = ("interest", "reconcile_sync")
+NIGHTLY: tuple[str, ...] = ("interest", "category_check", "reconcile_sync")
 
 
 def next_run(now: datetime, at: str = "02:00") -> datetime:

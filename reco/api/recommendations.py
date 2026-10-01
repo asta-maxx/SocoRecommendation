@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import date
 from typing import Any
 
 from bson import ObjectId
@@ -37,6 +36,7 @@ from fastapi.responses import JSONResponse
 
 from reco.api.auth import token_ok
 from reco.config import Settings, get_settings, live
+from reco.config.accounts import is_test_account
 from reco.ranking import serving
 from reco.slots.assignment import Assignment, assign, method_number, policy_id
 from reco.store import writers
@@ -86,13 +86,6 @@ def _bad_request(body: Any) -> tuple[dict[str, Any] | None, JSONResponse | None]
     }, None
 
 
-def _is_test_account(user_id: str | None) -> bool:
-    today = date.today()
-    return bool(user_id) and any(
-        entry.account_id == user_id.lower() and entry.expiry >= today for entry in live.current().lists.test_accounts
-    )
-
-
 def _slot_record(a: Assignment) -> dict[str, Any]:
     return {"method": a.method, "method_number": method_number(a), "bucket": a.bucket,
             "from_default": a.from_default, "fallback_step": None}
@@ -119,7 +112,7 @@ async def recommendations(
     mode = getattr(tunables.serving, f"surface_mode_{surface}")
     if mode == "off":
         return _error(503, "surface_off", f"the {surface} surface is off")
-    if mode == "internal" and not _is_test_account(asked["user_id"]):
+    if mode == "internal" and not is_test_account(asked["user_id"]):
         return _error(503, "surface_internal", f"the {surface} surface serves test accounts only")
 
     assignments = [assign(slot, asked["user_id"] or "", tunables) for slot in SLOTS_BY_SURFACE[surface]]

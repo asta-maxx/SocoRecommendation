@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 
 from reco.config import Settings
 from reco.config import live
+from reco.config.accounts import test_account_ids
 from reco.platform import readers
 from reco.store.writers import remove_scores_older_than, upsert_user_scores
 from reco.slots.interest.events import Event, ReadStats
@@ -78,6 +79,7 @@ class RefreshRun:
     users_seen: int = 0
     users_scored: int = 0
     users_with_no_score: int = 0
+    test_accounts_skipped: int = 0  # ENG-29 item 3
     scores_written: int = 0
     stale_removed: int = 0
     duration_seconds: float = 0.0
@@ -104,6 +106,7 @@ class RefreshRun:
             f"Reversals {self.reversals_applied} "
             f"({self.reversals_unaged} could not be aged). "
             f"Users with no score: {self.users_with_no_score}. "
+            f"Test accounts left out: {self.test_accounts_skipped}. "
             f"Stale rows removed: {self.stale_removed}. "
             f"Coherence failures: {len(self.coherence_failures)}."
         )
@@ -150,6 +153,10 @@ async def refresh(
     orders = await readers.read_all_order_creation_times(settings)
     user_ids = await readers.read_all_user_ids(settings)
 
+    # ENG-29 item 3: test accounts are left out of learning.
+    tests = test_account_ids()
+    run.test_accounts_skipped = sum(1 for u in user_ids if str(u).lower() in tests)
+    user_ids = [u for u in user_ids if str(u).lower() not in tests]
     run.users_seen = len(user_ids)
     # The settings in force, unless a caller pins its own (the demo checks pin
     # the DS-007 values their expected answers were generated with).

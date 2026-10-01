@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The checklist, run end to end: every check for ENG-01 to ENG-07 (pack v1.3).
+# The checklist, run end to end: every check for ENG-01 to ENG-07 and ENG-29 (pack v1.3).
 #
 #     bash scripts/run_checklist.sh
 #
@@ -111,7 +111,7 @@ check "3.5 every real platform document reads cleanly" "$PY scripts/check_platfo
 
 echo "== 4. ENG-04: the engine sync"
 T="$PY -m pytest -q tests/test_sync.py -p no:cacheprovider"
-check "4.1 copies keep source, ids, undo fields, E code; order history" "$T -k 'copy or e1 or history or three_sources'" "6 passed"
+check "4.1 copies keep source, ids, undo fields, E code; order history" "$T -k 'copy or e1 or history or four_sources'" "6 passed"
 check "4.2 backfill keyed on the platform _id, restartable" "TEST_MONGO_TIMEOUT_MS=15000 $T -k backfill" "2 passed"
 check "4.3 (a) reconciliation: ids and field values, mismatches re-read" "TEST_MONGO_TIMEOUT_MS=15000 $T -k reconciliation" "3 passed"
 check "4.4 (b) a like undone after copying updates the copy" "TEST_MONGO_TIMEOUT_MS=15000 $T -k undo" "1 passed"
@@ -120,7 +120,7 @@ check "4.6 (d) same updated_at across a page boundary" "TEST_MONGO_TIMEOUT_MS=15
 check "4.7 (e) a failure before the checkpoint re-reads the batch" "TEST_MONGO_TIMEOUT_MS=15000 $T -k failure_before" "1 passed"
 check "4.8 (f) the alert fires: behind, and a failed run" "TEST_MONGO_TIMEOUT_MS=15000 $T -k alert_fires" "2 passed"
 check "4.9 (g) retention: 365 days on the original time" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_sync.py tests/test_engine_environment.py -p no:cacheprovider -k retention" " passed"
-check "4.10 real backfill from SOCO into reco_demo" "ML_MONGO_DB=reco_demo $PY -m reco.jobs sync && ML_MONGO_DB=reco_demo $PY scripts/show_events.py | grep -c 'backfill done'" "3"
+check "4.10 real backfill from SOCO into reco_demo" "ML_MONGO_DB=reco_demo $PY -m reco.jobs sync && ML_MONGO_DB=reco_demo $PY scripts/show_events.py | grep -c 'backfill done'" "4"
 check "4.11 real reconciliation of yesterday passes" "ML_MONGO_DB=reco_demo $PY -m reco.jobs reconcile_sync" '"passed": true'
 
 echo "== 5. ENG-05: the same method for each user"
@@ -158,6 +158,18 @@ check "7.3 a failure halfway keeps the previous batch" "TEST_MONGO_TIMEOUT_MS=15
 check "7.4 a killed run is recorded as failed and never read" "TEST_MONGO_TIMEOUT_MS=15000 $T -k killed" "1 passed"
 check "7.5 a real kill (SIGKILL) halfway: previous batch still read" "out=\$(ML_MONGO_DB=reco_demo $PY scripts/demo_kill_job.py 2>/dev/null); grep -A1 '3. straight' <<<\"\$out\" | grep -q 'DEMO-U1=fashion' && grep -q abandoned <<<\"\$out\" && echo kill-check-ok" "kill-check-ok"
 check "7.6 the real nightly run: both methods current" "ML_MONGO_DB=reco_demo $PY -m reco.jobs nightly && ML_MONGO_DB=reco_demo $PY scripts/show_job_runs.py | grep -c CURRENT" "2"
+
+echo "== 8. ENG-29: adapting to the platform as built"
+T="TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_platform_dataset.py -p no:cacheprovider"
+check "8.1 the constructed test data covers every platform collection and reads" "$T -k every_constructed" "1 passed"
+check "8.2 an unmapped category is reported, and left out until mapped" "$T -k unmapped" "2 passed"
+check "8.3 test-account and exemption lists (expiry, logged); a test account is left out of scoring" "$T -k 'test_account or account_lists or list_change'" "3 passed"
+check "8.4 an order's history from tracking_info: delivery, return request, who cancelled" "$T -k 'tracking or first_delivery or cancellation'" "4 passed"
+check "8.5 a product post on a feed list keeps post_id and product_id apart" "$T -k apart" "1 passed"
+check "8.6 rec_serve_log rows are read and copied" "$T -k serve_log" "2 passed"
+check "8.7 status spellings from the settings" "$T -k spellings" "1 passed"
+check "8.8 the real daily category check runs on SOCO's data" "ML_MONGO_DB=reco_demo $PY -m reco.jobs category_check" '"outcome": "succeeded"'
+check "8.9 the engine test environment holds the constructed data" "$PY scripts/seed_test_platform.py soco_engine_test" "all parse"
 
 cleanup
 trap - EXIT
