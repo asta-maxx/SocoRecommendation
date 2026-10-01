@@ -87,12 +87,12 @@ if wait_for "curl -s -o /dev/null http://127.0.0.1:8191/health" 60; then
 else fail "2.4 health 503 with the engine database down" "second engine did not start"; fi
 pkill -f "uvicorn reco.main:app --port 8191" >/dev/null 2>&1
 APP_MONGO_URI="mongodb://127.0.0.1:1" MONGO_TIMEOUT_SECONDS=1 SETTINGS_FILE="$SETTINGS_COPY" ML_MONGO_DB=reco_demo \
-  $PY -m uvicorn reco.main:app --port 8191 >"$WORK/down2.log" 2>&1 &
+  $PY -m uvicorn reco.main:app --port 8197 >"$WORK/down2.log" 2>&1 &
 disown
-if wait_for "curl -s -o /dev/null http://127.0.0.1:8191/health" 60; then
-  check "2.4b health 503 with the platform database down" "curl -s -w ' HTTP%{http_code}' http://127.0.0.1:8191/health" "HTTP503"
+if wait_for "curl -s -o /dev/null http://127.0.0.1:8197/health" 60; then
+  check "2.4b health 503 with the platform database down" "curl -s -w ' HTTP%{http_code}' http://127.0.0.1:8197/health" "HTTP503"
 else fail "2.4b health 503 with the platform database down" "engine did not start"; fi
-pkill -f "uvicorn reco.main:app --port 8191" >/dev/null 2>&1
+pkill -f "uvicorn reco.main:app --port 8197" >/dev/null 2>&1
 check "2.5 every request is logged" "grep '\"logger\": \"reco.request\"' '$LOG'" "\"status\": 200"
 V=$(sed -n 's/^config_version = "\([0-9]*\)"/\1/p' "$SETTINGS_COPY"); NEXT=$((V + 1))
 sed -i '' "s/config_version = \"$V\"/config_version = \"$NEXT\"/; s/changed_by = \"Allen\"/changed_by = \"Checklist\"/; s/popularity_window_days = 30 /popularity_window_days = 45 /" "$SETTINGS_COPY"
@@ -118,7 +118,7 @@ check "3.5 every real platform document reads cleanly" "$PY scripts/check_platfo
 
 echo "== 4. ENG-04: the engine sync"
 T="$PY -m pytest -q tests/test_sync.py -p no:cacheprovider"
-check "4.1 copies keep source, ids, undo fields, E code; order history" "$T -k 'copy or e1 or history or four_sources'" "6 passed"
+check "4.1 copies keep source, ids, undo fields, E code; order history" "$T -k 'copy or e1 or history or four_sources'" "7 passed"
 check "4.2 backfill keyed on the platform _id, restartable" "TEST_MONGO_TIMEOUT_MS=15000 $T -k backfill" "2 passed"
 check "4.3 (a) reconciliation: ids and field values, mismatches re-read" "TEST_MONGO_TIMEOUT_MS=15000 $T -k reconciliation" "3 passed"
 check "4.4 (b) a like undone after copying updates the copy" "TEST_MONGO_TIMEOUT_MS=15000 $T -k undo" "1 passed"
