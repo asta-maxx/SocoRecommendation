@@ -9,3 +9,6 @@ venv/
 
 # Obsidian: per-machine window layout
 obsidian/.obsidian/workspace*.json
+
+# macOS folder metadata
+.DS_Store
