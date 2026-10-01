@@ -13,3 +13,7 @@ Sections: 0 (before you start) 4 · 1 ENG-01 6 · 2 ENG-02 9 · 3 ENG-03 5 · 4 
 
 Not checkable yet: test and production servers and clusters, production's read-only
 login (DB-02), the private network (DB-12).
+
+## Run 3, after ENG-29 (1 Oct)
+
+Commit `485fe77`: **62 passed, 0 failed** (section 8, ENG-29, lines 8.1–8.9, added; 4.10 now expects four sync sources).

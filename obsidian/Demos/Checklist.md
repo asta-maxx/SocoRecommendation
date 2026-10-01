@@ -124,7 +124,7 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 - **Anything else:** it's a real problem. Note which line failed and look at the message under it.
 
 ## Last full run
-1 Oct 2026, pack v1.3, ENG-01 to ENG-07: **53 passed, 0 failed.** The first run that day failed two lines (4.1 and 4.3) only because the script expected too few tests after new ones were added; every test passed. The counts were corrected and the whole list was run again. Record: `Tracing/checks/Checklist_2026-10-01.md`.
+1 Oct 2026, after ENG-29: **62 passed, 0 failed** (commit `485fe77`). Earlier the same day, before ENG-29: 53 of 53. Record: `Tracing/checks/Checklist_2026-10-01.md`.
 
 Earlier: 29 Sep 2026, on the 22 Sep design: 31 passed, 0 failed (`Tracing/checks/Checklist_2026-09-29.md`).
 
