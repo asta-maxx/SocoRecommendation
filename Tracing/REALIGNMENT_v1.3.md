@@ -87,6 +87,7 @@ events before their oldest rows reach 90 days.
 14. **ENG-06:** it waits on ENG-09 and ENG-29, which aren't built. We built it to its own interim clause ("on test, return eligible posts newest first"; both surfaces off in production). For the product surface the clause is silent: we return eligible products newest first, without the context product. Is that the intended interim?
 15. **ENG-06 exploration:** "shuffle positions 4 onward among eligible items". We shuffle within the page, so page 2 never repeats page 1. Or should items be drawn from beyond the page?
 16. **ENG-08 E-01 / DB-06:** blocks are "status blocked in followers", but `followers` is empty on dev and its field names aren't documented (only the `_id` index exists). Which fields hold the two accounts and the status? The constructed test data assumes `userId` (blocker), `followerId` (blocked), `status: "blocked"`.
+17. **ENG-08 E-08 / ENG-03:** "the author or seller is not active (users.status or businessregisters.status, ignoring case)". On dev the two import sellers (2,006 of 2,011 products), 2 users and 4 businesses have **no status field**. Does a missing status count as active? Until answered the engine treats it as not active, so no product on dev can be served. Asked of Aravinth on 1 Oct.
 
 ## Built after the realignment (1 Oct)
 

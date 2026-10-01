@@ -4,7 +4,10 @@ uvicorn[standard]==0.34.0
 
 # PyMongo's own async client (AsyncMongoClient, 4.9+).
 # Motor is deprecated in favour of async support inside PyMongo -- do not add Motor.
-pymongo==4.10.1
+# 4.18.2 (was 4.10.1, bumped 1 Oct 2026): 4.10's async client ran concurrent
+# operations one after another (five parallel pings: ~110 ms, five times one);
+# 4.18 runs them in parallel (~25 ms). Serving reads several things at once (ENG-08).
+pymongo==4.18.2
 
 pydantic==2.10.4
 python-dotenv==1.0.1

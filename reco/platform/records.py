@@ -137,6 +137,7 @@ class UserRecord(_Record):
     city: str | None
     date_of_birth: date | None  # users.DOB (E-11)
     account_is_public: bool  # accountIsPublic (E-05)
+    restriction_level: str | None  # E-09, once DB-08 adds it
     declared_interests: list[str]  # users.interest, matched to the 23
     created_at: datetime | None
 
@@ -149,6 +150,7 @@ def parse_user(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map
         city=doc.get("city") or None,
         date_of_birth=_date(doc.get("DOB")),
         account_is_public=doc.get("accountIsPublic") is not False,
+        restriction_level=_lower(doc.get("restriction_level")),
         declared_interests=post_categories(vocabulary, doc.get("interest"), category_map).resolved,
         created_at=time_of(doc, "timestamp"),
     )
@@ -162,6 +164,7 @@ class BusinessRecord(_Record):
     status: str | None
     is_active: bool
     account_is_public: bool
+    restriction_level: str | None  # E-09, once DB-08 adds it
     created_at: datetime | None
 
 
@@ -174,8 +177,13 @@ def parse_business(doc: dict[str, Any], vocabulary: CategoryVocabulary, category
         status=doc.get("status"),
         is_active=status_is(doc.get("status"), "active"),
         account_is_public=doc.get("accountIsPublic") is not False,
+        restriction_level=_lower(doc.get("restriction_level")),
         created_at=time_of(doc, "timestamp"),
     )
+
+
+def _lower(value: Any) -> str | None:
+    return value.strip().lower() if isinstance(value, str) and value.strip() else None
 
 
 class FollowRecord(_Record):
@@ -197,6 +205,22 @@ def parse_follow(doc: dict[str, Any]) -> FollowRecord:
 
 
 # --- content -----------------------------------------------------------------------
+
+
+class BlockRecord(_Record):
+    """A followers row with status blocked (E-01, DB-06: "the existing status blocked in
+    followers"). ASSUMED shape -- followers is empty on dev and its field names are
+    not documented (Kala question 16): userId blocked followerId."""
+
+    blocker_id: str
+    blocked_id: str
+
+
+def parse_block(doc: dict[str, Any]) -> BlockRecord | None:
+    """The block in a followers row, or None if the row is not a block."""
+    if not status_is(doc.get("status"), "blocked") or doc.get("userId") is None or doc.get("followerId") is None:
+        return None
+    return BlockRecord(blocker_id=to_str(doc["userId"]), blocked_id=to_str(doc["followerId"]))
 
 
 class PostRecord(_Record):

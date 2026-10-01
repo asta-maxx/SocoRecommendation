@@ -15,7 +15,7 @@ from reco.config import PLATFORM_COLLECTIONS, Settings, live
 from reco.platform import records
 from reco.platform.categories import ProductCategoryIndex, canonical_name
 from reco.platform.connection import app_db
-from reco.platform.ids import maybe_str
+from reco.platform.ids import id_match, maybe_str
 from reco.platform.readers import vocabulary
 
 
@@ -136,6 +136,18 @@ def _servable(kind: str) -> dict[str, Any]:
 
 _EMPTY_INDEX = ProductCategoryIndex()
 
+#: Serving and eligibility read only the fields the parsers use. Product documents
+#: carry images, specifications and policies; reading them whole is most of the time.
+_FIELDS: dict[str, dict[str, int]] = {
+    "post": {f: 1 for f in ("userId", "userModel", "timestamp", "categories", "postType", "postTypeDetailed", "isHidden",
+                            "visibility", "compliance", "Product_status", "ageGroup", "isRepost", "products", "productId")},
+    "product": {f: 1 for f in ("createdBy", "createdAt", "status", "availability", "categoryPathIds", "basicInfo.categoryId",
+                               "crossSellProducts")},
+    "user": {f: 1 for f in ("status", "city", "DOB", "accountIsPublic", "restriction_level", "interest", "timestamp")},
+    "business": {f: 1 for f in ("user_id", "category", "status", "accountIsPublic", "restriction_level", "timestamp")},
+    "variant": {f: 1 for f in ("productId", "sellerId", "salePrice", "originalPrice", "quantity", "reservedStock", "status")},
+}
+
 
 async def read_newest(settings: Settings, kind: str, limit: int, skip: int = 0) -> list[Any]:
     """Posts or products, newest first, parsed. A serving read: products skip the
@@ -146,7 +158,7 @@ async def read_newest(settings: Settings, kind: str, limit: int, skip: int = 0) 
         parse = await _parser(settings, kind)
     cursor = (
         app_db(settings)[PLATFORM_COLLECTIONS[kind]]
-        .find(_servable(kind))
+        .find(_servable(kind), _FIELDS[kind])
         .sort([(_NEWEST_BY[kind], -1), ("_id", -1)])
         .skip(skip)
         .limit(limit)
@@ -202,3 +214,40 @@ async def unmapped_categories(settings: Settings) -> list[dict[str, Any]]:
          if canonical_name(vocab, label, category_map) is None),
         key=lambda row: -row["items"],
     )
+
+
+# --- reads for eligibility (ENG-08) -------------------------------------------------------
+
+
+def _any_form(ids: list[Any]) -> dict[str, list[Any]]:
+    """$in over every id in both its text and ObjectId form."""
+    forms: list[Any] = []
+    for value in ids:
+        if value is not None:
+            forms.extend(id_match(value)["$in"])
+    return {"$in": forms}
+
+
+async def read_where(settings: Settings, kind: str, field: str, ids: list[Any]) -> list[Any]:
+    """Parsed records of `kind` whose `field` is any of `ids` (text or ObjectId).
+    Products skip the category lookup, as serving reads do."""
+    if not ids:
+        return []
+    if kind == "product":
+        parse: Callable[[dict[str, Any]], Any] = lambda doc: records.parse_product(doc, _EMPTY_INDEX)  # noqa: E731
+    else:
+        parse = await _parser(settings, kind)
+    cursor = app_db(settings)[PLATFORM_COLLECTIONS[kind]].find({field: _any_form(list(ids))}, _FIELDS.get(kind))
+    return [parse(doc) async for doc in cursor]
+
+
+async def read_blocks(settings: Settings, account_ids: list[str]) -> list[records.BlockRecord]:
+    """Block rows in followers touching any of these accounts, either side (E-01).
+    Read when each list is built, so a block takes effect on the next list."""
+    if not account_ids:
+        return []
+    either = _any_form(account_ids)
+    cursor = app_db(settings)[PLATFORM_COLLECTIONS["follower"]].find(
+        {"status": {"$regex": r"^\s*blocked\s*$", "$options": "i"}, "$or": [{"userId": either}, {"followerId": either}]}
+    )
+    return [block async for doc in cursor if (block := records.parse_block(doc)) is not None]

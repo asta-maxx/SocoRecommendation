@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 _client: AsyncMongoClient | None = None
 
+#: Connections kept open (pymongo's minPoolSize). The pack sets no value.
+MIN_POOL = 10
+
 
 def init_client(settings: Settings) -> None:
     """Open the platform client. Called once, from startup."""
@@ -34,6 +37,9 @@ def init_client(settings: Settings) -> None:
     _client = AsyncMongoClient(
         settings.app_mongo_uri,
         tz_aware=True,
+        # Connections opened ahead, so a request never waits for one to be set up
+        # (serving reads several things at once, ENG-06/ENG-08).
+        minPoolSize=MIN_POOL,
         serverSelectionTimeoutMS=int(settings.mongo_timeout_seconds * 1000),
     )
     logger.info("Platform client opened: db=%s (read-only)", settings.app_mongo_db)

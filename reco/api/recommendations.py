@@ -119,15 +119,15 @@ async def recommendations(
     request_id = str(uuid.uuid4())
     server_ts = utc_now()
     try:
-        candidates = await serving.interim_candidates(
-            settings, surface, asked["page"], asked["limit"], asked["context_item_id"]
+        built = await serving.interim_candidates(
+            settings, surface, asked["page"], asked["limit"], asked["context_item_id"], asked["user_id"], request_id
         )
+        page_items = await serving.page_after_recheck(settings, built, asked["page"], asked["limit"], request_id)
+        candidates = built.candidates
     except Exception as exc:
-        logger.error("platform database unreadable", extra={"request_id": request_id, "error": repr(exc)[:300]})
-        return _error(503, "database_unavailable", "the platform database could not be read")
+        logger.error("database unreadable", extra={"request_id": request_id, "error": repr(exc)[:300]})
+        return _error(503, "database_unavailable", "a database could not be read")
 
-    start = (asked["page"] - 1) * asked["limit"]
-    page_items = candidates[start:start + asked["limit"]]
     exploration = serving.decide_exploration(surface, tunables.serving.exploration_percent)
     if exploration:
         page_items = serving.explore(page_items, tunables.serving.exploration_top_kept)

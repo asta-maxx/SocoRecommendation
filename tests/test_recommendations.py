@@ -29,6 +29,7 @@ from reco.config import PLATFORM_COLLECTIONS
 from reco.platform import connection as platform_conn
 from reco.ranking import serving
 from reco.ranking.serving import Candidate
+from reco.eligibility.rules import Viewer
 from reco.store import connection as store_conn
 from reco.store import writers
 from reco.store.scores import utc_now
@@ -65,15 +66,20 @@ def served(settings, monkeypatch):
     settings = settings.model_copy(update={"ingest_token": TOKEN})
     records = []
 
-    async def candidates(settings, surface, page, limit, context):
+    async def candidates(settings, surface, page, limit, context, user_id=None, request_id=None):
         kind = "post" if surface == "feed" else "product"
-        return [Candidate(f"{kind}{n:02}", kind, f"post{n:02}" if kind == "post" else None,
+        made = [Candidate(f"{kind}{n:02}", kind, f"post{n:02}" if kind == "post" else None,
                           f"product{n:02}" if kind == "product" else None, rank=n) for n in range(1, page * limit + 1)]
+        return serving.Built(Viewer(user_id=user_id), made, {}, len(made))
 
     async def record(settings, doc):
         records.append(doc)
 
+    async def nothing_failed(settings, items, viewer, request_id, cache=None):
+        return set()
+
     monkeypatch.setattr(api.serving, "interim_candidates", candidates)
+    monkeypatch.setattr(serving, "recheck", nothing_failed)
     monkeypatch.setattr(api.writers, "record_served_list", record)
     return settings, records
 
@@ -215,21 +221,30 @@ async def platform(settings):
         pytest.skip(f"MongoDB unreachable: {type(exc).__name__}")
     db = platform_conn.app_db(settings)
     posts, products = db[PLATFORM_COLLECTIONS["post"]], db[PLATFORM_COLLECTIONS["product"]]
-    await posts.drop(), await products.drop(), await store_conn.ml_db(settings)["ml_events"].drop()
+    others = [db[PLATFORM_COLLECTIONS[k]] for k in ("user", "business", "variant", "follow", "follower")]
+    for c in (posts, products, *others, store_conn.ml_db(settings)["ml_events"]):
+        await c.drop()
     await writers.ensure_engine_collections(settings)
+    # E-08: authors and sellers must exist and be active; E-07: a variant in stock.
+    await db[PLATFORM_COLLECTIONS["user"]].insert_one({"_id": AUTHOR, "status": "Active", "accountIsPublic": True})
+    await db[PLATFORM_COLLECTIONS["business"]].insert_one({"_id": SELLER, "status": "active", "accountIsPublic": True})
     yield settings, posts, products
-    await posts.drop(), await products.drop(), await store_conn.ml_db(settings)["ml_events"].drop()
+    for c in (posts, products, *others, store_conn.ml_db(settings)["ml_events"]):
+        await c.drop()
     await platform_conn.close_client()
     await store_conn.close_client()
 
 
+AUTHOR, SELLER = ObjectId(), ObjectId()
+
+
 def post(minutes_ago: int, **fields) -> dict:
-    return {"_id": ObjectId(), "userId": ObjectId(), "timestamp": utc_now() - timedelta(minutes=minutes_ago),
+    return {"_id": ObjectId(), "userId": AUTHOR, "timestamp": utc_now() - timedelta(minutes=minutes_ago),
             "visibility": "public", "isHidden": False, "categories": [], "postType": "normal", **fields}
 
 
 def product(minutes_ago: int, **fields) -> dict:
-    return {"_id": ObjectId(), "createdBy": ObjectId(), "createdAt": utc_now() - timedelta(minutes=minutes_ago),
+    return {"_id": ObjectId(), "createdBy": SELLER, "createdAt": utc_now() - timedelta(minutes=minutes_ago),
             "status": "Activate", "availability": {"inStock": True}, **fields}
 
 
@@ -239,17 +254,18 @@ async def test_a_feed_list_is_recorded_exactly_as_returned(platform, monkeypatch
     put_in_force(LIVE)
     monkeypatch.setattr(serving.rng, "random", lambda: 0.99)
     shown = [post(m) for m in (1, 2, 3, 4)]
-    with_product = post(5, products=[ObjectId()])
-    hidden, private, rejected = post(0, isHidden=True), post(0, visibility="private"), post(0, compliance={"status": "Rejected"})
-    await posts.insert_many([*shown, with_product, hidden, private, rejected])
+    with_product = post(5, products=[ObjectId()], Product_status="Activated")
+    hidden, private, removed = post(0, isHidden=True), post(0, visibility="private"), post(0, compliance={"status": "Removed"})
+    under_review = post(6, compliance={"status": "under_review"})  # E-12: served as normal
+    await posts.insert_many([*shown, with_product, under_review, hidden, private, removed])
 
     await call(settings, feed())  # warm the connections, as a running service has them
     started = time.perf_counter()
-    status, body = await call(settings, feed(limit=5))
+    status, body = await call(settings, feed(limit=6))
     elapsed_ms = (time.perf_counter() - started) * 1000
 
     assert status == 200
-    assert [i["item_id"] for i in body["items"]] == [str(p["_id"]) for p in [*shown, with_product]]  # newest first, eligible only
+    assert [i["item_id"] for i in body["items"]] == [str(p["_id"]) for p in [*shown, with_product, under_review]]  # newest first, eligible only
     assert body["items"][4]["post_id"] == str(with_product["_id"]) and body["items"][4]["product_id"] == str(with_product["products"][0])
     record = await writers.read_served_list(settings, body["request_id"])
     assert record["served_items"] == body["items"]
@@ -264,7 +280,13 @@ async def test_a_product_list_leaves_out_the_context_product(platform, monkeypat
     put_in_force(LIVE)
     rows = [product(m) for m in (1, 2, 3)]
     out_of_stock, inactive = product(0, availability={"inStock": False}), product(0, status="Deactivate")
-    await products.insert_many([*rows, out_of_stock, inactive])
+    no_stock_left = product(0)
+    await products.insert_many([*rows, out_of_stock, inactive, no_stock_left])
+    variants = platform_conn.app_db(settings)[PLATFORM_COLLECTIONS["variant"]]
+    await variants.insert_many([
+        *({"_id": ObjectId(), "productId": r["_id"], "quantity": 5, "reservedStock": 1, "status": "active"} for r in rows),
+        {"_id": ObjectId(), "productId": no_stock_left["_id"], "quantity": 3, "reservedStock": 3, "status": "active"},  # E-07
+    ])
 
     status, body = await call(settings, feed(surface="product", context_item_id=str(rows[0]["_id"]), limit=10))
 

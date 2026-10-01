@@ -493,3 +493,11 @@ async def read_served_list(settings: Settings, request_id: str) -> dict[str, Any
 async def record_measurement(settings: Settings, key: dict[str, Any], fields: dict[str, Any]) -> None:
     """One document per key in ml_measurements, replaced when the same key is measured again."""
     await _collection(ml_db(settings), "ml_measurements").replace_one(key, {**key, **fields}, upsert=True)
+
+
+async def read_viewer_feedback(settings: Settings, user_id: str, since: datetime) -> list[dict[str, Any]]:
+    """The viewer's content feedback (E13) in the engine's copy of postevents, since
+    `since`, leaving out undone rows (ENG-08 E-02, E-03)."""
+    query = {"user_id": user_id, "event_type": "feedback", "created_at": {"$gte": since}, "undone_at": None}
+    projection = {"feedback_type": 1, "post_id": 1, "product_id": 1, "item_id": 1, "influencer_id": 1}
+    return await ml_db(settings)["ml_events"].find(query, projection).to_list(None)
