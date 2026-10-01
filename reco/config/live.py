@@ -18,6 +18,7 @@ No database here. reco.config.sync connects these rules to ml_config_changes.
 from __future__ import annotations
 
 import hashlib
+import logging
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,7 +26,9 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from reco.config.tunables import Tunables
+from reco.config.tunables import Slots, Tunables
+
+logger = logging.getLogger("reco.settings")
 
 #: SD-09 says at least once a minute. Every 30 seconds keeps well inside that.
 RELOAD_SECONDS = 30
@@ -88,12 +91,30 @@ def read_file(path: str) -> FileRead:
     except (tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
         return FileRead(fingerprint, fault=f"not valid TOML: {exc}")
     try:
-        return FileRead(fingerprint, tunables=Tunables.model_validate(data))
+        tunables = Tunables.model_validate(data)
     except ValidationError as exc:
         problems = "; ".join(
             f"{'.'.join(str(p) for p in error['loc'])}: {error['msg']}" for error in exc.errors()
         )
         return FileRead(fingerprint, fault=f"outside the Settings sheet's rules: {problems}")
+    return FileRead(fingerprint, tunables=_slots_as_written(tunables, data))
+
+
+def _slots_as_written(tunables: Tunables, data: dict[str, Any]) -> Tunables:
+    """DS-017 section 5, "Missing configuration": a slot the file leaves out gives
+    every user the default method (split 0; the default is method one), and the
+    fault is logged. Without this the Settings-sheet split of 50 would apply
+    silently."""
+    written = data.get("slots") if isinstance(data.get("slots"), dict) else {}
+    missing = [slot for slot in Slots.model_fields if slot not in written]
+    if not missing:
+        return tunables
+    logger.error(
+        "settings file has no " + ", ".join(f"[slots.{slot}]" for slot in missing)
+        + ": everyone gets the default method there",
+        extra={"missing_slots": missing},
+    )
+    return tunables.with_changes({f"slots.{slot}.split": 0 for slot in missing})
 
 
 def differences(old: Tunables, new: Tunables) -> list[dict[str, Any]]:

@@ -271,4 +271,4 @@ async def test_a_product_list_leaves_out_the_context_product(platform, monkeypat
     assert status == 200 and body["is_exploration"] is False
     assert [i["item_id"] for i in body["items"]] == [str(r["_id"]) for r in rows[1:]]
     assert all(i["item_type"] == "product" and i["post_id"] is None and i["product_id"] == i["item_id"] for i in body["items"])
-    assert body["policy_id"].endswith(tuple(f".product_ranking-{n}" for n in (1, 2)))
+    assert body["policy_id"].endswith((".product_ranking-attribute_similarity", ".product_ranking-bought_together"))

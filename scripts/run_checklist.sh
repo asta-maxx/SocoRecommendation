@@ -128,7 +128,7 @@ T="$PY -m pytest -q tests/test_assignment.py -p no:cacheprovider"
 check "5.1 same method across two restarts" "$T -k restarts" "1 passed"
 check "5.2 changing a split moves users with no deploy" "$T -k no_deploy" "1 passed"
 check "5.3 10,000 ids: each split within 2 points" "$T -k ten_thousand" "4 passed"
-check "5.4 missing settings: everyone gets the default, logged" "$T -k missing" "1 passed"
+check "5.4 missing settings or user_id: everyone gets the default, logged" "$T -k 'missing or left_out'" "3 passed"
 check "5.5 the real settings file splits within 2 points" "$PY scripts/show_assignment.py | grep -c 'within 2 points'" "3"
 
 echo "== 6. ENG-06: serve a list and record it (throwaway reco_demo, port 8192)"

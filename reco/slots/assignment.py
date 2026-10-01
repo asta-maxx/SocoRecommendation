@@ -2,7 +2,7 @@
 
     bucket("interest", user_id)          0-99
     assign("interest", user_id)          Assignment(slot, method, which, bucket, config_version)
-    policy_id(a1, a2)                    "cfg2.interest-1.promoter_score-2"
+    policy_id(a1, a2)                    "cfg2.interest-recency_decay.promoter_score-shrinkage"
 
 The rule (Build List ENG-05):
 
@@ -14,7 +14,8 @@ The rule (Build List ENG-05):
   4. If the settings are missing, everyone gets the default and the fault is
      logged.
 
-policy_id follows DS-017 section 4.2's example: the method is its number.
+policy_id names each method (Build List ENG-26: "so history stays readable
+across the swap").
 
 Never Python's hash() (salted per process, so it changes on restart), never a
 session or device id: the same user keeps the same method across restarts and
@@ -90,11 +91,15 @@ def method_number(assignment: Assignment) -> int:
 
 
 def policy_id(*assignments: Assignment, config_version: str | None = None) -> str:
-    """cfg<version>.<slot>-<method> for each slot the request touched, as DS-017
-    section 4.2 shows it ("cfg3.interest-2.promoter-1"): the method as its number,
-    1 or 2. Slot names are the settings' (promoter_score, not promoter)."""
+    """cfg<version>.<slot>-<method> for each slot the request touched, with the
+    method's NAME: "cfg2.interest-recency_decay.promoter_score-shrinkage".
+
+    Build List ENG-05 ("cfg<version>.<slot>-<method>") and ENG-26 ("policy_id
+    records method names, so history stays readable across the swap"), with
+    SD-15. DS-017 4.2's example ("cfg3.interest-2.promoter-1") shows numbers;
+    the Build List comes first in the pack's order."""
     version = config_version if config_version is not None else (assignments[0].config_version if assignments else "")
-    return ".".join([f"cfg{version}", *(f"{a.slot}-{method_number(a)}" for a in assignments)])
+    return ".".join([f"cfg{version}", *(f"{a.slot}-{a.method}" for a in assignments)])
 
 
 def assign_all(user_id: str, tunables: Tunables | None = None) -> dict[str, Assignment]:

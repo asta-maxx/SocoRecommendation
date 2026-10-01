@@ -93,15 +93,35 @@ def test_missing_settings_give_everyone_the_default_and_log_it(caplog) -> None:
     assert any("slot settings missing" in r.message for r in caplog.records)
 
 
-def test_policy_id_records_the_method_per_slot() -> None:
-    """DS-017 4.2: cfg<version>.<slot>-<method number> for each slot touched."""
+def test_policy_id_names_the_method_per_slot() -> None:
+    """Build List ENG-05/ENG-26: cfg<version>.<slot>-<method name> for each slot touched."""
     put_in_force({"slots.product_ranking.split": 0, "slots.interest.split": 50})
     a = assign("product_ranking", USER)
     v = live.current().config_version
-    assert policy_id(a) == f"cfg{v}.product_ranking-1"
+    assert policy_id(a) == f"cfg{v}.product_ranking-attribute_similarity"
     both = assign_all(USER)
-    expected_interest = 2 if both["interest"].bucket < 50 else 1
-    assert policy_id(both["interest"], both["promoter_score"]).startswith(f"cfg{v}.interest-{expected_interest}.promoter_score-")
+    assert policy_id(both["interest"], both["promoter_score"]) == (
+        f"cfg{v}.interest-{both['interest'].method}.promoter_score-{both['promoter_score'].method}"
+    )
+
+
+def test_a_slot_left_out_of_the_file_gives_everyone_the_default(tmp_path, caplog) -> None:
+    """DS-017 5: missing configuration -- everyone gets the default, the fault is logged."""
+    import logging
+
+    from reco.config.live import ROOT, read_file
+
+    text = (ROOT / "settings" / "engine.toml").read_text()
+    start = text.index("[slots.interest]")
+    end = text.index("[slots.product_ranking]")
+    copy = tmp_path / "engine.toml"
+    copy.write_text(text[:start] + text[end:])
+    with caplog.at_level(logging.ERROR, logger="reco.settings"):
+        tunables = read_file(str(copy)).tunables
+    assert tunables is not None and tunables.slots.interest.split == 0
+    assert all(assign("interest", str(ObjectId()), tunables).which == "method_one" for _ in range(200))
+    assert tunables.slots.product_ranking.split == 50  # the slots that are there keep their values
+    assert any("slots.interest" in r.getMessage() for r in caplog.records)
 
 
 def test_an_unknown_slot_is_refused() -> None:
