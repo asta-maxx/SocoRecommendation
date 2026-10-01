@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -96,6 +97,15 @@ class InterestScore(BaseModel):
     model_version: str
     window: Window
     computed_at: datetime
+
+    # --- ENG-07: the batch the row belongs to. None only for rows written
+    # outside a job run (the M1 demo's loader and the store tests); a nightly
+    # job always sets them. A request reads only the batch marked current.
+    job_run_id: str | None = None
+    config_version: str | None = None
+    slot: Literal["interest"] = "interest"
+    confidence: float | None = None  # the interest methods have none
+    data_window: dict[str, datetime | None] | None = None  # {"from": ..., "to": ...}
 
     @field_validator("user_id", "category", "model_version")
     @classmethod
@@ -175,6 +185,7 @@ class InterestScore(BaseModel):
             "category": self.category,
             "method": str(self.method),
             "model_version": self.model_version,
+            "job_run_id": self.job_run_id,
         }
 
     def to_document(self) -> dict:
@@ -191,6 +202,15 @@ class InterestScore(BaseModel):
             "model_version": self.model_version,
             "window": str(self.window),
             "computed_at": self.computed_at,
+            # ENG-07: what is scored (user_id, category), slot, method,
+            # model_version, config_version, score, confidence, data window,
+            # computed_at and job_run_id on every row. The score is the share.
+            "score": self.share,
+            "slot": self.slot,
+            "confidence": self.confidence,
+            "config_version": self.config_version,
+            "data_window": self.data_window,
+            "job_run_id": self.job_run_id,
         }
 
     @classmethod
@@ -200,7 +220,7 @@ class InterestScore(BaseModel):
         The same validators run, so a document that was written before a rule
         existed fails loudly on read rather than flowing on unnoticed.
         """
-        fields = {k: v for k, v in document.items() if k != "_id"}
+        fields = {k: v for k, v in document.items() if k not in ("_id", "score")}
         computed_at = fields.get("computed_at")
         if isinstance(computed_at, datetime) and computed_at.tzinfo is None:
             # PyMongo returns naive UTC datetimes unless the client is configured

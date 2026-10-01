@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from reco.config import Settings
 from reco.config import live
@@ -50,6 +50,15 @@ METHODS = {
     Method.RECENCY_DECAY_NO_DECAY: (interest_decay, Window.ALL, False),
     Method.TIME_WINDOWS: (interest_windows, Window.LAST_90_DAYS, True),
 }
+
+
+def data_window(method: Method, anchor: datetime) -> dict[str, datetime | None]:
+    """The events a method reads: all of them up to the anchor for the decay
+    method, the last window bound (90 days by default) for time windows."""
+    if METHODS[method][1] == Window.LAST_90_DAYS:
+        days = max(live.current().interest.window_bounds_days)
+        return {"from": anchor - timedelta(days=days), "to": anchor}
+    return {"from": None, "to": anchor}
 
 
 @dataclass
@@ -105,6 +114,7 @@ async def refresh(
     method: Method = Method.RECENCY_DECAY,
     reference_date: datetime | None = None,
     tunables: dict | None = None,
+    job_run_id: str | None = None,
 ) -> RefreshRun:
     """Score every user under one method and write the results.
 
@@ -114,6 +124,11 @@ async def refresh(
 
     Which method is asked for decides both how it is computed and what it is
     stored as, so a decay-off run cannot land under the decay-on name.
+
+    With `job_run_id` (a nightly job, ENG-07) every row joins that batch and
+    nothing is removed here: reco.jobs.batches makes the batch current once it
+    is complete and clears the older ones. Without it (the M1 demo's own run),
+    rows are rewritten in place and stale ones swept, as before.
     """
     module, window, decay_enabled = METHODS[method]
     started = utc_now()
@@ -183,6 +198,9 @@ async def refresh(
                 model_version=settings.model_version,
                 window=window,
                 computed_at=started,
+                job_run_id=job_run_id,
+                config_version=live.current().config_version if job_run_id else None,
+                data_window=data_window(method, anchor) if job_run_id else None,
             )
             for category, share in shares.items()
         ]
@@ -191,9 +209,11 @@ async def refresh(
         run.users_scored += 1
 
     # Anything this run did not rewrite is from a previous one and is stale.
-    run.stale_removed = await remove_scores_older_than(
-        settings, method, settings.model_version, started
-    )
+    # (A batch run leaves that to reco.jobs.batches.)
+    if job_run_id is None:
+        run.stale_removed = await remove_scores_older_than(
+            settings, method, settings.model_version, started
+        )
 
     run.duration_seconds = time.monotonic() - clock
 

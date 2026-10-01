@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The Step 1 checklist, run end to end: every check for ENG-01 to ENG-04 (pack v1.3).
+# The checklist, run end to end: every check for ENG-01 to ENG-07 (pack v1.3).
 #
 #     bash scripts/run_checklist.sh
 #
@@ -122,6 +122,25 @@ check "4.8 (f) the alert fires: behind, and a failed run" "TEST_MONGO_TIMEOUT_MS
 check "4.9 (g) retention: 365 days on the original time" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_sync.py tests/test_engine_environment.py -p no:cacheprovider -k retention" " passed"
 check "4.10 real backfill from SOCO into reco_demo" "ML_MONGO_DB=reco_demo $PY -m reco.jobs sync && ML_MONGO_DB=reco_demo $PY scripts/show_events.py | grep -c 'backfill done'" "3"
 check "4.11 real reconciliation of yesterday passes" "ML_MONGO_DB=reco_demo $PY -m reco.jobs reconcile_sync" '"passed": true'
+
+echo "== 5. ENG-05: the same method for each user"
+T="$PY -m pytest -q tests/test_assignment.py -p no:cacheprovider"
+check "5.1 same method across two restarts" "$T -k restarts" "1 passed"
+check "5.2 changing a split moves users with no deploy" "$T -k no_deploy" "1 passed"
+check "5.3 10,000 ids: each split within 2 points" "$T -k ten_thousand" "4 passed"
+check "5.4 missing settings: everyone gets the default, logged" "$T -k missing" "1 passed"
+check "5.5 the real settings file splits within 2 points" "$PY scripts/show_assignment.py | grep -c 'within 2 points'" "3"
+
+# == 6. ENG-06 goes here
+
+echo "== 7. ENG-07: daily refresh jobs (throwaway reco_demo)"
+T="$PY -m pytest -q tests/test_nightly.py -p no:cacheprovider"
+check "7.1 the scheduler runs at 2 AM IST; one failed job doesn't stop the rest" "$T -k '2am or does_not_stop'" "4 passed"
+check "7.2 a batch is read only once complete; rows carry provenance" "TEST_MONGO_TIMEOUT_MS=15000 $T -k 'current or provenance or replaces'" "3 passed"
+check "7.3 a failure halfway keeps the previous batch" "TEST_MONGO_TIMEOUT_MS=15000 $T -k halfway" "1 passed"
+check "7.4 a killed run is recorded as failed and never read" "TEST_MONGO_TIMEOUT_MS=15000 $T -k killed" "1 passed"
+check "7.5 a real kill (SIGKILL) halfway: previous batch still read" "out=\$(ML_MONGO_DB=reco_demo $PY scripts/demo_kill_job.py 2>/dev/null); grep -A1 '3. straight' <<<\"\$out\" | grep -q 'DEMO-U1=fashion' && grep -q abandoned <<<\"\$out\" && echo kill-check-ok" "kill-check-ok"
+check "7.6 the real nightly run: both methods current" "ML_MONGO_DB=reco_demo $PY -m reco.jobs nightly && ML_MONGO_DB=reco_demo $PY scripts/show_job_runs.py | grep -c CURRENT" "2"
 
 cleanup
 trap - EXIT

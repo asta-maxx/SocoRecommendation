@@ -8,9 +8,10 @@ exits. Nothing here serves a request, so a failed job never touches the feed.
     python -m reco.jobs sync_loop           # a pass every sync_interval_minutes
     python -m reco.jobs sync_check          # the sync lag alert, on its own
     python -m reco.jobs reconcile_sync      # yesterday's reconciliation (IST day)
+    python -m reco.jobs nightly             # every nightly job once, now (ENG-07)
+    python -m reco.jobs scheduler           # the nightly jobs at 2 AM IST, every day
     python -m reco.jobs --list
 
-The 2 AM IST scheduler that calls these arrives with ENG-07.
 """
 
 from __future__ import annotations
@@ -21,26 +22,40 @@ import sys
 from typing import Awaitable, Callable
 
 from reco.config import Settings, get_settings, sync
-from reco.jobs.refresh import refresh
+from reco.jobs import scheduler
+from reco.jobs.batches import run_batch
+from reco.jobs.refresh import data_window, refresh
 from reco.monitoring.logs import configure_logging, job_logger, job_run
 from reco.platform import connection as platform_conn
 from reco.store import connection as store_conn
-from reco.store.scores import Method
+from reco.store.scores import Method, utc_now
 from reco.store.writers import ensure_engine_collections, ensure_indexes
 from reco.sync import reconcile as sync_reconcile
 from reco.sync import run as sync_run
 
 
 async def _interest(settings: Settings) -> None:
-    """M1 interest: both methods, for every user (ENG-10 takes this further)."""
+    """M1 interest: both methods, for every user, each as a batch (ENG-07; ENG-10 takes it further)."""
     for method in (Method.RECENCY_DECAY, Method.TIME_WINDOWS):
         async with job_run("interest", method=str(method)):
-            result = await refresh(settings, method=method)
+            anchor = utc_now()
+            results: dict = {}
+
+            async def work(job_run_id: str) -> int:
+                results["run"] = await refresh(settings, method=method, reference_date=anchor, job_run_id=job_run_id)
+                return results["run"].scores_written
+
+            record = await run_batch(
+                settings, job="interest", slot="interest", method=str(method),
+                collection=settings.scores_collection, data_window=data_window(method, anchor), work=work,
+            )
+            result = results["run"]
             job_logger.info(
                 result.summary(),
                 extra={
                     "job": "interest",
                     "method": result.method,
+                    "job_run_id": record["_id"],
                     "users_seen": result.users_seen,
                     "users_scored": result.users_scored,
                     "scores_written": result.scores_written,
@@ -76,6 +91,20 @@ async def _reconcile_sync(settings: Settings) -> None:
         )
 
 
+async def _nightly(settings: Settings) -> None:
+    """ENG-07: every nightly job once, now."""
+    async with job_run("nightly", jobs=list(scheduler.NIGHTLY)):
+        failed = await scheduler.run_nightly(settings, JOBS)
+        if failed:
+            raise RuntimeError(f"nightly jobs failed: {', '.join(failed)}")
+
+
+async def _scheduler(settings: Settings) -> None:
+    """ENG-07: the nightly jobs at 2 AM IST, every day."""
+    async with job_run("scheduler"):
+        await scheduler.run_forever(settings, JOBS)
+
+
 #: Job name -> what it runs. ENG-07 adds the rest of the nightly jobs here.
 JOBS: dict[str, Callable[[Settings], Awaitable[None]]] = {
     "interest": _interest,
@@ -83,6 +112,8 @@ JOBS: dict[str, Callable[[Settings], Awaitable[None]]] = {
     "sync_loop": _sync_loop,
     "sync_check": _sync_check,
     "reconcile_sync": _reconcile_sync,
+    "nightly": _nightly,
+    "scheduler": _scheduler,
 }
 
 

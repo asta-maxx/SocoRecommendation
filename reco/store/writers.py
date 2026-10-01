@@ -127,6 +127,12 @@ async def ensure_engine_collections(settings: Settings) -> list[str]:
     )
     await changes.create_index([("changed_at", -1)], name="changed_at")
 
+    # ENG-07: one record per job run; the current batch of each job and method
+    # is the run marked is_current.
+    runs = _collection(database, "ml_job_runs")
+    await _ensure_index(runs, [("job", 1), ("method", 1), ("is_current", 1), ("finished_at", -1)], "job_current")
+    await _ensure_index(runs, [("started_at", -1)], "started_at")
+
     logger.info(
         "Engine collections ensured in %s (%s): %d created",
         settings.ml_mongo_db,
@@ -139,12 +145,16 @@ async def ensure_engine_collections(settings: Settings) -> list[str]:
 async def ensure_indexes(settings: Settings) -> None:
     """Create the score store's indexes. ST4. Idempotent.
 
-    Two indexes:
+    Three indexes:
 
-      unique (user_id, category, method, model_version)
+      unique (user_id, category, method, model_version, job_run_id)
           The identity of a score. Method and model_version are part of it so
           that both methods, and successive generations of one method, coexist as
-          distinct documents instead of overwriting one another.
+          distinct documents instead of overwriting one another; job_run_id so a
+          new batch is written beside the current one (ENG-07).
+
+      (method, job_run_id)
+          Clearing a superseded or failed batch.
 
       (user_id, method, computed_at desc)
           The read path filters by user and method and then needs computed_at to
@@ -152,11 +162,18 @@ async def ensure_indexes(settings: Settings) -> None:
     """
     scores = _collection(ml_db(settings), settings.scores_collection)
 
-    await scores.create_index(
-        [("user_id", 1), ("category", 1), ("method", 1), ("model_version", 1)],
+    # ENG-07: a nightly job writes a whole new batch beside the current one, so
+    # the batch (job_run_id) is part of a score's identity. The pre-ENG-07 index
+    # without it is replaced.
+    if "uniq_user_category_method_version" in {i["name"] async for i in await scores.list_indexes()}:
+        await scores.drop_index("uniq_user_category_method_version")
+    await _ensure_index(
+        scores,
+        [("user_id", 1), ("category", 1), ("method", 1), ("model_version", 1), ("job_run_id", 1)],
+        "uniq_user_category_method_version_run",
         unique=True,
-        name="uniq_user_category_method_version",
     )
+    await _ensure_index(scores, [("method", 1), ("job_run_id", 1)], "method_run")
     await scores.create_index(
         [("user_id", 1), ("method", 1), ("computed_at", -1)],
         name="user_method_recency",
@@ -295,6 +312,9 @@ async def read_user_scores(
         "user_id": user_id,
         "method": str(method),
         "model_version": model_version or settings.model_version,
+        # ENG-07: only the batch marked current -- never a half-written one.
+        # With no current batch yet, only rows written outside a job run.
+        "job_run_id": await current_job_run_id(settings, "interest", str(method)),
     }
     cursor = collection.find(query).sort("share", -1)
     return [InterestScore.from_document(document) async for document in cursor]
@@ -396,3 +416,62 @@ async def record_sync_reconciliation(settings: Settings, result: dict[str, Any])
     measurements = _collection(ml_db(settings), "ml_measurements")
     key = {"measure": "sync_reconciliation", "source": result["source"], "day": result["day"]}
     await measurements.replace_one(key, {**key, **result}, upsert=True)
+
+
+# --- nightly batches (ENG-07) -----------------------------------------------------------
+
+
+async def record_job_run(settings: Settings, record: dict[str, Any]) -> None:
+    """A new run in ml_job_runs; its _id is the job_run_id."""
+    await _collection(ml_db(settings), "ml_job_runs").insert_one(record)
+
+
+async def update_job_run(settings: Settings, job_run_id: str, fields: dict[str, Any]) -> None:
+    await _collection(ml_db(settings), "ml_job_runs").update_one({"_id": job_run_id}, {"$set": fields})
+
+
+async def abandon_running(settings: Settings, job: str, method: str | None, now: datetime) -> int:
+    """Runs of this job still marked running were stopped without finishing (killed):
+    record them as failed. Called as the next run starts."""
+    result = await _collection(ml_db(settings), "ml_job_runs").update_many(
+        {"job": job, "method": method, "outcome": "running"},
+        {"$set": {"outcome": "failed", "error": "abandoned: stopped before it finished", "finished_at": now}},
+    )
+    return result.modified_count
+
+
+async def current_job_run_id(settings: Settings, job: str, method: str | None) -> str | None:
+    """The batch requests read for this job and method, or None if none is current yet."""
+    run = await ml_db(settings)["ml_job_runs"].find_one(
+        {"job": job, "method": method, "is_current": True}, sort=[("finished_at", DESCENDING)]
+    )
+    return run["_id"] if run else None
+
+
+async def mark_current(settings: Settings, job: str, method: str | None, job_run_id: str) -> str | None:
+    """Make a finished batch the one requests read. Returns the batch it replaced.
+
+    The new batch is marked first and the old one unmarked after, so at every
+    moment some complete batch is current (a reader takes the latest finished)."""
+    runs = _collection(ml_db(settings), "ml_job_runs")
+    previous = await current_job_run_id(settings, job, method)
+    await runs.update_one({"_id": job_run_id}, {"$set": {"is_current": True}})
+    await runs.update_many({"job": job, "method": method, "_id": {"$ne": job_run_id}, "is_current": True},
+                           {"$set": {"is_current": False}})
+    return previous
+
+
+async def delete_batches_except(
+    settings: Settings, collection: str, method: str | None, keep: list[str | None], only: str | None = None
+) -> int:
+    """Remove a method's score rows from any batch not in `keep` (the current and the
+    one it replaced, so a request already reading that one finishes on it), or,
+    with `only`, the rows of that one batch (a failed run's partial rows)."""
+    query: dict[str, Any] = {"method": method}
+    query["job_run_id"] = only if only is not None else {"$nin": keep}
+    result = await _collection(ml_db(settings), collection).delete_many(query)
+    return result.deleted_count
+
+
+async def read_job_runs(settings: Settings, limit: int = 20) -> list[dict[str, Any]]:
+    return await ml_db(settings)["ml_job_runs"].find({}).sort("started_at", DESCENDING).limit(limit).to_list(None)

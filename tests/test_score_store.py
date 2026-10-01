@@ -94,8 +94,10 @@ async def test_unique_index_rejects_a_duplicate_insert(store) -> None:
 async def test_indexes_exist(store) -> None:
     names = await ml_db(store)[store.scores_collection].index_information()
 
-    assert "uniq_user_category_method_version" in names
-    assert names["uniq_user_category_method_version"].get("unique") is True
+    # ENG-07: the batch (job_run_id) is part of a score's identity.
+    assert "uniq_user_category_method_version_run" in names
+    assert names["uniq_user_category_method_version_run"].get("unique") is True
+    assert "uniq_user_category_method_version" not in names
     assert "user_method_recency" in names
 
 

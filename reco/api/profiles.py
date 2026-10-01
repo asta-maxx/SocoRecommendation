@@ -18,6 +18,7 @@ from reco.config import Settings, get_settings
 from reco.config import live
 from reco.platform import readers
 from reco.store.connection import ml_db
+from reco.store.writers import current_job_run_id
 from reco.store.scores import Method, utc_now
 from reco.slots.interest.context import ScoringContext
 from reco.fallback.read_path import get_profile
@@ -107,7 +108,9 @@ async def users(
     collection = ml_db(settings)[settings.scores_collection]
     scored = sorted(
         await collection.distinct(
-            "user_id", {"method": str(method), "model_version": settings.model_version}
+            "user_id",
+            {"method": str(method), "model_version": settings.model_version,
+             "job_run_id": await current_job_run_id(settings, "interest", str(method))},
         )
     )
     all_users = await readers.read_all_user_ids(settings)
@@ -238,7 +241,10 @@ async def overview(settings: Settings = Depends(get_settings)) -> dict:
     rows = [
         row
         async for row in collection.find(
-            {"model_version": version},
+            {"model_version": version, "$or": [
+                {"method": m, "job_run_id": await current_job_run_id(settings, "interest", m)}
+                for m in await collection.distinct("method")
+            ] or [{"_id": None}]},
             {"_id": 0, "user_id": 1, "category": 1, "share": 1, "raw": 1,
              "event_count": 1, "method": 1},
         )
