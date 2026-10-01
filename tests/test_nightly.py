@@ -175,3 +175,19 @@ async def test_a_killed_run_is_recorded_as_failed_and_never_read(nightly) -> Non
     assert run["outcome"] == "failed" and "abandoned" in run["error"]  # ml_job_runs shows the failure
     held = set(await store_conn.ml_db(settings)[settings.scores_collection].distinct("job_run_id"))
     assert killed not in held and good["_id"] in held
+
+
+async def test_one_interest_method_failing_still_runs_the_other(monkeypatch) -> None:
+    from reco.jobs import __main__ as jobs
+
+    ran = []
+
+    async def method(settings, m):
+        ran.append(str(m))
+        if m == jobs.Method.RECENCY_DECAY:
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(jobs, "_interest_method", method)
+    with pytest.raises(RuntimeError, match="recency_decay"):
+        await jobs._interest(None)
+    assert ran == ["recency_decay", "time_windows"]

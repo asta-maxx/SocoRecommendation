@@ -35,7 +35,7 @@ from reco.sync.copies import SYNC_SOURCES, make_copy, source_named, with_history
 POSTEVENTS = PLATFORM_COLLECTIONS["postevent"]
 ORDERS = PLATFORM_COLLECTIONS["order"]
 SERVED = PLATFORM_COLLECTIONS["served_list"]
-ENGINE = ("ml_events", "ml_orders", "ml_sync_state", "ml_measurements")
+ENGINE = ("ml_events", "ml_orders", "ml_sync_state", "ml_measurements", "ml_job_runs")
 
 
 def postevent(event_type: str = "like", **fields) -> dict:
@@ -340,3 +340,25 @@ async def test_reconciliation_finds_and_rereads_what_the_sync_missed(synced) -> 
 
     second = await reconcile.reconcile_day(settings, today)
     assert all(r["passed"] for r in second), second
+
+
+@pytest.mark.mongo
+async def test_every_sync_and_reconciliation_run_is_recorded(synced, monkeypatch) -> None:
+    """SD-21: every job run is recorded in ml_job_runs, failures included."""
+    settings, platform, engine = synced
+    await platform[POSTEVENTS].insert_one(postevent())
+    await run.sync_once(settings)
+    await reconcile.reconcile_day(settings, utc_now().astimezone(reconcile.IST).date().isoformat())
+
+    async def outage(*args, **kwargs):
+        raise ConnectionError("test outage")
+
+    monkeypatch.setattr(run.fetch, "read_page_by_updated_at", outage)
+    with pytest.raises(RuntimeError):
+        await run.sync_once(settings)
+
+    runs = await engine["ml_job_runs"].find({}).sort("started_at", 1).to_list(None)
+    assert [(r["job"], r["outcome"]) for r in runs] == [
+        ("sync", "succeeded"), ("reconcile_sync", "succeeded"), ("sync", "failed")]
+    assert runs[0]["rows_written"] >= 1 and runs[1]["detail"]["passed"][POSTEVENTS] is True
+    assert "data_window" in runs[1] and runs[1]["data_window"]["from"] is not None

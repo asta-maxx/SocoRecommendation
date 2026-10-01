@@ -25,6 +25,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from reco.config import Settings
+from reco.jobs.batches import recorded_run
 from reco.platform import fetch
 from reco.store import writers
 from reco.store.scores import utc_now
@@ -92,5 +93,10 @@ async def reconcile_source(settings: Settings, source: SyncSource, day: str, sta
 
 
 async def reconcile_day(settings: Settings, day: str | None = None) -> list[dict[str, Any]]:
+    """Every source for one day, recorded in ml_job_runs (SD-21)."""
     day, start, end = day_bounds(day)
-    return [await reconcile_source(settings, source, day, start, end) for source in SYNC_SOURCES]
+    async with recorded_run(settings, "reconcile_sync", data_window={"from": start, "to": end}) as run:
+        results = [await reconcile_source(settings, source, day, start, end) for source in SYNC_SOURCES]
+        run["rows_written"] = sum(r["reread"] for r in results)
+        run["detail"] = {"day": day, "passed": {r["source"]: r["passed"] for r in results}}
+    return results

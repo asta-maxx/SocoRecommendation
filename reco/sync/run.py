@@ -30,6 +30,7 @@ from typing import Any
 
 from reco.config import Settings, live
 from reco.config import sync as config_sync
+from reco.jobs.batches import recorded_run
 from reco.monitoring.alerts import alert
 from reco.platform import fetch
 from reco.store import writers
@@ -121,19 +122,21 @@ async def sync_source(settings: Settings, source: SyncSource) -> int:
 
 
 async def sync_once(settings: Settings) -> dict[str, int]:
-    """One pass over every source. One source failing doesn't stop the others; the pass
-    still fails at the end, so the job exits non-zero."""
+    """One pass over every source, recorded in ml_job_runs (SD-21). One source failing
+    doesn't stop the others; the pass still fails at the end, so the job exits non-zero."""
     copied: dict[str, int] = {}
     failed: list[str] = []
-    for source in SYNC_SOURCES:
-        try:
-            copied[source.collection] = await sync_source(settings, source)
-        except Exception:
-            logger.exception("sync failed", extra={"source": source.collection})
-            failed.append(source.collection)
-    await check_lag(settings)
-    if failed:
-        raise RuntimeError(f"engine sync failed for {', '.join(failed)}")
+    async with recorded_run(settings, "sync", data_window={"from": None, "to": utc_now()}) as run:
+        for source in SYNC_SOURCES:
+            try:
+                copied[source.collection] = await sync_source(settings, source)
+            except Exception:
+                logger.exception("sync failed", extra={"source": source.collection})
+                failed.append(source.collection)
+        run["rows_written"], run["detail"] = sum(copied.values()), {"copied": copied, "failed": failed}
+        await check_lag(settings)
+        if failed:
+            raise RuntimeError(f"engine sync failed for {', '.join(failed)}")
     return copied
 
 

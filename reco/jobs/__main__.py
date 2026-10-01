@@ -23,7 +23,7 @@ from typing import Awaitable, Callable
 
 from reco.config import Settings, get_settings, sync
 from reco.jobs import scheduler
-from reco.jobs.batches import run_batch
+from reco.jobs.batches import recorded_run, run_batch
 from reco.jobs.refresh import data_window, refresh
 from reco.monitoring.logs import configure_logging, job_logger, job_run
 from reco.platform import connection as platform_conn
@@ -35,32 +35,43 @@ from reco.sync import run as sync_run
 
 
 async def _interest(settings: Settings) -> None:
-    """M1 interest: both methods, for every user, each as a batch (ENG-07; ENG-10 takes it further)."""
+    """M1 interest: both methods, for every user, each as a batch (ENG-07; ENG-10 takes it further).
+    One method failing doesn't stop the other; the job still fails at the end."""
+    failed = []
     for method in (Method.RECENCY_DECAY, Method.TIME_WINDOWS):
-        async with job_run("interest", method=str(method)):
-            anchor = utc_now()
-            results: dict = {}
+        try:
+            await _interest_method(settings, method)
+        except Exception:
+            failed.append(str(method))
+    if failed:
+        raise RuntimeError(f"interest failed for {', '.join(failed)}")
 
-            async def work(job_run_id: str) -> int:
-                results["run"] = await refresh(settings, method=method, reference_date=anchor, job_run_id=job_run_id)
-                return results["run"].scores_written
 
-            record = await run_batch(
-                settings, job="interest", slot="interest", method=str(method),
-                collection=settings.scores_collection, data_window=data_window(method, anchor), work=work,
-            )
-            result = results["run"]
-            job_logger.info(
-                result.summary(),
-                extra={
-                    "job": "interest",
-                    "method": result.method,
-                    "job_run_id": record["_id"],
-                    "users_seen": result.users_seen,
-                    "users_scored": result.users_scored,
-                    "scores_written": result.scores_written,
-                },
-            )
+async def _interest_method(settings: Settings, method: Method) -> None:
+    async with job_run("interest", method=str(method)):
+        anchor = utc_now()
+        results: dict = {}
+
+        async def work(job_run_id: str) -> int:
+            results["run"] = await refresh(settings, method=method, reference_date=anchor, job_run_id=job_run_id)
+            return results["run"].scores_written
+
+        record = await run_batch(
+            settings, job="interest", slot="interest", method=str(method),
+            collection=settings.scores_collection, data_window=data_window(method, anchor), work=work,
+        )
+        result = results["run"]
+        job_logger.info(
+            result.summary(),
+            extra={
+                "job": "interest",
+                "method": result.method,
+                "job_run_id": record["_id"],
+                "users_seen": result.users_seen,
+                "users_scored": result.users_scored,
+                "scores_written": result.scores_written,
+            },
+        )
 
 
 async def _sync(settings: Settings) -> None:
@@ -76,8 +87,9 @@ async def _sync_loop(settings: Settings) -> None:
 
 
 async def _sync_check(settings: Settings) -> None:
-    async with job_run("sync_check"):
+    async with job_run("sync_check"), recorded_run(settings, "sync_check") as run:
         statuses = await sync_run.check_lag(settings)
+        run["detail"] = {"alerts": [s["source"] for s in statuses if s["alert"]]}
         job_logger.info("sync lag", extra={"job": "sync_check", "sources": statuses})
 
 
