@@ -17,7 +17,7 @@ import logging
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from reco.config import Settings
+from reco.config import PLATFORM_COLLECTIONS, Settings
 from reco.store.connection import ml_db
 
 logger = logging.getLogger(__name__)
@@ -113,7 +113,7 @@ async def ping(settings: Settings) -> bool:
     """Whether the platform database can be READ, for the health check (SD-28): a
     real read on postevents, not a ping, which passes without read rights."""
     try:
-        await app_db(settings)["postevents"].find_one({}, {"_id": 1})
+        await app_db(settings)[PLATFORM_COLLECTIONS["postevent"]].find_one({}, {"_id": 1})
         return True
     except Exception:
         logger.exception("Ping failed on the platform connection")

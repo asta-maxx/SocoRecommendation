@@ -195,9 +195,10 @@ async def seeded(settings):
 @pytest.mark.mongo
 async def test_rec_serve_log_rows_are_copied(seeded) -> None:
     settings, _, engine = seeded
-    copied = await run.sync_once(settings)
-    assert copied["rec_serve_log"] == 3
+    await run.sync_once(settings)
+    # The append-only overlap re-reads recent rows on purpose; copies are keyed on _id.
     rows = await engine["ml_events"].find({"source": "rec_serve_log"}).to_list(None)
+    assert len(rows) == 3
     assert sorted(r["origin"] for r in rows) == ["cache", "engine", "fallback"] and all(r["event_type"] == "serve_log" for r in rows)
     order = await engine["ml_orders"].find_one({"_id": CASES["order_return_requested"]})
     assert order["is_returned"] and order["return_requested_at"] is not None
