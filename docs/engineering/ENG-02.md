@@ -19,6 +19,24 @@
 > timings, the eligibility refresh, and a new `[lists]` section. It is committed
 > at `config_version = "2"`. Background: `Tracing/REALIGNMENT_v1.3.md`.
 
+> **Audit fixes, 1 Oct 2026** (commits `11e515e`, `d1e5427`, `2b585af`, `964f4ec`;
+> checked against the v1.3 pack). Each is recorded under its part below:
+> - **Part 3:** every setting the Settings sheet marks "Fixed for Wave 1A" is now
+>   locked with `fixed()`, even where the sheet also gives a range (35 values,
+>   §2 part 3, "Decided 1 Oct"). The file is at `config_version = "3"` since ENG-29
+>   (`f7c82f3`).
+> - **Part 4:** a settings change whose `ml_config_changes` record failed is tried
+>   again on every reload.
+> - **Part 5:** `/health` does a real read on each database, not a ping (SD-28
+>   "can be read"); checklist line 2.4b adds the platform-down case.
+> - **Extra D:** both database clients run without driver retries (SD-26), keep
+>   10 connections open and warm them at start; PyMongo 4.10.1 → 4.18.2.
+> - **Part 1:** jobs mode lists `category_check` (ENG-29), `nightly` and
+>   `scheduler` (ENG-07).
+> - **Tests:** each run uses its own throwaway databases.
+> - **Recorded, not fixed:** long-running job loops reload settings once per
+>   pass, and the Docker packaging (§6 Open).
+
 ---
 
 ## 1. What the item requires
@@ -47,7 +65,7 @@ endpoint."* Parts 3–6 are unchanged, but part 3 follows the v1.3 Settings shee
 
 ## 2. What was built, subtask by subtask
 
-Numbered as in the Obsidian note: 1–6 are the Build List's parts, and A–C are extras.
+Numbered as in the Obsidian note: 1–6 are the Build List's parts, and A–D are extras (D added 1 Oct).
 
 ### 1. Two modes: API and jobs: built
 
@@ -66,9 +84,15 @@ Numbered as in the Obsidian note: 1–6 are the Build List's parts, and A–C ar
   | `sync_loop` | A pass every `events.sync_interval_minutes` | ENG-04 |
   | `sync_check` | The sync lag alert on its own | ENG-04 |
   | `reconcile_sync` | Yesterday's reconciliation (IST day) | ENG-04 |
+  | `category_check` | The daily report of categories outside the 23 | ENG-29 item 1 |
+  | `nightly` | The 2 AM IST jobs, once, in order | ENG-07 |
+  | `scheduler` | Waits for 2 AM IST and runs `nightly`, every night | ENG-07 |
 
   The 22 Sep `reconcile_events` job (count-based, against the old collections) was removed on 1 Oct.
-- **Later:** ENG-07 adds the 2 AM IST scheduler and the other nightly jobs to `JOBS`.
+  `--list` on 1 Oct 2026 (after the audit) prints eight jobs: `category_check`,
+  `interest`, `nightly`, `reconcile_sync`, `scheduler`, `sync`, `sync_check`,
+  `sync_loop`.
+- **Since built:** ENG-07 added the 2 AM IST scheduler and the nightly jobs to `JOBS`; ENG-29 added `category_check`.
 - **Why two modes (SD-01):** heavy work never runs inside a request, and a failed job never touches the feed. SD-01 (v1.6) lists the engine sync every 5 minutes among the scheduled jobs.
 
 ### 2. The twelve modules and the two gatekeepers: built
@@ -134,16 +158,27 @@ values; the other two are the maps `lists.category_map` and
 `lists.status_spellings`, which start empty, so `Tunables().values()` lists 153
 keys. The 22 Sep file held 144.
 
+> **Recounted from the code, 1 Oct 2026 after the audit** (walking the
+> `Tunables` model and `settings/engine.toml`): **157 settings** in 14 sections,
+> plus the header. 153 are single values; 4 are maps:
+> `interest.per_category_half_life_days`, `lists.category_map` and
+> `lists.status_spellings` start empty, and `lists.tracking_stages` (added by
+> ENG-29, `f7c82f3`, which raised the file to `config_version = "3"`) holds 10
+> entries. So `Tunables().values()` lists **163 keys** (153 + 10). The "155" above
+> missed the empty `per_category_half_life_days` map and predates `tracking_stages`.
+> **85** of the 157 are fixed for Wave 1A (50 before the audit, 35 locked by it,
+> below); the other 72 can change within the sheet's range or choices.
+
 **What v1.3 changed in the file (1 Oct):**
 
 | Section | Change | Sheet row |
 |---|---|---|
 | `[serving]` | `surface_mode_feed`, `surface_mode_product`: `off` \| `internal` \| `live` (was off \| live). Internal = engine lists for `lists.test_accounts` only, 503 to everyone else (SD-10) | Serving: Surface modes (ENG-06, ENG-24) |
-| `[events]` | **Added** `sync_interval_minutes = 5` (1–15), `sync_overlap_minutes = 2` (fixed), `sync_lag_alert_minutes = 15` (fixed) | Events: Engine sync (ENG-04) |
+| `[events]` | **Added** `sync_interval_minutes = 5` (1–15; locked at 5 since the 1 Oct audit), `sync_overlap_minutes = 2` (fixed), `sync_lag_alert_minutes = 15` (fixed) | Events: Engine sync (ENG-04) |
 | `[events]` | **Removed** `forward_batch_max`, `forward_timeout_seconds`: the SOCO_BE forward is retired | — |
 | `[events]` | `session_background_minutes` renamed **`session_away_minutes = 30`** (fixed): a new session after 30 minutes or more away, background or closed | Session (APP-01) |
 | `[events]` | `retention_days = 365` (fixed) now means engine copies kept at least 365 days from the original event time (SD-29) | DB-01, ENG-04 |
-| `[filters]` | **Added** `eligibility_refresh_minutes = 15` (5–60) | Filters: Eligibility refresh (ENG-27, ENG-08) |
+| `[filters]` | **Added** `eligibility_refresh_minutes = 15` (5–60; locked at 15 since the 1 Oct audit) | Filters: Eligibility refresh (ENG-27, ENG-08) |
 | `[lists]` | **New section** (below) | Lists |
 
 **The `[lists]` section** (`Lists` in `reco/config/tunables.py`). The sheet
@@ -171,6 +206,7 @@ Settings sheet's starting values. Validation follows the sheet:
 |---|---|
 | An allowed range | Pydantic `ge`/`le` (`between(value, low, high)`) |
 | Fixed for Wave 1A, no range | Range of one value (`fixed(value)`) |
+| Fixed for Wave 1A, with a range for later waves (1 Oct audit) | Also `fixed(value)`: the range is not usable in Wave 1A |
 | "Sum to 1" | Model validators on each weight group (ranking, retrieval shares, product, opportunity, promoter, window weights) |
 | off / internal / live | `Literal["off", "internal", "live"]`: no shadow mode (SD-10) |
 
@@ -178,7 +214,40 @@ Settings sheet's starting values. Validation follows the sheet:
 - **Where the pack is silent or mixed (choices):**
   - The promoter slot's method names are `shrinkage` and `cohort_percentile`.
   - Both surfaces start `off`, because the sheet's value is "live, each only if its checks pass" and none has passed (ENG-24).
-  - The sheet's Engine sync row gives a range (1 to 15 minutes) and also says "Fixed for Wave 1A". The interval is coded `between(5, 1, 15)` so the range can be used; the overlap and lag alert are `fixed`. The rule it must satisfy: the launch value is 5 minutes.
+  - ~~The sheet's Engine sync row gives a range (1 to 15 minutes) and also says "Fixed for Wave 1A". The interval is coded `between(5, 1, 15)` so the range can be used; the overlap and lag alert are `fixed`. The rule it must satisfy: the launch value is 5 minutes.~~ **Superseded 1 Oct 2026 (audit):** the interval is now `fixed(5)`, below.
+
+**Decided 1 Oct 2026 (audit): "Fixed for Wave 1A" wins over a range.** The
+Settings sheet's rule is *"A value changes only where the 'When it changes'
+column says so"*, and these rows say "Fixed for Wave 1A" while also giving the
+range for later waves. They were coded `between(...)` (or as plain weights,
+checked only for their sum), so a new `config_version` could move them. Each is
+now `fixed(value)` (`refresh_cadence` and `refresh_time_ist` as one-value
+`Literal`s), and a file that changes one is rejected like any out-of-range value:
+
+| Setting | Locked at | Sheet range (later waves) |
+|---|---|---|
+| `serving.circuit_breaker_failures`, `circuit_breaker_test_call_seconds` | 5, 30 s | 3–20, 10–300 |
+| `serving.sample_random_percent` | 10 | 1–100 |
+| `serving.exploration_percent` | 5 (sheet: "Stays at 5% for Wave 1A") | 3–5 |
+| `serving.page_dedup_hours` | 24 | 1–72 |
+| `events.sync_interval_minutes` | 5 | 1–15 |
+| `filters.feedback_hide_days` | 90 | 30–365 |
+| `filters.eligibility_refresh_minutes` | 15 | 5–60 |
+| `interest.refresh_cadence`, `refresh_time_ist` | `daily`, `02:00` | hourly to weekly |
+| `product.price_band_fraction` | 0.30 | 0.10–0.50 |
+| `opportunity.sell_through_window_days` | 30 | 7–180 |
+| Every weight in `retrieval.source_shares` (4), `ranking.weights` (5), `product.weights` (5), `opportunity.weights` (3), `promoter.weights` (6) | the sheet's values | sum to 1 |
+
+That is 12 single settings and 23 weights: **35 values**. Test:
+`tests/test_tunables.py::test_settings_fixed_for_wave_1a_cannot_change` (16
+cases: one weight in each of the five groups, and 11 of the 12 single settings;
+each a changed value under a new version, refused). The comments in `settings/engine.toml` still show the sheet's ranges
+next to these values; the model is what enforces.
+
+Rehearsed live 1 Oct 2026: a throwaway copy with `exploration_percent = 3` and a
+new version was rejected, *"outside the Settings sheet's rules:
+serving.exploration_percent: Input should be greater than or equal to 5"*, and
+the version in force stayed.
 
 **Rules (`reco/config/live.py`, pure, no database):**
 - `read_file(path)`: never raises. It reports a fault for a missing file, invalid TOML, or any value outside the sheet (naming the setting).
@@ -201,6 +270,7 @@ Settings sheet's starting values. Validation follows the sheet:
   - logs a broken file once, at ERROR, and keeps the settings in force;
   - applies and records a good change.
 - **Resilience:** if the engine database can't be read or written, the file still goes into force in memory. Only the record is skipped, and the next process to start records it.
+  - **Since 1 Oct 2026 (audit):** the running process also retries it. The missed record is kept (`_unrecorded`) and `reload` calls `_record_pending` first on every pass (every 30 s), until the write succeeds (`settings change recorded late`) — Build List ENG-02 part 4, *"Every settings change is logged"*. Before, a long-running API that never restarted could leave a change in force with no record.
 
 `reco/config/sync.py` is the *settings* sync. It is not the `reco/sync` module
 (the engine sync, ENG-04).
@@ -240,17 +310,37 @@ Each record holds:
 | `values` | The full snapshot, used to recover the last good version |
 
 Each accepted change is also logged: `settings changed`, with `changed_keys` and `recorded`.
+A record that fails is retried on every reload until written (1 Oct 2026 audit;
+§2 part 3, *Resilience*). Test: `tests/test_watch.py::test_a_settings_change_that_could_not_be_recorded_is_tried_again`.
 List edits (exemptions, test accounts, the category map) are recorded the same way.
 
 ### 5. `GET /health`: 200 or 503: built
 
-`reco/api/health.py` pings both connections (SD-26, SD-28):
+`reco/api/health.py` checks both connections (SD-26, SD-28):
 
 - **200:** both answer. The body has `"status": "ok"`.
 - **503:** either fails. The body has `"status": "unavailable"`.
 - The body reports `mongo: {app, ml}` either way, plus `environment`, `model_version`, `data_profile` and the source/target collections.
 
 Before this, `/health` always returned 200.
+
+**Fix, 1 Oct 2026 (audit): a real read, not a ping.** SD-28 and the row say
+*"returns 200 when both databases can be **read**"*. A `ping` command succeeds
+without read rights, so a login that had lost them would still show 200. Each
+`ping()` now reads one document's `_id`:
+- platform: `find_one({}, {"_id": 1})` on `postevents` (`PLATFORM_COLLECTIONS["postevent"]`, `reco/platform/connection.py`);
+- engine: the same on `ml_config_changes` (`reco/store/connection.py`).
+
+An empty collection still counts as readable (`find_one` returns `None`).
+`scripts/run_checklist.sh` gained **2.4b**: an engine started with the platform
+address unreachable (`APP_MONGO_URI=mongodb://127.0.0.1:1`) answers 503; 2.4
+covered only the engine database. Live on dev, 1 Oct 2026:
+
+```
+both up        HTTP 200  "mongo":{"app":true,"ml":true}
+engine down    HTTP 503  "mongo":{"app":true,"ml":false}
+platform down  HTTP 503  "mongo":{"app":false,"ml":true}
+```
 
 ### 6. Structured logs for every request and job: built
 
@@ -306,6 +396,28 @@ Moving M1 from DS-007 to the Settings sheet changes these values. The pack sets 
 - **The token check:** `reco/api/auth.py`, `token_ok(settings, authorization)`. It accepts `Authorization: Bearer <INGEST_TOKEN>`, compared in constant time (`hmac.compare_digest`). With no token set, every call is refused and the fault logged. The name `INGEST_TOKEN` is kept for the **serving token** that SOCO_BE sends on `POST /v1/recommendations` (DS-017 v2.5 §3, AS-04). No route uses it yet: ENG-06 wires it to `POST /v1/recommendations`. The fraud case API uses its own `ADMIN_TOKEN` (ENG-21).
 - **Scripts:** `scripts/generate_ingest_token.py` describes the token as the serving token. `scripts/show_events.py` now shows what the sync has copied (by source and E code), `ml_orders`, and each source's checkpoint and last success from `ml_sync_state`.
 
+### D. Extra: the database clients: no retries, warm pools (1 Oct 2026)
+
+Both clients (`reco/platform/connection.py`, `reco/store/connection.py`, `init_client`):
+
+- **`retryReads=False`, `retryWrites=False`** (audit, `d1e5427`). SD-26 / DS-017
+  §4.6: no retries inside a request; the error is returned at once. PyMongo would
+  otherwise retry a failed read or write once by itself.
+- **`minPoolSize = 10`** (`MIN_POOL`, `11e515e`): connections are kept open so a
+  request never waits for one to be set up. *Choice: the pack sets no value; rule:
+  a request has SOCO_BE's 250 ms at most (APP-15).*
+- **`warm(settings)`** (`d1e5427`): at API start (`reco/main.py` lifespan) both
+  pools open their 10 connections in parallel, pinging the members reads actually
+  go to (the URI's read preference). A failure is logged and requests open
+  connections themselves.
+- **PyMongo 4.10.1 → 4.18.2** (`requirements.txt`, `11e515e`): 4.10's async client
+  ran concurrent operations one after another (five parallel pings ~110 ms, five
+  times one); 4.18 runs them in parallel (~25 ms). Serving reads several things at
+  once (ENG-06, ENG-08).
+
+The gatekeeper test (`tests/test_module_layout.py`) allows the entry points to
+call `warm` as well as `init_client`, `close_client`, `verify_database` and `ping`.
+
 ---
 
 ## 3. Configuration reference
@@ -320,7 +432,8 @@ come only from the file.
 
 **Changing a setting:**
 1. Edit `settings/engine.toml` inside the value's range.
-2. Raise `config_version` (it is `"2"` now, so the next is `"3"`) and set `changed_by`.
+2. Raise `config_version` (it is `"3"` now, since ENG-29, so the next is `"4"`) and set `changed_by`.
+   A setting fixed for Wave 1A (§2 part 3) can't be changed at all: the file is rejected.
 3. Save. The API picks it up within 30 seconds; jobs pick it up at their next start.
 
 The same steps apply to the `[lists]` entries (an exemption, a test account, a
@@ -337,10 +450,26 @@ category mapping).
 | `tests/test_logs.py` | Parts 1 and 6: JSON fields, extras, request lines (including a raising handler), job start, finish and failure, `--list` (7 tests) |
 | `tests/test_tunables.py` | Parts 3 and 4: the file holds exactly the sheet's values; ranges, fixed values, sums; surfaces start off; file faults; the decision rules; load and reload (change, broken file, same-version refusal, defaults, last-good from the database, no double record); the unique change log on Atlas (54 tests, one of them on Atlas) |
 | `tests/test_config.py` | The environment settings hold no tunables; old `P…` variables are ignored (6 tests) |
+| `tests/test_watch.py` | Part 4: a change whose record failed is recorded on the next reload; also ENG-04's stuck-run alert (2 tests, added 1 Oct audit) |
+
+`tests/test_tunables.py` is now **66 tests** (1 Oct audit): `test_weights_must_sum_to_one` is one case, and `test_settings_fixed_for_wave_1a_cannot_change` has 16.
 
 **Result on 1 Oct 2026 (laptop, after the realignment):**
 - Whole unit suite (`-m 'not mongo'`): **509 passed**, 1 skipped (pre-existing).
 - The five ENG-02 files above, with the Atlas test: **88 passed**.
+
+**Result on 1 Oct 2026, after the audit fixes (laptop, Atlas dev cluster):**
+- The ENG-02 files (`test_module_layout` 16, `test_health` 5, `test_logs` 7,
+  `test_tunables` 66, `test_config` 6) and `test_watch` 2: **102 passed**, run
+  together with ENG-03's and ENG-04's files (181 passed, 0 failed).
+- `-k fixed_for_wave`: **16 passed**.
+- Whole suite after commit `964f4ec`: **634 passed, 1 skipped**.
+
+**Test databases (1 Oct audit, `tests/conftest.py`):** each run uses its own
+throwaway databases, `reco_test_<pid>` and `reco_test_<pid>_platform`, dropped
+at the end of the session, so two runs at once never share collections (the old
+shared `reco_test` raced on collection creation). `TEST_MONGO_DB` still
+overrides the name.
 
 Earlier result, 24 Sep 2026 (22 Sep row): 432 unit tests passed, 1 skipped, and
 31 Atlas database tests passed.
@@ -374,7 +503,8 @@ ML_MONGO_DB=reco_demo .venv/bin/python scripts/show_config_changes.py
 One line per version (when, previous → new, who), then each changed key with
 its old and new value. Read-only.
 
-**Whole checklist:** `bash scripts/run_checklist.sh`, §2 is this item. It uses
+**Whole checklist:** `bash scripts/run_checklist.sh`, §2 is this item (2.4b, the
+platform database down → 503, added 1 Oct 2026). It uses
 ports 8190/8191 and the throwaway database `reco_demo`, and reads the committed
 `config_version` rather than assuming one.
 
@@ -392,6 +522,8 @@ v1.3 realignment, see §4.
 | Copy `Tracing/checks/ENG-02_2026-09-24.md` to the shared "Wave1A checks" folder | Access to the folder (Sanjai) |
 | Wire `token_ok` to `POST /v1/recommendations` | ENG-06 |
 | Fill `[lists]`: the category map, status spellings, test accounts and exemptions | ENG-29, ENG-23 V8; test accounts from Aravinth for internal mode |
+| **Recorded 1 Oct (audit), not fixed:** long-running job loops read the settings once per pass, not every minute. `sync_loop` reloads before each pass (every 5 min); `scheduler` reloads before its nightly wait and after it, so a change made during the wait is read only at 2 AM. The row's "reloaded at least once a minute" is met by the API (30 s); a job loop could reload on a timer of its own | A decision; ENG-07 when the servers run the loops |
+| **Recorded 1 Oct (audit), not fixed:** Docker packaging. The `Dockerfile` copies `reco/` only, so the image has no `settings/engine.toml` (it would start on the sheet defaults, or the last version recorded); `docker-compose.yml` publishes the port and reads `env_file: .env` | The servers (ENG-01 remainder); fix with the deploy |
 
 ---
 
@@ -402,6 +534,9 @@ v1.3 realignment, see §4.
 | `reco/**` | Moved into the twelve modules (see part 2) |
 | `reco/platform/connection.py`, `reco/store/connection.py` | New: the split connections |
 | `reco/api/health.py` | 200/503 |
+| `reco/platform/connection.py`, `reco/store/connection.py` | 1 Oct audit: `ping` is a real read (SD-28); `retryReads`/`retryWrites` off (SD-26); `MIN_POOL = 10`; `warm` |
+| `reco/main.py` (1 Oct audit) | Warms both pools at start; starts the watcher (`reco/monitoring/watch.py`, ENG-04) beside the settings reload |
+| `requirements.txt` | 1 Oct: `pymongo` 4.10.1 → 4.18.2 |
 | `reco/monitoring/logs.py` | New: JSON logs, request middleware, job logging |
 | `reco/jobs/__main__.py` | New: jobs mode. 1 Oct: `reconcile_events` removed; ENG-04 registers the sync jobs |
 | `reco/main.py` | JSON logging, request middleware, split connections. 1 Oct: the events router removed |
@@ -410,7 +545,7 @@ v1.3 realignment, see §4.
 | `reco/events/`, `reco/api/events.py` | Removed (1 Oct): `POST /v1/events` retired |
 | `reco/api/auth.py` | New (1 Oct): `token_ok`, the serving-token check |
 | `settings/engine.toml` | New: the settings file, version 1. 1 Oct: version 2, the v1.3 Settings sheet |
-| `reco/config/tunables.py`, `live.py`, `sync.py` | New: the model, the rules, load and reload. 1 Oct: off/internal/live, sync and eligibility settings, `Lists`, `AccountEntry`, `OrderStatusValues` |
+| `reco/config/tunables.py`, `live.py`, `sync.py` | New: the model, the rules, load and reload. 1 Oct: off/internal/live, sync and eligibility settings, `Lists`, `AccountEntry`, `OrderStatusValues`. 1 Oct audit: 35 values locked with `fixed()`; `sync.py` retries a failed change record (`_unrecorded`, `_record_pending`) |
 | `reco/config/__init__.py` | DS-007 tunables removed; `settings_file` added. 1 Oct: `ingest_token` described as the serving token |
 | `reco/store/writers.py` | `record_config_change`, `read_latest_config_change`, `ml_config_changes` indexes. 1 Oct: the event-ingest writers removed |
 | `reco/jobs/refresh.py`, `reco/fallback/read_path.py`, `reco/api/profiles.py` | Read the settings in force |
@@ -418,12 +553,13 @@ v1.3 realignment, see §4.
 | `.env.example` | `SETTINGS_FILE`. 1 Oct: `INGEST_TOKEN` described as the serving token |
 | `scripts/show_config_changes.py` | New (25 Sep): prints the change log |
 | `scripts/generate_ingest_token.py`, `scripts/show_events.py` | 1 Oct: serving token; what the sync has copied |
-| `scripts/run_checklist.sh` | §2: the ENG-02 check; 1 Oct: no fixed settings version |
+| `scripts/run_checklist.sh` | §2: the ENG-02 check; 1 Oct: no fixed settings version; 1 Oct audit: 2.4b, platform database down |
+| `tests/test_watch.py` | New (1 Oct audit): late settings record; stuck-run alert |
 | `scripts/*.py` | New import paths and split connections |
 | `tests/test_module_layout.py`, `test_health.py`, `test_logs.py`, `test_tunables.py` | New. 1 Oct: `sync` in `MODULES`; no pinned version |
 | `tests/test_events_ingest.py`, `tests/test_events_reconcile.py` | Removed (1 Oct) |
 | `tests/test_config.py` | Rewritten for the environment settings only |
-| `tests/conftest.py` | `m1_tunables`, `put_in_force`, `DS007_M1_TUNABLES`; the Settings-sheet defaults are put back in force around every test |
+| `tests/conftest.py` | `m1_tunables`, `put_in_force`, `DS007_M1_TUNABLES`; the Settings-sheet defaults are put back in force around every test. 1 Oct audit: per-run databases `reco_test_<pid>` (+ `_platform`), dropped at the end |
 | Other `tests/*.py` | New import paths; `test_collection_config.py` exempts `reco/config`; `test_method_contract.py` forbids both connections |
 
 ## 8. Demo
@@ -434,5 +570,10 @@ the throwaway database `reco_demo`. Rehearsed again on 1 Oct 2026 after the
 realignment: 200 → 503 with the engine database unreachable → settings change
 recorded (version 2 → 3, 30 → 45, by "Demo") → broken file rejected, still 200 →
 unversioned change refused. The throwaway database was dropped afterwards.
+
+Rehearsed again on 1 Oct 2026 after the audit (settings now at version 3, so the
+demo change is 3 → 4): `--list` shows eight jobs; 503 with the platform database
+unreachable as well as the engine's; a locked value (`exploration_percent = 3`)
+rejected. `reco_demo` dropped afterwards.
 
 **Whole checklist:** `bash scripts/run_checklist.sh` re-runs this item's checks, with those of every other finished item. It prints PASS/FAIL per line and cleans up after itself.

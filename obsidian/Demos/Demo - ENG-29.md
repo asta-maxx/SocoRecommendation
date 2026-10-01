@@ -199,7 +199,6 @@ Do steps 1 and 2 **before** the automatic checks in step 3: the checks use `reco
 | A category map that covers everything (0 unmapped) | The map is empty; choosing where each SOCO category goes is a decision | Me (Allen) |
 | Real serve-log rows being copied | SOCO hasn't created `rec_serve_log` yet | Aravinth, APP-15 |
 | A real test account skipped | No test accounts are named yet; the list is empty | Naming them (DB-11) |
-| The exact item type of a product post card | Not decided in the pack | Kala, question 4 |
 | The made-up data on the **test** server | It doesn't exist yet; the data sits on the dev engine cluster for now | [[ENG-01 - Engine home and databases]] |
 
 ## Clean up

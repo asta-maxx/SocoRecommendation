@@ -50,9 +50,11 @@ One terminal, in the repo folder. Nothing needs to be running. Make sure the Atl
   variant                     6029       0              0   in stock 5169/6029
   category                     334       0              0   top level is one of the 23 92/334
   served_list                   12       0              0   fallback lists 12/12
+  serve_log                      -       -              -   collection 'rec_serve_log' does not exist yet
 
   PASS: 0 document(s) could not be read
   ```
+  (Re-run 1 Oct after the audit fixes. The `serve_log` line was added by ENG-29: SOCO hasn't created its serve log yet, so there's nothing to read.)
 - **Point out:**
   - **0 failed** in every row: 8,682 real documents;
   - `follow … text ids 93/93`: IDs stored as text, read correctly;

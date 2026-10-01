@@ -58,6 +58,21 @@ that way.
 > (`reco/config/accounts.py`). See `docs/engineering/ENG-29.md` and, in the vault,
 > `obsidian/Tasks/ENG-29 - Adapting to the platform as built.md`.
 
+> **Audit and questions, 1 Oct 2026** (commits `11e515e`, `d1e5427`, `6c3ef46`,
+> `2b585af`; checked against the v1.3 pack; questions in
+> `Tracing/REALIGNMENT_v1.3.md`, "Questions (reviewed 1 Oct 2026)"):
+> - **Part 10:** a post-page impression is recognised whatever the case of its
+>   surface (`post_detail`, `Post_Detail`…), like every other status compare (part 4).
+> - **Part 6:** question 4 answered: a feed post card showing a product is stored
+>   with `item_type` `product` (F10, X-16); the engine's own lists now write it
+>   that way (ENG-06). The reading rule here is unchanged.
+> - **Part 2:** new record fields for ENG-08: `PostEventRecord.target_id` /
+>   `target_type` (E13 F61/F62), `restriction_level` on users and businesses
+>   (E-09), and `BlockRecord` (an **assumed** `followers` shape, question 16).
+> - **Answered, off the open list:** 11 (seen items), 4 (`item_type`), 6 (follows).
+> - **Still open here:** the M1 refresh reads live `postevents` through the old
+>   reader (ENG-10 fixes it).
+
 ---
 
 ## 2. What was built, subtask by subtask
@@ -117,6 +132,17 @@ with a status log and a return request"):**
 - `is_incognito` (`isIncognitoMode`) is kept. Incognito is purchase privacy only
   (X-09): the order counts for the buyer; nothing names them.
 
+**Added 1 Oct 2026 for ENG-08's eligibility rules** (`11e515e`, `d1e5427`):
+
+| Record | Field | From | For |
+|---|---|---|---|
+| `PostEventRecord` | `target_id`, `target_type` (lower case) | `postevents.target_id`, `target_type` | E13 feedback: the post, product or author it is about (Capture Register F61, F62; ENG-08 E-02, E-03) |
+| `UserRecord`, `BusinessRecord` | `restriction_level` (lower case, `None` when blank) | `restriction_level` | ENG-08 E-09, once DB-08 adds the field |
+| `BlockRecord` (`parse_block`) | `blocker_id`, `blocked_id` | a `followers` row with `status` `blocked` (any case): `userId` blocks `followerId` | ENG-08 E-01 (DB-06: "the existing status blocked in followers"). **Assumed shape**: `followers` is empty on dev with only its `_id` index; question 16 to Aravinth. A row that isn't a block returns `None`. Read by `fetch.read_blocks` |
+
+`BlockRecord` is not in `RECORD_KINDS`: it is a view of `followers` rows, used
+only by `read_blocks`.
+
 **Choices where the pack is silent:** user and business times come from
 `timestamp`; cart lines from `carts.timestamp`; served lists from `server_ts`,
 then `created_at`; `users.DOB` (stored as text) is parsed as ISO, `d-m-Y`,
@@ -156,8 +182,8 @@ spelling map (ENG-29 item 2) is a later addition.
 | `event` (every postevents type) | `ml_events` (the engine's copy, ENG-04) |
 | `served_list` (engine E1 lists; fallback lists from `recommendationrequests`) | `ml_events` |
 | `order`, `order_history`, `cancellation`, `return` | `ml_orders` (the engine's copy) |
-| `follow_graph` | `follows` (platform) |
-| `block` | `followers` (platform, read when each list is built, ENG-08) |
+| `follow_graph` | `follows` (platform). Question 6, answered 1 Oct: business follows come from `follows` too (`followingReference` businessRegister), not from postevents follow rows (Build List ENG-10) |
+| `block` | `followers` (platform, read when each list is built, ENG-08; `BlockRecord`, assumed shape, question 16) |
 | `eligibility_state` | `ml_item_state` (ENG-27) |
 
 `source_of(kind)` refuses any other kind. **There is no event source switch**: no
@@ -209,6 +235,13 @@ returns `(card, post_id, product_id)` (X-16, F10, F75; ENG-29 item 6):
 **Choice:** using the post (then the product) as the card when `item_id` is
 missing. Rule it satisfies: post and product ids are never mixed.
 
+**Question 4, answered 1 Oct 2026** (`Tracing/REALIGNMENT_v1.3.md`): the
+`item_type` for a post card showing a product is `product`, with the post id as
+`item_id` and `post_id` and the product as `product_id` (Capture Register F10,
+X-16; confirmed by real feed clicks on dev). That is the case this function
+reads. ENG-06's E1 record now writes engine lists the same way, and ENG-08's
+final recheck tells such a card by its `post_id` (`6c3ef46`).
+
 ### 7. Positions: built
 
 `PostEventRecord.position` is the position on the event, kept as an integer
@@ -241,9 +274,19 @@ the list: the v1.3 row no longer names it.
 `PostEventRecord.is_page_visit` is true for an `impression` with surface
 `post_detail` (X-05, `native_events.PAGE_VISIT_SURFACE`). Its engine `surface` is
 `None`, so it can't be read as a feed or product card impression. Working out
-"which cards were seen" from these copies belongs to the models that use it;
-whether that replaces `seen_ids` is question 11 to Kala (X-05 vs ENG-03,
-`Tracing/REALIGNMENT_v1.3.md`). On dev, 0 of 146 rows are page visits.
+"which cards were seen" from these copies belongs to the models that use it.
+On dev, 0 of 146 rows are page visits.
+
+**Fix, 1 Oct 2026 (audit, `2b585af`):** the surface is compared ignoring case and
+surrounding spaces (`str(native_surface).strip().lower()`), as `engine_surface`
+already did for feed and product surfaces, so `Post_Detail` is a page visit too.
+Build List v1.3 ENG-03: "Status fields: compared ignoring case."
+
+**Question 11, answered 1 Oct 2026** (`Tracing/REALIGNMENT_v1.3.md`; Build List
+ENG-19, X-05): paging leaves out items **served** to the viewer in the last 24
+hours, taken from the engine's own records (ENG-19), and the platform's
+`seen_ids` is for measurement. So no ENG-03 change: these records already keep
+page visits apart, and nothing here reads `seen_ids` for paging.
 
 ### A. Extra: readers that return records: built
 
@@ -281,6 +324,13 @@ category                     334       0              0   top level is one of th
 served_list                   12       0              0   fallback lists 12/12
 
 PASS: 0 document(s) could not be read
+```
+
+Re-run 1 Oct 2026 after the audit: the same counts, plus a line ENG-29 added for
+the 12th kind:
+
+```
+serve_log                      -       -              -   collection 'rec_serve_log' does not exist yet
 ```
 
 **8,682 documents, 0 failed.** (The 29 Sep run read 8,741: the 59 documents of
@@ -341,6 +391,12 @@ Settings read (v1.3 Settings sheet, *Lists*, defined in `reco/config/tunables.py
 **Result on 1 Oct 2026 (laptop):** `tests/test_platform_records.py` **60 passed,
 0 failed, 0 skipped** (59 unit, 1 database). Checklist section 3 (3.1–3.5) passes.
 
+**Re-run 1 Oct 2026 after the audit fixes:** `tests/test_platform_records.py` **60
+passed** again (with ENG-02's and ENG-04's files, 181 passed); whole suite after
+`964f4ec`: **634 passed, 1 skipped**. The new fields (`target_id`, `target_type`,
+`restriction_level`, `BlockRecord`) are tested in `tests/test_eligibility.py`
+(ENG-08), where they are used.
+
 ---
 
 ## 6. Runbook
@@ -357,10 +413,10 @@ bash scripts/run_checklist.sh                              # section 3 is ENG-03
 
 | Open item | Needs |
 |---|---|
-| The M1 reader (`platform/readers.py`) still reads through its demo-era path, not these records | **ENG-10**, which moves M1 onto the engine copies and these records |
+| The M1 refresh (`reco/platform/readers.py`) still reads **live `postevents`** on the platform through its demo-era reader, not the engine's copy (`ml_events`) and these records. Confirmed in the 1 Oct audit | **ENG-10**, which moves M1 onto the engine copies and these records |
 | Category map covering every category in use; daily unmapped report | **ENG-29** item 1 |
-| Status spelling map; `followers` and `rec_serve_log` record kinds | ENG-29 items 2 and 7; ENG-08 |
-| Seen items: engine impressions (ENG-03) or `seen_ids` (X-05)? | Kala, question 11 |
+| ~~Status spelling map; `followers` and `rec_serve_log` record kinds~~ Done: ENG-29 (`status_spellings`, `serve_log`) and ENG-08 (`BlockRecord`) | — |
+| The `followers` block shape (`BlockRecord` assumes `userId` blocks `followerId`, `status: blocked`) | Question 16: Aravinth or the backend code |
 | Re-run the check on **test**, then mark Passed | The test server |
 
 ---
@@ -369,7 +425,8 @@ bash scripts/run_checklist.sh                              # section 3 is ENG-03
 
 | File | Change |
 |---|---|
-| `reco/platform/records.py` | 11 record kinds and parsers; actors, opaque ids, `card_identity`, order history, returns, `cancelled_by`, `status_is` (rewritten 1 Oct) |
+| `reco/platform/records.py` | 11 record kinds and parsers; actors, opaque ids, `card_identity`, order history, returns, `cancelled_by`, `status_is` (rewritten 1 Oct). 1 Oct audit: `target_id`/`target_type`, `restriction_level`, `BlockRecord`/`parse_block`; page visit ignores case |
+| `reco/platform/fetch.py` (1 Oct, ENG-08) | `read_blocks` |
 | `reco/platform/native_events.py` | New 1 Oct: sheet 4 map, surfaces, page-visit surface |
 | `reco/platform/sources.py` | One source per kind; switch removed (1 Oct) |
 | `reco/platform/fetch.py` | `read_records`, `product_categories`; `read_switched` removed (1 Oct); ENG-04's sync reads |

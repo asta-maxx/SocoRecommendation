@@ -46,6 +46,7 @@ A demo proves one thing: **the task's check in the Build List passes**. Every ta
 - [[Demo - ENG-06]]: a list served and its record, and a surface switched off (about 10 minutes)
 - [[Demo - ENG-07]]: nightly jobs, and a job killed halfway (about 5 minutes)
 - [[Demo - ENG-29]]: the adapters: category check, order history, serve log, made-up test data (about 5 minutes)
+- [[Demo - ENG-08]]: the twelve filters, one item left out and one kept for each (about 5 minutes)
 
 ## How this connects
 - Every demo acts out a task's check from → [[Task Board]].

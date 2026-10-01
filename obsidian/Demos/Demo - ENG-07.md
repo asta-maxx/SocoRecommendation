@@ -14,7 +14,7 @@ It also shows the 2 AM timer, a real nightly run on SOCO's dev data, and the lab
 
 > [!important] Everything here writes, so it all runs against the **throwaway database** `reco_demo`. The kill script refuses to run anywhere else. The real engine database `SoCo` is never touched.
 
-> [!note] Rehearsed on 1 Oct 2026. Run IDs (like `a36b1909`) are random and will differ each time. How many users the slow batch writes before the kill (one or two) varies too.
+> [!note] Rehearsed on 1 Oct 2026; steps 1 to 5 re-run the same day after the audit fixes (the list now includes the category check from ENG-29, the audit covers four sources, and the 2 AM time is locked). Run IDs (like `d44f7b96`) are random and will differ each time. How many users the slow batch writes before the kill (one or two) varies too.
 
 ## Setup (before the audience watches)
 One terminal, in the repo folder. Make sure `reco_demo` starts empty, so the diary only shows this demo:
@@ -30,7 +30,7 @@ Nothing needs to be running: nightly jobs are started from the command line and 
 ## Steps
 
 ### 1. One timer, one list, 2 AM India time
-- **Say:** "Every night at 2 AM India time, the engine runs its heavy jobs in a fixed order. The time lives in the settings file."
+- **Say:** "Every night at 2 AM India time, the engine runs its heavy jobs in a fixed order. The time lives in the settings file, and for Wave 1A it's locked: any other time is refused."
 - **Run:**
   ```bash
   .venv/bin/python -m reco.jobs --list
@@ -44,6 +44,7 @@ Nothing needs to be running: nightly jobs are started from the command line and 
   ```
 - **They should see:**
   ```
+  category_check
   interest
   nightly
   reconcile_sync
@@ -51,11 +52,11 @@ Nothing needs to be running: nightly jobs are started from the command line and 
   sync
   sync_check
   sync_loop
-  79:refresh_time_ist = "02:00"
-  nightly jobs: ('interest', 'reconcile_sync')
+  refresh_time_ist = "02:00"               # fixed for Wave 1A. ENG-07, SD-22
+  nightly jobs: ('interest', 'category_check', 'reconcile_sync')
   next run: 2026-10-02 02:00:00+05:30
   ```
-  `nightly` runs the list once, now; `scheduler` waits for 2 AM and repeats every day. The list has the interest score (M1) and the sync's daily audit, which the pack says runs **after** the refreshes. The other models join it as they're built. → [[Settings file]]
+  `nightly` runs the list once, now; `scheduler` waits for 2 AM and repeats every day. The list has the interest score (M1), the daily check for SOCO categories with no match (from ENG-29), and the sync's daily audit, which the pack says runs **after** the refreshes. The other models join it as they're built. → [[Settings file]]
 
 ### 2. Kill a job halfway (the Build List's check)
 - **Say:** "Here's a batch everyone reads, then a new batch that I'll force-kill halfway, the way a crash or a power cut would. Watch what a request reads."
@@ -74,14 +75,14 @@ Nothing needs to be running: nightly jobs are started from the command line and 
      killed (SIGKILL: nothing in the job could run after it)
   3. straight after the kill
      a request reads: DEMO-U1=fashion, DEMO-U2=fashion
-      a36b1909  succeeded CURRENT
-      1f82b556  running
+      d44f7b96  succeeded CURRENT
+      d71e9f7d  running
   4. the next night's batch ('travel')
   earlier runs never finished; recorded as failed
      a request reads: DEMO-U1=travel, DEMO-U2=travel
-      a36b1909  succeeded
-      1f82b556  failed             abandoned: stopped before it finished
-      f529f074  succeeded CURRENT
+      d44f7b96  succeeded
+      d71e9f7d  failed             abandoned: stopped before it finished
+      c22f4ba7  succeeded CURRENT
   ```
 - **Point out:**
   - In **3**, the killed job had already written a "beauty" score for DEMO-U1, yet the request still reads **fashion**. The half-batch was never marked current, so it's invisible. That's the first half of the check.
@@ -100,13 +101,14 @@ Nothing needs to be running: nightly jobs are started from the command line and 
 - **They should see:**
   ```
   ml_job_runs in reco_demo (dev), newest first:
-    f529f074  interest  recency_decay   succeeded rows     4   0.195s  CURRENT
-    1f82b556  interest  recency_decay   failed    rows     -       -s           abandoned: stopped before it finished
-    a36b1909  interest  recency_decay   succeeded rows     4   0.205s
+    c22f4ba7  interest  recency_decay   succeeded rows     4   0.198s  CURRENT
+    d71e9f7d  interest  recency_decay   failed    rows     -       -s           abandoned: stopped before it finished
+    d44f7b96  interest  recency_decay   succeeded rows     4   0.199s
   score rows in ml_user_interest_scores by batch:
-    recency_decay   a36b1909  4
-    recency_decay   f529f074  4
+    recency_decay   c22f4ba7  4
+    recency_decay   d44f7b96  4
   ```
+  (The killed run shows `rows -`: a force-kill writes nothing. A job that fails with an ordinary error writes `rows 0` since 1 Oct.)
   The killed run's half-batch is gone. The "fashion" batch is kept one more night, in case a request was still reading it at the moment of the swap. → [[Collections]]
 
 ### 4. A real nightly run on SOCO's dev data
@@ -117,20 +119,23 @@ Nothing needs to be running: nightly jobs are started from the command line and 
   ```
 - **They should see** (log lines, trimmed; takes a few seconds):
   ```
-  "message": "job started", "job": "nightly", "jobs": ["interest", "reconcile_sync"]
+  "message": "job started", "job": "nightly", "jobs": ["interest", "category_check", "reconcile_sync"]
   "message": "job started", "job": "interest", "method": "recency_decay"
   "message": "read 146 events for 5 users; dropped 113 (unresolved category 58, … unknown type 55)"
-  "message": "recency_decay v1.0.0: 15 of 38 users scored, 54 scores written in 1.1s. …", "job_run_id": "64a466da-…"
-  "message": "job finished", "job": "interest", "outcome": "succeeded", "method": "recency_decay"
+  "message": "recency_decay v1.0.0: 15 of 38 users scored, 54 scores written in 1.1s. …"
+  "message": "job finished", "job": "interest", "outcome": "succeeded", "duration_ms": 1351.2, "method": "recency_decay"
   "message": "job started", "job": "interest", "method": "time_windows"
-  "message": "time_windows v1.0.0: 15 of 38 users scored, 54 scores written in 0.7s. …", "job_run_id": "2bd6c6cb-…"
-  "message": "job finished", "job": "interest", "outcome": "succeeded", "method": "time_windows"
+  "message": "time_windows v1.0.0: 15 of 38 users scored, 54 scores written in 0.7s. …"
+  "message": "job finished", "job": "interest", "outcome": "succeeded", "duration_ms": 908.8, "method": "time_windows"
+  "message": "job started", "job": "category_check"
+  "message": "platform categories outside the 23 and not in the category map", "alert": true, "reason": "unmapped_categories", "owner": "Allen", "count": 42, …
+  "message": "job finished", "job": "category_check", "outcome": "succeeded", "duration_ms": 291.7
   "message": "job started", "job": "reconcile_sync"
-  "message": "sync reconciliation finished", "job": "reconcile_sync", "passed": true, "sources": {"postevents": true, "orders": true, "recommendationrequests": true}
-  "message": "job finished", "job": "nightly", "outcome": "succeeded", "duration_ms": 2755.2
+  "message": "sync reconciliation finished", "job": "reconcile_sync", "passed": true, "sources": {"postevents": true, "orders": true, "recommendationrequests": true, "rec_serve_log": true}
+  "message": "job finished", "job": "nightly", "outcome": "succeeded", "duration_ms": 3067.6, "jobs": ["interest", "category_check", "reconcile_sync"]
   exit 0
   ```
-  Both interest methods ran, then the sync's audit of yesterday. The "dropped 113" is because M1 still reads SOCO's activity the old way; ENG-10 fixes that. → [[Logs]], [[Engine sync]]
+  Both interest methods ran, then the daily check for SOCO categories with no match (added by [[ENG-29 - Adapting to the platform as built]]; its alert about 42 names is expected), then the sync's audit of yesterday, now over four sources. The "dropped 113" is because M1 still reads SOCO's activity the old way; ENG-10 fixes that. → [[Logs]], [[Engine sync]]
 
 ### 5. The diary again: both methods current
 - **Run:**
@@ -140,20 +145,22 @@ Nothing needs to be running: nightly jobs are started from the command line and 
 - **They should see:**
   ```
   ml_job_runs in reco_demo (dev), newest first:
-    fefff609  reconcile_sync None            succeeded rows     0   0.427s
-    2bd6c6cb  interest  time_windows    succeeded rows    54   0.819s  CURRENT
-    64a466da  interest  recency_decay   succeeded rows    54   1.154s  CURRENT
-    f529f074  interest  recency_decay   succeeded rows     4   0.195s
-    1f82b556  interest  recency_decay   failed    rows     -       -s           abandoned: stopped before it finished
-    a36b1909  interest  recency_decay   succeeded rows     4   0.205s
+    a7d56fae  reconcile_sync None            succeeded rows     0   0.487s
+    8228cd00  category_check None            succeeded rows     0   0.265s
+    b9c2ea8e  interest  time_windows    succeeded rows    54   0.762s  CURRENT
+    8e47b769  interest  recency_decay   succeeded rows    54     1.2s  CURRENT
+    c22f4ba7  interest  recency_decay   succeeded rows     4   0.198s
+    d71e9f7d  interest  recency_decay   failed    rows     -       -s           abandoned: stopped before it finished
+    d44f7b96  interest  recency_decay   succeeded rows     4   0.199s
   score rows in ml_user_interest_scores by batch:
-    recency_decay   f529f074  4
-    recency_decay   64a466da  54
-    time_windows    2bd6c6cb  54
+    recency_decay   8e47b769  54
+    recency_decay   c22f4ba7  4
+    time_windows    b9c2ea8e  54
   ```
 - **Point out:**
   - For recency decay, only the current batch and the one it replaced are kept. The two oldest batches are gone.
-  - The audit is in the diary too (top line): it re-read 0 rows and has no batch, so it is never "CURRENT". Its entry also records the day it checked (30 Sep) and that all three sources passed. Every 5-minute sync pass gets an entry the same way.
+  - The audit is in the diary too (top line), and so is the category check under it: neither has a batch, so neither is ever "CURRENT". The audit's entry also records the day it checked (30 Sep) and that all four sources passed. Every 5-minute sync pass gets an entry the same way.
+  - If a run were still "running" two hours after it started, the engine's web process would raise a "job stuck" alert, without waiting for the next night (added 1 Oct). Nothing to show here: no run is stuck.
 
 ### 6. Every score carries its label
 - **Say:** "Any score can be traced back to the exact run, settings version and data period that made it."
@@ -185,7 +192,7 @@ Nothing needs to be running: nightly jobs are started from the command line and 
   slot            interest
   window          90d
   ```
-  (The order of the lines can vary.) The data window is the last 90 days, for the time-windows method. `confidence` is empty: interest scores have none. The `job_run_id` matches the current run in step 5.
+  (The order of the lines can vary.) The data window is the last 90 days, for the time-windows method. `confidence` is empty: interest scores have none. The `job_run_id` matches the current time-windows run in step 5. (This step's output is from the first rehearsal, so its IDs and times differ from step 5's; in a live run they match.)
 
 ### 7. (Optional) The automatic checks
 - **Run:**

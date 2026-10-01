@@ -12,7 +12,7 @@ It also shows the 12 parts, the two ways to run, and the logs. → [[ENG-02 - Se
 
 > [!important] This demo changes settings, so it runs against a **throwaway copy** of the settings file and a **throwaway database** (`reco_demo`). The real settings file and the real diary in `SoCo` are never touched.
 
-> [!note] Rehearsed on 1 Oct 2026, after the update to the new pack (v1.3). The settings file is now at **version 2**, so the change in step 5 makes version **3**. If the file's version has moved on again, use the next number up.
+> [!note] Rehearsed on 1 Oct 2026, after the update to the new pack (v1.3), and again the same evening after the audit fixes. The settings file is now at **version 3** (ENG-29 raised it), so the change in step 5 makes version **4**. If the file's version has moved on again, use the next number up.
 
 ## Setup (before the audience watches)
 **Terminal A** runs the engine. Copy the settings file, then start the engine on the copy and the throwaway database:
@@ -51,6 +51,7 @@ open -a "Visual Studio Code" /tmp/soco-demo.toml
   ```
 - **They should see:**
   ```
+  category_check
   interest
   nightly
   reconcile_sync
@@ -59,10 +60,10 @@ open -a "Visual Studio Code" /tmp/soco-demo.toml
   sync_check
   sync_loop
   ```
-  `interest` is the interest-score job; the four `sync` jobs copy SOCO's events (ENG-04); `nightly` and `scheduler` run the 2 AM jobs (ENG-07). (Don't run any of them in the demo; they do real work and take a while.)
+  `category_check` reports SOCO categories that aren't one of the 23 (ENG-29); `interest` is the interest-score job; the four `sync` jobs copy SOCO's events (ENG-04); `nightly` and `scheduler` run the 2 AM jobs (ENG-07). (Don't run any of them in the demo; they do real work and take a while.)
 
 ### 3. A health check that tells the truth
-- **Say:** "The health page says OK only when both databases can be read."
+- **Say:** "The health page says OK only when both databases can be read. It really reads one item from each, not just knocks."
 - **Run (B):**
   ```bash
   curl -s -w "\nHTTP %{http_code}\n" http://127.0.0.1:8100/health
@@ -86,6 +87,17 @@ open -a "Visual Studio Code" /tmp/soco-demo.toml
   {"status":"unavailable","environment":"dev", … ,"mongo":{"app":true,"ml":false}}
   HTTP 503
   ```
+  Stop window C with Ctrl+C.
+- *Optional (added 1 Oct): break SOCO's database instead.* In window C:
+  ```bash
+  APP_MONGO_URI="mongodb://127.0.0.1:1" MONGO_TIMEOUT_SECONDS=1 SETTINGS_FILE=/tmp/soco-demo.toml ML_MONGO_DB=reco_demo \
+    .venv/bin/python -m uvicorn reco.main:app --port 8101
+  ```
+  Then **run (B)** the same `curl` on port 8101. **They should see:**
+  ```
+  {"status":"unavailable","environment":"dev", … ,"mongo":{"app":false,"ml":true}}
+  HTTP 503
+  ```
   Stop window C with Ctrl+C. → [[Environments]]
 
 ### 4. Clear logs for every request
@@ -101,17 +113,17 @@ open -a "Visual Studio Code" /tmp/soco-demo.toml
 - **Say:** "Every tunable number lives in one file. I'll change one while the engine runs."
 - **In the editor**, in `/tmp/soco-demo.toml`:
   - change `popularity_window_days = 30` to `45`;
-  - change `config_version = "2"` to `"3"`;
+  - change `config_version = "3"` to `"4"`;
   - change `changed_by = "Allen"` to `"Demo"`;
   - save.
 - **Or run (B), without an editor:**
   ```bash
-  sed -i '' 's/config_version = "2"/config_version = "3"/; s/changed_by = "Allen"/changed_by = "Demo"/; s/popularity_window_days = 30 /popularity_window_days = 45 /' /tmp/soco-demo.toml
+  sed -i '' 's/config_version = "3"/config_version = "4"/; s/changed_by = "Allen"/changed_by = "Demo"/; s/popularity_window_days = 30 /popularity_window_days = 45 /' /tmp/soco-demo.toml
   ```
 - **They should see**, in window A within **30 seconds**:
   ```json
-  {"ts": "2026-10-01T09:06:33.756Z", "level": "INFO", "logger": "reco.settings", "message": "settings changed", "env": "dev",
-   "config_version": "3", "previous_version": "2", "changed_by": "Demo", "changed_keys": ["interest.popularity_window_days"], "recorded": true}
+  {"ts": "2026-10-01T12:37:58.312Z", "level": "INFO", "logger": "reco.settings", "message": "settings changed", "env": "dev",
+   "config_version": "4", "previous_version": "3", "changed_by": "Demo", "changed_keys": ["interest.popularity_window_days"], "recorded": true}
   ```
   → [[Settings file]]
 
@@ -125,10 +137,10 @@ open -a "Visual Studio Code" /tmp/soco-demo.toml
   ```
   ml_config_changes in reco_demo (dev)
 
-  2026-10-01T09:06:03+00:00  version 0 -> 2  by Allen
+  2026-10-01T12:37:28+00:00  version 0 -> 3  by Allen
       (put in force; no values changed)
 
-  2026-10-01T09:06:33+00:00  version 2 -> 3  by Demo
+  2026-10-01T12:37:58+00:00  version 3 -> 4  by Demo
       interest.popularity_window_days: 30 -> 45
   ```
   The first entry is the engine starting on the file ("0" means nothing was in force before, in this fresh database).
@@ -142,7 +154,7 @@ open -a "Visual Studio Code" /tmp/soco-demo.toml
 - **They should see**, in window A within 30 seconds, an **ERROR** line:
   ```json
   {"level": "ERROR", "logger": "reco.settings", "message": "settings file rejected; keeping the settings in force",
-   "fault": "not valid TOML: Expected '=' after a key in a key/value pair (at line 1, column 6)", "config_version_in_force": "3", …}
+   "fault": "not valid TOML: Expected '=' after a key in a key/value pair (at line 1, column 6)", "config_version_in_force": "4", …}
   ```
   Then **run (B)** the health `curl` from step 3: still **HTTP 200**.
 - *Optional:* fix the typo, change a number **without** raising `config_version`, and save. **Or run (B):**
@@ -150,7 +162,12 @@ open -a "Visual Studio Code" /tmp/soco-demo.toml
   sed -i '' '1d' /tmp/soco-demo.toml
   sed -i '' 's/pool_size = 300 /pool_size = 250 /' /tmp/soco-demo.toml
   ```
-  Window A shows another **ERROR** line: `"fault": "values changed but config_version is still '3': raise config_version for every change"`, and version 3 stays in force.
+  Window A shows another **ERROR** line: `"fault": "values changed but config_version is still '4': raise config_version for every change"`, and version 4 stays in force.
+- *Optional (added 1 Oct): a value the pack fixes for Wave 1A can't move at all*, even with a new version. **Run (B):**
+  ```bash
+  sed -i '' 's/config_version = "4"/config_version = "5"/; s/exploration_percent = 5 /exploration_percent = 3 /' /tmp/soco-demo.toml
+  ```
+  Window A shows: `"fault": "outside the Settings sheet's rules: serving.exploration_percent: Input should be greater than or equal to 5"`, `"config_version_in_force": "4"`. The pack says exploration "stays at 5% for Wave 1A". (The comment in the file still says `3-5`: that range is for later waves.)
 
 ## What you can't show yet
 | Part | Why not | Waiting on |

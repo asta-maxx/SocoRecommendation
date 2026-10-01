@@ -35,9 +35,10 @@ async def main(response: dict) -> int:
         print("records for this request_id:", count)
         print({k: record[k] for k in ("event_code", "source", "surface", "policy_id", "fallback_step", "is_exploration", "ordering")})
         print("server_ts:", record["server_ts"].isoformat(timespec="milliseconds"))
-        print("slots:", {slot: value["method"] for slot, value in record["slots"].items()})
+        print("slot_methods:", [(m["slot"], m["method"], m["fallback_step"]) for m in record["slot_methods"]])
+        sample = record.get("scored_not_served")
         print(len(record["candidate_ids"]), "candidate ids,", len(record["served_items"]), "served,",
-              len(record["scored_sample"]), "in the sample")
+              "scored_not_served:", "not on this request (about 1 in 10 carry it)" if sample is None else f"{len(sample)} items")
         matches = record["served_items"] == response["items"]
         print("served_items match the response:", matches)
         return 0 if count == 1 and matches else 1

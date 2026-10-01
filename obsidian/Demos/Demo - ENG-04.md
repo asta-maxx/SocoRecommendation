@@ -90,13 +90,15 @@ EOF
   ```bash
   ML_MONGO_DB=reco_demo .venv/bin/python -m reco.jobs sync 2>&1 | grep -E "backfill finished|job finished"
   ```
-- **They should see** (about 2 seconds):
+- **They should see** (about 3 seconds; re-run 1 Oct after the audit fixes):
   ```
   ... "message": "backfill finished", ... "source": "postevents", "copied": 146}
   ... "message": "backfill finished", ... "source": "orders", "copied": 8}
   ... "message": "backfill finished", ... "source": "recommendationrequests", "copied": 12}
-  ... "message": "job finished", ... "job": "sync", "outcome": "succeeded", "duration_ms": 1903.5}
+  ... "message": "backfill finished", ... "source": "rec_serve_log", "copied": 0}
+  ... "message": "job finished", ... "job": "sync", "outcome": "succeeded", "duration_ms": 3155.7}
   ```
+  `rec_serve_log` (SOCO's serve log, added by ENG-29) copies 0: SOCO hasn't created it yet.
   → [[Engine sync]]
 
 ### 2. What was copied, with its event codes and bookmarks
@@ -116,10 +118,12 @@ EOF
     postevents                E9    50
     recommendationrequests    E1    12
   ml_orders: 8 orders
+  retention: copies kept 365 days from the original event time (setting events.retention_days = 365; index on created_at)
   sync state:
-    postevents                 backfill done (146 copied) | checkpoint 2026-10-01 09:12:32.75… | current as of 2026-10-01 09:12:32.72… | last run succeeded
+    postevents                 backfill done (146 copied) | checkpoint 2026-10-01 12:39:55.03… | current as of 2026-10-01 12:39:55.00… | last run succeeded
     orders                     backfill done (8 copied) | checkpoint … | current as of … | last run succeeded
     recommendationrequests     backfill done (12 copied) | checkpoint … | current as of … | last run succeeded
+    rec_serve_log              backfill done (0 copied) | checkpoint … | current as of … | last run succeeded
   reconciliation:
   ```
   Point out: E2 seen, E3 tapped, E4 added to cart, E5 ordered, E9 likes and follows (and their undos), E1 the served lists; `-` is a kind the pack gives no code. → [[Activity events]]
@@ -131,7 +135,7 @@ EOF
   ML_MONGO_DB=reco_demo .venv/bin/python -m reco.jobs sync 2>&1 | grep "sync pass finished"
   ML_MONGO_DB=reco_demo .venv/bin/python scripts/show_events.py | head -1
   ```
-- **They should see:** `"copied": {"postevents": 0, "orders": 0, "recommendationrequests": 0}`, then still `158 copies`.
+- **They should see:** `"copied": {"postevents": 0, "orders": 0, "recommendationrequests": 0, "rec_serve_log": 0}`, then still `158 copies`.
 - **Be upfront:** it copies 0 partly because SOCO's rows don't have their *last changed* time yet (APP-12), so the 5-minute read can't see changes. Steps 4 and 5 show how the daily audit covers that meanwhile.
 
 ### 4. The daily audit: yesterday (check a)
@@ -186,7 +190,8 @@ EOF
   {... "level": "CRITICAL", "logger": "reco.alert", "message": "engine sync is behind or its last run failed; restart from the last checkpoint", ... "alert": true, "reason": "sync_lag", "owner": "Allen", "source": "orders", "lag_minutes": 20.8, "limit_minutes": 15, ...}
   {... "level": "INFO", "logger": "reco.job", "message": "sync lag", ... "sources": [{"source": "postevents", "lag_minutes": 0.9, ..., "alert": false}, {"source": "orders", "lag_minutes": 20.8, "last_outcome": "succeeded", "alert": true}, ...]}
   ```
-  The first line is the alert; the second is the job's summary of all three collections.
+  The first line is the alert; the second is the job's summary of every collection (four since ENG-29).
+- **Mention:** since 1 Oct the engine's API runs this same check by itself every 5 minutes (the *watcher*), so the alarm still sounds if the sync process itself has died.
 - **Then restart** from the bookmark, and check again:
   ```bash
   ML_MONGO_DB=reco_demo .venv/bin/python -m reco.jobs sync 2>&1 | grep -c '"job finished"'
@@ -196,18 +201,26 @@ EOF
 
 ### 7. The retention setting (check g)
 - **Say:** "Copies are kept at least a year from when the event happened, under the engine's own expiry. SOCO's 90 days never touch them."
-- **Run:**
+- **Run** (since 1 Oct, the sync's window script shows it; read-only):
+  ```bash
+  ML_MONGO_DB=reco_demo .venv/bin/python scripts/show_events.py | grep retention
+  ```
+- **They should see:**
+  ```
+  retention: copies kept 365 days from the original event time (setting events.retention_days = 365; index on created_at)
+  ```
+  The first number is read from the database's own expiry rule; the second is the setting in force. They agree.
+- *Optional:* the settings behind it:
   ```bash
   grep -n "sync_\|retention" settings/engine.toml
   ```
-- **They should see:**
   ```
   60:sync_interval_minutes = 5                # 1-15. ENG-04 engine sync (replaces the retired SOCO_BE forward)
   61:sync_overlap_minutes = 2                 # fixed: each read re-reads a 2-minute overlap
   62:sync_lag_alert_minutes = 15              # fixed: alert when a source is more than 15 minutes behind
   63:retention_days = 365                     # fixed: engine copies kept at least this long from the event time (SD-29)
   ```
-  → [[Settings file]], [[Indexes]]
+  (The `1-15` comment is the pack's range for later waves; since 1 Oct the interval is locked at 5 for Wave 1A.) → [[Settings file]], [[Indexes]]
 
 ### 8. The whole check, as automatic tests (checks a to g)
 - **Say:** "The checks that need SOCO's rows to change on cue, an undo, an hour's outage, a crash at the wrong moment, run on made-up rows in a throwaway database."
@@ -227,9 +240,10 @@ EOF
   tests/test_sync.py::test_the_alert_fires_when_a_run_fails PASSED
   tests/test_sync.py::test_reconciliation_passes_when_ids_and_fields_match PASSED
   tests/test_sync.py::test_reconciliation_finds_and_rereads_what_the_sync_missed PASSED
-  ======================= 9 passed, 7 deselected in 29.92s =======================
+  tests/test_sync.py::test_every_sync_and_reconciliation_run_is_recorded PASSED
+  ====================== 10 passed, 9 deselected in 42.06s =======================
   ```
-  In order: (g) retention, (b) an undo, (c) an hour stopped, (d) a page boundary, (e) a failure before the bookmark, (f) the alert twice (behind, and a pretend outage), (a) the audit twice.
+  In order: (g) retention, (b) an undo, (c) an hour stopped, (d) a page boundary, (e) a failure before the bookmark, (f) the alert twice (behind, and a pretend outage), (a) the audit twice, and every pass and audit written in the run diary (its name contains "reconciliation"). Re-run 1 Oct after the audit fixes.
 
 ### 9. (Optional) The real copy in my dev database
 - **Say:** "This is the copy that's actually kept, made on 1 October. This only reads."
@@ -237,7 +251,7 @@ EOF
   ```bash
   .venv/bin/python scripts/show_events.py
   ```
-- **They should see:** `ml_events in SoCo (dev): 158 copies`, the same codes as step 2, `ml_orders: 8 orders`, and all three collections `backfill done`.
+- **They should see:** `ml_events in SoCo (dev): 158 copies`, the same codes as step 2, `ml_orders: 8 orders`, the retention line, and all three collections `backfill done` (re-checked 1 Oct after the audit).
 
 ## What you can't show yet
 | Part | Why not | Waiting on |

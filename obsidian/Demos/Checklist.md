@@ -38,6 +38,7 @@ It takes about 4 minutes. It ends with `Result: N passed, 0 failed` when all is 
 | 2.2 | The "jobs" way of running works |
 | 2.3 | The health page says OK (200) when both databases work |
 | 2.4 | …and says NOT OK (503) when one is down |
+| 2.4b | The health check says unavailable (503) when SOCO's database is down too |
 | 2.5 | Every request is written to the log |
 | 2.6 | A settings change takes effect within a minute, with no restart |
 | 2.7 | The change diary records who changed what |
@@ -111,6 +112,15 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 8.7 | Status spellings from the settings (tests) |
 | 8.8 | The real daily category check runs on SOCO's data |
 | 8.9 | The engine's test database holds the made-up data |
+
+### 9. ENG-08: filters → [[ENG-08 - Filters]]
+| Line | Checks |
+|---|---|
+| 9.1 | Each rule E-01 to E-12: one item left out and one kept (the task's official check) |
+| 9.2 | The viewer's follows, blocks and feedback are read when each list is built |
+| 9.3 | Every item left out is logged with the list's ID, the item and the rule |
+| 9.4 | An item that fails the last-moment re-check is replaced by the next eligible one |
+| 9.5 | The rules run on SOCO's real data |
 
 ### Last line: clean up
 | Line | Checks |

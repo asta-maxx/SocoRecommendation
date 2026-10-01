@@ -15,8 +15,8 @@ Every time the engine returns a list to SOCO, it first writes down exactly what 
 | `policy_id` | The settings version and the method each slot used → [[Two methods per slot]] |
 | `served_items` | The items, **exactly as returned**, with their positions from 1 |
 | `candidate_ids` | Everything that was considered. Never sent to SOCO. |
-| `slots` | For each slot, the method intended and the fallback step used |
-| `scored_sample` | Every returned item, plus a random 10% of the ones not returned (all of them on an exploration list) |
+| `slot_methods` | For each slot, the method intended and the fallback step used |
+| `scored_not_served` | On about 1 request in 10 (and every exploration list): every item that was scored, returned or passed over, with its score |
 | `server_ts` | When, in UTC, to the millisecond |
 
 ## Why it matters

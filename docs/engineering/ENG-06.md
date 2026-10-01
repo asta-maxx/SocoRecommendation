@@ -4,10 +4,10 @@
 |---|---|
 | **Owner** | Allen |
 | **Step** | Step 2 (within 12 working days) |
-| **Waits on** | ENG-04 (built), ENG-05 (built), ENG-09 (fallback ladder: **not built**), ENG-29 (adapters, item 6 the item adapter: **not built**) |
+| **Waits on** | ENG-04 (built), ENG-05 (built), ENG-09 (fallback ladder: **not built**), ENG-29 (adapters: built; item 6, the item adapter, done here) |
 | **Needed by** | APP-15 (Aravinth's serving call), ENG-20 (load test), ENG-24 (go-live rule and safety switch) |
-| **Status** | **In progress** (1 Oct 2026). Built to the row's own interim clause: the contract, the E1 record, surface modes, exploration, the scored sample and the error bodies are done and tested; the list is eligible items newest first. Waits on ENG-08 (filters), ENG-09 (ladder), ENG-17 and ENG-19 (ranking, and the 24-hour page dedup) and ENG-29 (item adapter). Both surfaces stay **off** in `settings/engine.toml` |
-| **Spec** | Build List v1.3 ENG-06 (and ENG-08, ENG-09, ENG-17, ENG-19, ENG-29 item 6; Settings sheet "Serving"); DS-017 v2.5 §2, §3, §4.1–4.6; SDA v1.6 SD-10, SD-26; AS-03, AS-04, AS-05, AS-07; Capture Register E1, F02, F05, F10, F75, X-11, X-16 |
+| **Status** | **In progress** (1 Oct 2026). Built to the row's own interim clause: the contract, the E1 record (with `slot_methods`, F71, and `scored_not_served`, F72), surface modes, exploration, the error bodies, no retries with a per-request time limit (SD-26) and the item adapter (F10, X-16) are done and tested. Since `11e515e` the list is items that pass ENG-08's rules E-01 to E-12, newest first, re-checked just before it is returned. Waits on ENG-09 (ladder), ENG-17 and ENG-19 (ranking, and the 24-hour page dedup). On dev the product surface returns **0 items** (every seller lacks `status`: open question 17), so checklist 6.4 fails there until that is answered. Both surfaces stay **off** in `settings/engine.toml` |
+| **Spec** | Build List v1.3 ENG-06 (and ENG-08, ENG-09, ENG-17, ENG-19, ENG-29 item 6; Settings sheet "Serving"); DS-017 v2.5 §2, §3, §4.1–4.6; SDA v1.6 SD-10, SD-26; AS-03, AS-04, AS-05, AS-07; Capture Register E1, F02, F05, F10, F71, F72, F75, X-11, X-16; eligibility E-01 to E-12 (ENG-08) |
 
 ---
 
@@ -133,7 +133,8 @@ The same section fixes `request_id` for engine lists as *"a UUID v4 string, gene
 ### 1.3 How this was built while ENG-09 and ENG-29 are not (decided 1 Oct 2026)
 
 ENG-06 waits on ENG-09 (the fallback ladder) and ENG-29 (the adapters). Neither
-is built. The row itself gives the interim: *"Until the feed ranking (ENG-19)
+was built when ENG-06 was (ENG-29 and ENG-08 have been since, the same day; the
+table says what each replaced). The row itself gives the interim: *"Until the feed ranking (ENG-19)
 and product ranker (ENG-17) are built, keep both surfaces off in production. On
 test, return eligible posts newest first, so Aravinth can test APP-15."* ENG-06
 was built to that clause:
@@ -142,11 +143,12 @@ was built to that clause:
 |---|---|---|
 | Feed ordering | Eligible posts, newest first | ENG-19 (ranking layer) |
 | Product ordering | Eligible products, newest first, the context product left out. **The pack is silent on a product interim**; this is our choice, matching the feed's and ENG-17's own last fallback step (*"3. eligible products, newest first"*). It must satisfy ENG-17's *"Always excluded: the product being viewed"* | ENG-17 (product ranker) |
-| Eligibility | `reco/eligibility/basic.py` (§2 A) | ENG-08 (filters) |
+| Eligibility | The interim `reco/eligibility/basic.py`, **deleted 1 Oct 2026 (`11e515e`)** and replaced by ENG-08's rules E-01 to E-12 with the final recheck (§2 A) | Done (ENG-08) |
 | `fallback_step` | `null` on the response and on every slot: no score is read, so no rung is used | ENG-09 |
 | Slots | Each slot records the method it **would** use (ENG-05), with `fallback_step` null | ENG-09, ENG-17, ENG-19 |
 | Marker | The E1 carries `ordering: "interim_newest_first"`, so a list built before the rankers exist is never mistaken for a ranked one (and never counted as a result for a method that didn't run, ENG-09) | Removed when the rankers serve |
-| Item shape | §2.11 | ENG-29 item 6 |
+| Item shape | §2.11: **done** (question 4 answered 1 Oct 2026: F10, X-16) | Done |
+| Score in `scored_not_served` | `null`; the interim `rank` is kept beside it (§2.4) | ENG-17, ENG-19 |
 | Production | Both surfaces `off` (`settings/engine.toml`) | ENG-24 (go-live rule) |
 
 ---
@@ -159,9 +161,10 @@ and A–C are extras. The endpoint is `reco/api/recommendations.py`
 `reco/ranking/serving.py`.
 
 Order of checks in the handler: token (401) → body (400) → surface mode (503) →
-method assignment → platform read (503 on fault) → page, exploration → E1 write
-(503 on fault) → 200. So a bad body on a surface that is off still gets 400, and
-nothing is written for any non-200 answer.
+method assignment → platform reads, eligibility (ENG-08) and the final recheck,
+all inside the request's time limit (503 on fault or timeout, §8) → page,
+exploration → E1 write (503 on fault) → 200. So a bad body on a surface that is
+off still gets 400, and nothing is written for any non-200 answer.
 
 ### 1. The serving token (`reco/api/auth.py`): done
 
@@ -184,22 +187,25 @@ nothing is written for any non-200 answer.
 
 - `user_id`: not checked for shape. A missing or blank `user_id` is recorded as `null` and gets the **default method in every slot** (DS-017 §4.1; `assign()` in `reco/slots/assignment.py`, `from_default: true` on the slot).
 - `session_id`: kept if it is a string, otherwise `null`. Not rejected: DS-017 §4.6 lists 400 only for surface, limit, page and context, and APP-15 says *"session_id (as the app already sends it; may be null)"*.
+  - **Choice (recorded 1 Oct 2026, audit).** DS-017 §4.1 marks `session_id` *Required: Yes*, but §4.6's list of 400 causes omits it, and the Build List's APP-15 allows null. The pack is silent on what to do when it is missing; we accept the request and store `session_id: null` on the E1. Rule it must satisfy: §4.6 (400 only for surface, limit, page, context) and the row's E1 field list (`session_id` is always present on the record, possibly null).
 - `context_item_id` is kept only on `product`; on `feed` it is recorded as `null`.
 - `incognito`, if sent, is ignored (DS-017 §4.1).
 
 ### 3. The response: done (fallback_step null until ENG-09)
 
 ```json
-{"request_id": "d164665b-51aa-4420-ab94-4bd303ef90a5", "policy_id": "cfg2.interest-recency_decay.promoter_score-cohort_percentile",
- "model_version": "1.0.0", "config_version": "2", "fallback_step": null, "is_exploration": false,
+{"request_id": "5743bdd8-15d9-4de1-870e-b93726b5f464", "policy_id": "cfg3.interest-recency_decay.promoter_score-cohort_percentile",
+ "model_version": "1.0.0", "config_version": "3", "fallback_step": null, "is_exploration": false,
  "items": [{"item_id": "6a9fd06d…5570", "item_type": "post", "post_id": "6a9fd06d…5570",
             "product_id": null, "position": 1, "reason_code": null}, …]}
 ```
 
+(Dev, 1 Oct 2026, after the audit fixes; settings `config_version` 3 since ENG-29.)
+
 - **`request_id`:** `uuid.uuid4()` per list (AS-03). Cannot collide with the platform's `req_…` ids.
 - **`policy_id`:** `policy_id(*assignments, config_version=…)` (`reco/slots/assignment.py`, ENG-05) gives `cfg<config_version>.<slot>-<method name>` for each slot the surface uses, in the surface's slot order. Slot names are the settings' (`promoter_score`, not `promoter`).
   - **Names, not numbers (decided 1 Oct 2026, commit `ea88d1a`).** DS-017 §4.2's example shows numbers (`cfg3.interest-2.promoter-1`), but the Build List outranks DS-017: ENG-05 fixes *"policy_id, as cfg<version>.<slot>-<method>"*, ENG-26 says *"policy_id records method names, so history stays readable across the swap"*, and SD-15 has *"the method named in policy_id"*. A method number would mean something else after ENG-26 swaps a method into a slot. (`4db835f` briefly used numbers; `ea88d1a` restored names.)
-  - The method's **number** (1 or 2) is still on the E1, per slot (`slots.<slot>.method_number`, §4).
+  - The method's **number** (1 or 2) is still on the E1, per slot (`slot_methods[].method_number`, §4).
 
   | Surface | Slots (`SLOTS_BY_SURFACE`) | Example |
   |---|---|---|
@@ -227,18 +233,31 @@ nothing is written for any non-200 answer.
 | `policy_id`, `model_version`, `config_version` | as on the response | row |
 | `server_ts` | UTC `datetime`, millisecond precision as stored by MongoDB | row; DS-017 §3 |
 | `created_at` | = `server_ts` | ours: the `retention` expiry on `ml_events` runs from `created_at` (ENG-01, SD-29) |
-| `candidate_ids` | every eligible item id read for the list, in order (through the end of the requested page; see 5) | row; F05 |
+| `candidate_ids` | every eligible item id read for the list, in order (through the end of the requested page plus one spare page for the recheck's replacements; see 5 and A) | row; F05 |
 | `served_items` | **the same list object** as the response's `items` | row: *"exactly as returned"* |
-| `slots` | `{slot: {method, method_number, bucket, from_default, fallback_step: null}}` | row: *"for each slot, the method intended and the fallback step used"* |
+| `slot_methods` | array, one entry per slot the surface touches, in slot order: `{slot, method, fallback_step: null, method_number, bucket, from_default}` | row: *"for each slot, the method intended and the fallback step used"*; Capture Register **F71** (*"array of {slot, method, fallback_step} … Present on every E1, one entry per slot touched"*). The last three keys are ours (how the method was chosen, ENG-05) |
 | `fallback_step`, `is_exploration`, `is_fallback` | `null`, as returned, `false` | row; ENG-09 |
 | `ordering` | `interim_newest_first` | ours (§1.3) |
-| `scored_sample` | see below | row |
+| `scored_not_served` | see below; `null` on most requests | row; Capture Register **F72** |
 
-**Scored sample** (`serving.scored_sample`): every returned item, plus each
-not-returned candidate with probability `sample_random_percent` (10 %), plus
-**all** candidates on an exploration list. Each entry: `item_id`, `item_type`,
-`post_id`, `product_id`, `rank` (its place in the ordering) and `returned`. In
-the interim there is no score, so `rank` stands in for it; ENG-17/19 add the score.
+**Fix, 1 Oct 2026 (audit, commit `d1e5427`): field names and the sample follow
+the Capture Register.** The record used to carry `slots` (an object keyed by
+slot) and `scored_sample` (on every request). F71 names the field `slot_methods`
+and makes it an array; F72 names `scored_not_served` and says *"Present on about
+10% of E1 rows, and on every exploration row"*. Both were changed to match.
+
+**`scored_not_served`** (`serving.scored_not_served`): drawn per request from
+`serving.rng`. On `sample_random_percent` (10) % of requests at random, and on
+**every** exploration request, it lists every scored item of the list (all of
+`candidate_ids`), each as `{item_id, score, rank, returned}`; on every other
+request it is `null`. `score` is `null` until the rankers exist (ENG-17,
+ENG-19); `rank` (the item's place in the interim ordering) stands beside it.
+`returned` marks the items on the page, so the Build List's *"plus every returned
+item"* is met on each sampled row and the passed-over items are the rest (F72:
+*"Needed to measure what the engine passed over"*). Test:
+`test_scored_not_served_is_on_about_ten_percent_of_requests` (400 requests: the
+share with a sample is between 7 % and 25 %, every exploration row has one, and
+the `returned` items equal the served ones).
 
 **Written before the response.** If the write fails, the answer is 503
 `database_unavailable` ("the served list could not be recorded"), and no list is
@@ -248,7 +267,8 @@ has its E1.
 ### 5. Paging: in progress (24-hour dedup waits on ENG-19)
 
 - Page *p* holds positions `(p−1)·limit+1` to `p·limit` of the interim order; positions restart at 1 in each response (DS-017 §3).
-- `interim_candidates()` reads the platform 100 rows at a time (`_READ_PAGE`), newest first, until it has `page·limit` eligible items or runs out. A short last page is returned short (DS-017 §4.3: *"exactly limit items unless fewer eligible items exist"*).
+- `interim_candidates()` (since `11e515e`) reads the platform newest first, 250 rows first (`_READ_PAGE`) and, if that isn't enough, the rest of the scan window in one read, until it has `(page+1)·limit` eligible items (one spare page, for the recheck's replacements), the collection runs out, or it has read `MAX_SCAN_ROWS` (1,000) rows. A short last page is returned short (DS-017 §4.3: *"exactly limit items unless fewer eligible items exist"*).
+  - **Choice (1 Oct 2026):** the scan cap. The pack sets no limit; without one, a surface where nothing is eligible would read the whole collection on every request (the dev product surface today, §4 Tests). Rule it must satisfy: DS-017 §4.3 allows fewer than `limit` when fewer eligible items exist; within the cap, none is missed.
 - **Not yet:** *"leaves out items it served to that user in the last 24 hours"* (DS-017 §4.1; ENG-19 *Paging*, `serving.page_dedup_hours = 24`). The row gives page contents to ENG-19: *"The ranking layer decides what a page holds (ENG-19)"*.
 
 ### 6. Surface modes (`serving.surface_mode_feed`, `serving.surface_mode_product`): done
@@ -267,29 +287,66 @@ has its E1.
 
 - `decide_exploration(surface, percent)`: `true` on `exploration_percent` (5) % of **feed** requests, drawn per request from its own random source (`serving.rng`), separate from the SHA-256 method bucket (row: *"decided separately from method choice"*). Never on `product`.
 - `explore(items, keep_top)`: positions 1–3 (`exploration_top_kept`) kept as ordered; positions 4 onward shuffled.
-- **Choice (1 Oct 2026):** the pack says shuffle *"among eligible items"*. We shuffle **within the page**, so a page holds the same items with or without exploration and paging stays stable (no item jumps to another page or disappears from both). Rule it must satisfy: top 3 unchanged, positions 4+ reordered, `is_exploration` true on the response, the record and (via Flutter) every impression. ENG-19 re-checks the consecutive-author rule after the shuffle.
-- On an exploration list the scored sample holds every candidate (4).
+- **Choice (1 Oct 2026):** the pack says shuffle *"among eligible items"*. We shuffle **within the page**, so a page holds the same items with or without exploration and paging stays stable (no item jumps to another page or disappears from both). Rule it must satisfy: top 3 unchanged, positions 4+ reordered, `is_exploration` true on the response, the record and (via Flutter) every impression. ENG-19 re-checks the consecutive-author rule after the shuffle. Reviewed against the pack on 1 Oct 2026 (question 15 in `Tracing/REALIGNMENT_v1.3.md`, "Questions (reviewed 1 Oct 2026)"): it stays a choice within DS-017 §4.3 and Build List ENG-19.
+- On an exploration list `scored_not_served` is always present and holds every candidate (4; F72).
 
 ### 8. Database errors: done
 
-- Platform read fails → logged (`platform database unreadable`, with `request_id`, error truncated to 300 characters), then 503 `database_unavailable` ("the platform database could not be read").
-- Engine write fails → 503 `database_unavailable` (4).
+- A read fails or runs out of time (platform items, the viewer's context, the engine's feedback copy, the recheck) → logged (`database unreadable`, with `request_id`, error truncated to 300 characters), then 503 `database_unavailable` ("a database could not be read").
+- Engine write fails or runs out of time → 503 `database_unavailable` ("the served list could not be recorded") (4).
 - **No retry** inside the request (SD-26: *"If either database cannot be read, the service returns an error at once so SOCO_BE falls back. No retries inside a request."*). A test asserts the read is called exactly once.
 - Connection strings never appear in the log or the body.
 
+**Fix, 1 Oct 2026 (audit, commit `d1e5427`): the driver's own retries are off.**
+PyMongo retries a failed read or write once by itself unless told not to. Both
+clients (`reco/platform/connection.py`, `reco/store/connection.py`) now open with
+`retryReads=False, retryWrites=False` (SD-26, DS-017 §4.6 *"No retries inside a
+request"*). Test: `test_the_database_clients_never_retry`.
+
+**Fix, 1 Oct 2026 (same commit): a time limit per request.** Every read and the
+E1 write run inside `pymongo.timeout(budget)`; the write gets what is left of it.
+`request_budget_seconds()`:
+
+| Case | Budget |
+|---|---|
+| `REQUEST_BUDGET_MS` set | that value |
+| `ENGINE_ENV=dev` (laptop, far from Atlas) | 2 s |
+| test, production | `serving.soco_be_timeout_ms` = **250 ms** |
+
+*Choice:* the pack sets no limit for the engine's own work; SD-26 asks only for an
+error at once with no retry. 250 ms is SOCO_BE's hard timeout (DS-017 §4.3,
+AS-07; APP-15): past it SOCO_BE has already fallen back, so a list finished later
+is never shown, and an E1 for it would record a list nobody saw. Test:
+`test_the_request_budget_is_soco_be_timeout_off_dev`.
+
+**Connections opened ahead (same commits, `11e515e`, `d1e5427`).** Both pools keep
+`minPoolSize` 10 and are warmed at startup (`connection.warm()`: 10 pings in
+parallel, sent with the URI's read preference so the members reads actually go
+to are warmed, not only the primary). A failure to warm is logged and requests
+open connections themselves. PyMongo was raised from 4.10.1 to **4.18.2**
+(`requirements.txt`) for concurrent async operations: the viewer's context and
+the first page of items are read at the same time.
+
 ### 9. Interim ordering: done on dev / ⏳ the real ranking (ENG-17, ENG-19)
 
-`interim_candidates(settings, surface, page, limit, context_item_id)`:
+`interim_candidates(settings, surface, page, limit, context_item_id, user_id, request_id)`:
 
-- **feed:** `read_newest(settings, "post", …)` → posts sorted `timestamp` desc, then `_id` desc; kept if `post_is_eligible`.
-- **product:** `read_newest(settings, "product", …)` → products sorted `createdAt` desc, then `_id` desc; kept if `product_is_eligible` and not the `context_item_id`.
+- **feed:** `read_newest(settings, "post", …)` → posts sorted `timestamp` desc, then `_id` desc; kept if they pass `eligible_posts` (ENG-08, §A).
+- **product:** `read_newest(settings, "product", …)` → products sorted `createdAt` desc, then `_id` desc; kept if they pass `eligible_products` (ENG-08) and are not the `context_item_id`.
+- The viewer's context (`viewer_context`, ENG-08) is read **at the same time** as the first page (`asyncio.gather`).
 
-`read_newest` (`reco/platform/fetch.py`) narrows at the database (`_SERVABLE`:
-posts `visibility: "public"`, `isHidden ≠ true`; products `status` matching
-`^\s*activate\s*$` ignoring case and `availability.inStock: true`) so fewer rows
-travel, then parses each row with the ENG-03 readers. Products skip the category
-lookup (no interim list needs it). The eligibility module still re-checks every
-record (DS-017 §4.3: *"re-checks the returned items when it builds each list"*).
+`read_newest` (`reco/platform/fetch.py`) reads only the fields the parsers use
+(`_FIELDS` projection) and parses each row with the ENG-03 readers. Products skip
+the category lookup (no interim list needs it).
+
+**Fix, 1 Oct 2026 (audit, commit `d1e5427`): no filter at the database.**
+`read_newest` used to narrow at the database (`_servable`: posts `visibility:
+"public"`, not hidden; products `Activate` and in stock) so fewer rows travelled.
+That hid those exclusions from the eligibility log: ENG-08 asks that every
+exclusion be logged with `request_id`, `item_id` and the rule. `_servable` was
+removed; `read_newest` now runs `find({})`, and every row goes through the rules.
+(This also closes the old open item about `visibility: "public"` being matched
+exactly at the database while the rule ignores case.)
 
 ### 10. Error bodies: done
 
@@ -303,37 +360,56 @@ Every non-200 answer is `{"error": "<code>", "detail": "<text>"}` (DS-017 §4.6,
 
 The codes themselves are ours; the pack fixes the statuses and the body shape (AS-05: *"the error codes … are as written in the API contract"*, which names none).
 
-### 11. Item adapter: shape done / ⏳ ENG-29 item 6, open question
+### 11. Item adapter: done (question 4 answered 1 Oct 2026)
 
-`Candidate.card(position)` (`reco/ranking/serving.py`):
+`Candidate.card(position)` (`reco/ranking/serving.py`, `_post_card`, `_product_card`):
 
 | Card | `item_id` | `item_type` | `post_id` | `product_id` |
 |---|---|---|---|---|
-| Post (feed) | post id | `post` | post id | the post's first product (`PostRecord.product_ids[0]`), or `null` |
+| Plain post (feed) | post id | `post` | post id | `null` |
+| Post showing a product (feed) | post id | **`product`** | post id | the post's first product (`PostRecord.product_ids[0]`) |
 | Product (product rail) | product id | `product` | `null` | product id |
 
 This meets X-16 and F75: *"a post card showing a product keeps its post id as
 item_id … every item also carries post_id and product_id as separate fields, so a
 post id is never read as a product id."*
 
-**Open:** *"with item_type as the app expects"*. The Capture Register's F10 note
-(28 Sep) says: *"On platform feed lists, item_type product with a post id is a
-post card showing a product"*. So the app may expect `product` for such a card,
-where we return `post`. Question 4 to Kala in `Tracing/REALIGNMENT_v1.3.md`. One
-line changes in `_post_card()` once answered; ENG-29 item 6 owns it.
+**Fix, 1 Oct 2026 (commit `6c3ef46`): `item_type` for a post card showing a
+product is `product`.** DS-017 §3 leaves it *"as the app expects"*. The Capture
+Register's F10 note (28 Sep) answers it: *"On platform feed lists, item_type
+product with a post id is a post card showing a product: read post_id = item_id
+(X-16)"*, and the real feed clicks on dev write it that way. So the card is
+`item_type: "product"`, `item_id` = `post_id` = the post id, `product_id` = the
+product. Question 4 is answered (`Tracing/REALIGNMENT_v1.3.md`, "Questions
+(reviewed 1 Oct 2026)"); it was earlier returned as `post`. The final recheck
+(§A) tells such a card apart from a product card by its `post_id`. Tested in
+`test_a_feed_list_is_recorded_exactly_as_returned`.
 
-### A. Extra: interim eligibility (`reco/eligibility/basic.py`), until ENG-08: done
+### A. Extra: eligibility is ENG-08's rules E-01 to E-12, with the final recheck: done (since 1 Oct 2026, `11e515e`)
 
-| Kind | Eligible when | Pack rule |
+The interim filter `reco/eligibility/basic.py` (public, not hidden, not removed;
+product active and in stock) was **deleted** when ENG-08 was built. Serving now
+calls ENG-08 (`reco/eligibility/rules.py`, pure rules; `reco/eligibility/apply.py`,
+applying them to real items):
+
+| Step | Function | What it does |
 |---|---|---|
-| Post | `visibility` is `public` (ignoring case), not `isHidden`, and `compliance.status` not `rejected`, `removed`, `deranked` or `blocked` (ignoring case) | E-04, E-12 |
-| Product | `status` is `Activate` (ignoring case, E-07 spelling) and `availability.inStock` true | E-06/E-07 (part) |
+| Viewer | `viewer_context(settings, user_id)` | own accounts, follows, blocks (either way), mutes and dismissals, date of birth; empty for a missing `user_id` |
+| Filter | `eligible_posts` / `eligible_products` | E-01 to E-12 on each row read; each exclusion logged (`reco.eligibility`, `"excluded"`, with `request_id`, `item_id`, `item_type`, `rule`) |
+| Final recheck | `page_after_recheck` → `recheck` | just before the list is returned, the page's items are re-read on the platform and re-checked; any that now fail are replaced by the next eligible items from the spare page (DS-017 §4.3: *"re-checks the returned items when it builds each list"*) |
 
-Choice: E-12 names only *deranked or removed*; the interim also drops `rejected`
-and `blocked` (stricter, so nothing doubtful is served before ENG-08). Not yet
-applied: E-01 to E-03, E-05, E-06 (post `Product_status`), the variant-stock part
-of E-07, E-08 to E-11, `ml_item_state` (ENG-27) and the per-exclusion log. All are
-ENG-08.
+The rules themselves, their sources and choices are ENG-08's to document. What
+matters here: every exclusion now has a log line (no database pre-filter, §9),
+and an item that changed between the read and the answer is not served.
+
+**Real data, dev, 1 Oct 2026** (the demo rehearsal below): the feed returns
+**3** posts; the other **5** posts are excluded by **E-05** (private authors the
+test viewer does not follow). The product surface returns **0** items: each
+request scans its cap of 1,000 products and excludes all of them, about 857 by
+**E-08** (the seller is not active) and about 143 by **E-07** (not sellable). The
+E-08 cause: the two import sellers (2,006 of 2,011 products) have no `status`,
+and a missing status is read as not active (open question 17 in
+`Tracing/REALIGNMENT_v1.3.md`, for Aravinth or the backend code).
 
 ### B. Extra: `scripts/try_recommendations.py`: done
 
@@ -348,10 +424,10 @@ context. Prints ids only, never the token or a URI.
 
 | Line | Check | Expects |
 |---|---|---|
-| 6.1 | contract tests (no database) | `14 passed` |
+| 6.1 | contract tests (no database) | `14 passed` (**stale**: the file now has 17 such tests, so this line needs `17 passed`; see §6) |
 | 6.2 | constructed-data tests | `2 passed` |
 | 6.3 | feed over HTTP (port 8192, throwaway `reco_demo`, settings copy with both surfaces live) | `19 of 19` |
-| 6.4 | product over HTTP | `19 of 19` |
+| 6.4 | product over HTTP | `19 of 19` (fails on dev since 1 Oct: 0 eligible products, p95 over 200 ms; question 17) |
 | 6.5 | wrong token | `HTTP401` |
 | 6.6 | feed set off by editing the copy and raising `config_version`, no restart | `HTTP503` |
 
@@ -365,25 +441,33 @@ No new settings: all were added with ENG-02 from the Settings sheet. Used here (
 |---|---|---|---|
 | `surface_mode_feed` | `off` | off, internal, live | 6 |
 | `surface_mode_product` | `off` | off, internal, live | 6 |
-| `exploration_percent` | 5 | 3–5 | 7 |
+| `exploration_percent` | 5 | fixed (since 1 Oct: the sheet's "Stays at 5% for Wave 1A") | 7 |
 | `exploration_top_kept` | 3 | fixed | 7 |
-| `sample_random_percent` | 10 | 1–100 | 4 |
+| `sample_random_percent` | 10 | fixed (since 1 Oct; sheet range 1–100, fixed for Wave 1A) | 4 (`scored_not_served`) |
+| `soco_be_timeout_ms` | 250 | 100–400 | 8: the request's time limit on test and production |
 | `service_p95_target_ms` | 200 | fixed | the check; `try_recommendations.py` uses 200 directly |
-| `page_dedup_hours` | 24 | 1–72 | not yet used (ENG-19) |
+| `page_dedup_hours` | 24 | fixed (since 1 Oct; sheet range 1–72) | not yet used (ENG-19) |
 | `[lists] test_accounts` | `[]` | entries `{account_id, reason, expiry, changed_by}` | internal mode |
 | `[slots.*]` | ENG-05 | | `policy_id`, slot records |
 
+The "fixed" rows above were locked in `reco/config/tunables.py` on 1 Oct 2026
+(audit, commit `2b585af`): the Settings sheet says a value changes only where its
+*When it changes* column allows, and these rows say *Fixed for Wave 1A* even where
+a range is given. A settings file with another value is rejected.
+
 Environment: `INGEST_TOKEN` (the serving token; required, never in a file that is
-shared), `MODEL_VERSION` (default `1.0.0`).
+shared), `MODEL_VERSION` (default `1.0.0`), **`REQUEST_BUDGET_MS`** (new, 1 Oct;
+optional: overrides the per-request time limit, §2.8; unset = 2 s on dev, 250 ms
+on test and production).
 
 ---
 
 ## 4. Tests
 
-`tests/test_recommendations.py`, 16 tests. The handler is called directly with a
+`tests/test_recommendations.py`, **19 tests** (16 before the 1 Oct audit fixes). The handler is called directly with a
 constructed Starlette request; the checklist covers HTTP.
 
-**Without a database (14):** candidates are made up and records kept in a list.
+**Without a database (17):** candidates are made up and records kept in a list.
 
 | Test | Covers |
 |---|---|
@@ -392,24 +476,36 @@ constructed Starlette request; the checklist covers HTTP.
 | `test_a_surface_that_is_off_returns_503` | 6; nothing recorded |
 | `test_internal_serves_only_test_accounts` | 6: listed account 200, other 503, expired entry 503 |
 | `test_the_response_shape` | 3: exact keys, `policy_id` form, page 2 holds items 6–10 at positions 1–5, `reason_code` null, no `candidate_ids` |
-| `test_exploration_keeps_the_top_three_and_never_on_product` | 7: top 3 kept, rest shuffled; product never explores; whole sample on exploration |
-| `test_the_record_holds_what_the_pack_lists` | 4: every field, `_id = request_id`, `served_items == items`, candidates through page 2, both slots, sample = returned items |
+| `test_exploration_keeps_the_top_three_and_never_on_product` | 7: top 3 kept, rest shuffled; product never explores; `scored_not_served` holds every item on exploration |
+| `test_the_record_holds_what_the_pack_lists` | 4: every field, `_id = request_id`, `served_items == items`, candidates through page 2, `slot_methods` one entry per slot with `{slot, method, fallback_step}` (F71), `scored_not_served` null when the draw misses |
+| `test_scored_not_served_is_on_about_ten_percent_of_requests` | 4 (new, 1 Oct): F72 on ~10 % of 400 requests plus every exploration row; `returned` items = served items |
+| `test_the_database_clients_never_retry` | 8 (new, 1 Oct): both clients have `retry_reads` and `retry_writes` false (SD-26) |
 | `test_a_database_fault_is_503_at_once` | 8: one call, no retry |
 | `test_no_record_no_list` | 4, 8 |
+| `test_the_request_budget_is_soco_be_timeout_off_dev` | 8 (new, 1 Oct): 250 ms on test, 2 s on dev, `REQUEST_BUDGET_MS` wins |
 
 **On constructed platform data (2, `-m mongo`):**
 
 | Test | Covers |
 |---|---|
-| `test_a_feed_list_is_recorded_exactly_as_returned` | 9, A, 11: hidden, private and rejected posts left out; newest first; a post with a product carries `product_id`; one E1, matching; timed (< 1000 ms in the test: the 200 ms is measured on test) |
-| `test_a_product_list_leaves_out_the_context_product` | 9, A, 11: out-of-stock and inactive left out; the context product left out; `post_id` null; `policy_id` ends `.product_ranking-attribute_similarity` or `.product_ranking-bought_together` |
+| `test_a_feed_list_is_recorded_exactly_as_returned` | 9, A, 11: hidden, private and removed posts left out, an under-review post served (E-12); newest first; a post showing a product is `item_type: "product"` with `item_id` = `post_id` and its `product_id` (F10, X-16), and that product must be sellable (E-07); a plain post is `post`; one E1, matching; timed (< 1000 ms in the test: the 200 ms is measured on test) |
+| `test_a_product_list_leaves_out_the_context_product` | 9, A, 11: out-of-stock, inactive, and no variant stock left (E-07) left out; the context product left out; `post_id` null; `policy_id` ends `.product_ranking-attribute_similarity` or `.product_ranking-bought_together` |
 
 ```bash
 .venv/bin/python -m pytest -q tests/test_recommendations.py -m "not mongo"
-TEST_MONGO_DB=reco_test_eng06 .venv/bin/python -m pytest -q tests/test_recommendations.py -m mongo
+TEST_MONGO_TIMEOUT_MS=15000 .venv/bin/python -m pytest -q tests/test_recommendations.py -m mongo
 ```
 
-**Result, 1 Oct 2026:**
+(Since `d1e5427` each test run gets its own throwaway databases, `reco_test_<pid>`,
+dropped at the end, unless `TEST_MONGO_DB` names one.)
+
+**Result, 1 Oct 2026, after the audit fixes (`d1e5427`, `2b585af`, `964f4ec`):**
+
+- `-m "not mongo"`: **17 passed**.
+- `-m mongo` (Atlas build cluster, per-run database, dropped afterwards): **2 passed**; the timed feed request took 150 ms (laptop → Atlas, now with the full eligibility rules and the recheck).
+- Full suite: **634 passed, 1 skipped**.
+
+**Earlier result, 1 Oct 2026, before the audit fixes:**
 
 - `-m "not mongo"`: **14 passed**.
 - `-m mongo` (Atlas build cluster, `TEST_MONGO_DB=reco_test_eng06`, dropped afterwards): **2 passed**; the timed feed request took 57 ms.
@@ -427,8 +523,24 @@ products; settings copy with both surfaces live; throwaway engine database;
 | After `4db835f` | product | 10 | 104 ms | 87 ms | 19 of 19 |
 | After `ea88d1a` (demo rehearsal, port 8196, `reco_demo_eng06`, dropped afterwards) | feed | 8 | 69 ms | 62 ms | 19 of 19 |
 | After `ea88d1a` (same) | product | 10 | 93 ms | 82 ms | 19 of 19 |
+| **After the audit fixes, `964f4ec`** (demo rehearsal, port 8196, `reco_demo_eng06`, dropped afterwards; ENG-08's rules in force) | feed | **3** | 129 ms | 120 ms | 19 of 19 |
+| **Same** | product | **0** | **354 ms (over 200)** | 334 ms | 19 of 19 |
 
-In the rehearsal the `policy_id`s were `cfg2.interest-recency_decay.promoter_score-cohort_percentile`
+**What changed in the last two rows (1 Oct 2026).** The feed now returns 3 posts:
+E-05 excludes the other 5 (private authors the test viewer does not follow), each
+with an `"excluded"` log line. The product surface returns no items: every one of
+the 1,000 products scanned is excluded (about 857 by E-08, 143 by E-07; §A), so
+each request reads the whole scan window and takes about 350 ms, and the script
+exits 1 (`p95 … OVER 200 ms`). The cause is data, open question 17 (sellers with
+no `status`); until it is answered checklist 6.4 fails on dev. On test and
+production the 250 ms limit (§2.8) would turn such a request into a 503. Latency
+grew from ~65 ms to ~125 ms on the feed because each list now also reads the
+viewer's context, the authors and the final recheck. In this run the `policy_id`s
+were `cfg3.…` (settings version 3 since ENG-29), and the feed was set `off` by
+raising `config_version` to 4: reload logged within 30 s, then 503 `surface_off`,
+while product stayed 200.
+
+In the earlier rehearsal the `policy_id`s were `cfg2.interest-recency_decay.promoter_score-cohort_percentile`
 (feed) and `cfg2.product_ranking-bought_together` (product), for the test user
 `64f1c0ffee0000000000abcd`. `surface: "opportunity"` → 400
 `invalid_surface`; wrong token → 401; feed set `off` by raising `config_version`
@@ -474,8 +586,9 @@ INGEST_TOKEN=… ML_MONGO_DB=<engine db> .venv/bin/python scripts/try_recommenda
 | Every call 401, ERROR `INGEST_TOKEN is not set` | No token in the environment | Set `INGEST_TOKEN` and restart |
 | 503 `surface_off` | The surface's mode is `off` (the default) | Expected in production until ENG-24; on dev/test set it live in a settings copy |
 | 503 `surface_internal` | Mode `internal` and the user isn't a current test account | Add or extend the entry in `lists.test_accounts` |
-| 503 `database_unavailable` | A database is unreachable or the E1 write failed | Check `/health`; the log line carries the `request_id` |
-| Feed returns fewer than `limit` items | Fewer eligible posts exist (dev has 8) | Expected: *"exactly limit items unless fewer eligible items exist"* |
+| 503 `database_unavailable` | A database is unreachable, a read or the E1 write failed, or the request ran past its time limit (250 ms on test/production, 2 s on dev; §2.8) | Check `/health`; the `database unreadable` log line carries the `request_id` and the error (a timeout shows as `NetworkTimeout`/`ExecutionTimeout`) |
+| Feed returns fewer than `limit` items | Fewer eligible posts exist (dev, 1 Oct: 3 of 8; E-05 excludes 5) | Expected: *"exactly limit items unless fewer eligible items exist"*. The `"excluded"` lines on `reco.eligibility` (same `request_id`) name the rule for each item left out |
+| Product returns 0 items and takes ~350 ms on dev | Every product is excluded (E-08: sellers with no `status`), so the whole 1,000-row scan is read | Open question 17; nothing to fix in the engine until it is answered |
 
 ---
 
@@ -483,16 +596,22 @@ INGEST_TOKEN=… ML_MONGO_DB=<engine db> .venv/bin/python scripts/try_recommenda
 
 | Open item | Waits on |
 |---|---|
-| Full eligibility rules (E-01 to E-12, `ml_item_state`, exclusion log, final re-check) | ENG-08 (and ENG-27) |
+| Eligibility from `ml_item_state` instead of direct platform reads | ENG-27 (ENG-08 reads the platform until then) |
+| Products on dev: every seller lacks `status`, so E-08 excludes every product; checklist 6.4 fails on dev | Open question 17 (Aravinth or the backend code: does a missing status mean active?) |
 | `fallback_step` and each slot's fallback step from the ladder | ENG-09 |
+| A model `score` in `scored_not_served` (null today) | ENG-17, ENG-19 |
 | Feed ranking, variety, and the exploration shuffle's author re-check | ENG-19 |
 | Product ranking (M5), cart surface context | ENG-17 |
 | Leave out items served to the user in the last 24 hours on later pages | ENG-19 (`page_dedup_hours`) |
-| `item_type` for a post card showing a product | Kala, question 4 in `Tracing/REALIGNMENT_v1.3.md`; then ENG-29 item 6 |
-| The check on the **test** server (200 ms there; record matching) | The test server and its constructed data (ENG-01, ENG-29 item 8) |
+| The check on the **test** server (200 ms there, with the 250 ms limit; record matching) | The test server and its constructed data (ENG-01, ENG-29 item 8) |
 | Surfaces live in production | ENG-24 go-live rule (ENG-11, ENG-22, ENG-23, APP-21, ENG-20) |
-| `read_newest` filters `visibility: "public"` exactly at the database, while the eligibility check ignores case: a stored `Public` would be dropped early | A small code fix, if the platform ever stores another spelling (ENG-29 item 2) |
+| Checklist line 6.1 still expects `14 passed`; the file has 17 contract tests now | A one-line change in `scripts/run_checklist.sh` |
 | Hand the serving token to Aravinth privately (DS-017 §9 step 1) | The servers |
+
+Closed on 1 Oct 2026: the full eligibility rules with the exclusion log and the
+final recheck (ENG-08, `11e515e`); `item_type` for a post card showing a product
+(question 4, `6c3ef46`); `visibility` matched exactly at the database (the
+database pre-filter was removed, `d1e5427`).
 
 ---
 
@@ -513,6 +632,22 @@ INGEST_TOKEN=… ML_MONGO_DB=<engine db> .venv/bin/python scripts/try_recommenda
 | `scripts/setup_engine_db.py` | Docstring: "sixteen" collections |
 | `tests/test_recommendations.py` | New, 16 tests; product `policy_id` assertion on method names (`ea88d1a`) |
 | `tests/test_assignment.py` | `policy_id` form, missing `user_id` |
+
+Since then, on 1 Oct 2026:
+
+| Commit | File | Change |
+|---|---|---|
+| `11e515e` | `reco/eligibility/basic.py` | **Deleted**: replaced by ENG-08 |
+| `11e515e` | `reco/eligibility/rules.py`, `reco/eligibility/apply.py` | New (ENG-08): E-01 to E-12, viewer context, exclusion log, recheck |
+| `11e515e` | `reco/ranking/serving.py` | `interim_candidates` uses ENG-08 and reads the viewer at the same time; one spare page; `MAX_SCAN_ROWS`; `page_after_recheck` |
+| `11e515e` | `reco/platform/connection.py`, `reco/store/connection.py`, `requirements.txt` | `minPoolSize` 10; PyMongo 4.10.1 → 4.18.2 |
+| `6c3ef46` | `reco/ranking/serving.py` | `_post_card`: `item_type` `product` for a post card showing a product (F10, X-16) |
+| `d1e5427` | `reco/api/recommendations.py` | `slot_methods` (F71), `scored_not_served` (F72), `request_budget_seconds` and `pymongo.timeout` around the reads and the write |
+| `d1e5427` | `reco/config/__init__.py` | `request_budget_ms` (`REQUEST_BUDGET_MS`) |
+| `d1e5427` | `reco/platform/connection.py`, `reco/store/connection.py`, `reco/main.py` | `retryReads=False`, `retryWrites=False`; `warm()` at startup |
+| `d1e5427` | `reco/platform/fetch.py` | `_servable` removed: no filter at the database |
+| `d1e5427` | `tests/test_recommendations.py`, `tests/conftest.py` | 3 new tests; per-run test databases |
+| `2b585af` | `reco/config/tunables.py` | `exploration_percent`, `sample_random_percent`, `page_dedup_hours` fixed for Wave 1A |
 
 ## 8. Demo
 

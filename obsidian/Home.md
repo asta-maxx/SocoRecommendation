@@ -34,6 +34,7 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[Nightly batches]]: the 2 AM recompute, and why a half-written batch is never read
 
 ## Tasks
+- [[Audit 1 Oct]]: every task so far checked line by line against the pack, and what was fixed
 - [[Task Board]]: every task and where it stands
 - [[ENG-01 - Engine home and databases]]: laptop part done (16 drawers); waiting on servers
 - [[ENG-02 - Service skeleton and settings]]: built; realigned to v1.3 on 1 Oct
@@ -43,6 +44,7 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[ENG-06 - Serve a recommendation list]]: in progress; serving and recording work, real ranking waits on later tasks
 - [[ENG-07 - Nightly jobs]]: built on laptop, 1 Oct; more jobs join as their tasks are built
 - [[ENG-29 - Adapting to the platform as built]]: built on dev, 1 Oct; the category map still to fill
+- [[ENG-08 - Filters]]: built on dev, 1 Oct; two answers from Aravinth pending
 
 ## Demos
 - [[Checklist]]: one command that checks everything still works
@@ -55,3 +57,4 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[Demo - ENG-06]]: serving a list and its record
 - [[Demo - ENG-07]]: nightly jobs, and a job killed halfway
 - [[Demo - ENG-29]]: adapting to the platform as built
+- [[Demo - ENG-08]]: the twelve filters, one left out and one kept each

@@ -6,7 +6,7 @@
 | **Step** | Step 2 (within 12 working days) |
 | **Waits on** | ENG-02 (built: jobs mode, settings file, structured logs) |
 | **Needed by** | ENG-09, ENG-10, ENG-14, ENG-16, ENG-17, ENG-18, ENG-21, ENG-25 |
-| **Status** | **Built** (1 Oct 2026, on dev) for the framework and M1. The batch rule, `ml_job_runs`, the score-row fields and the scheduler are done, and the Build List check passes with a real `SIGKILL`. The other nightly jobs (M2 method two, M5, M8 and its monthly copy, M6, the fraud rules) arrive with their own items and join the same framework. Becomes Passed when the check runs on **test** (Definitions: every check runs on test) |
+| **Status** | **Built** (1 Oct 2026, on dev) for the framework and M1. The batch rule, `ml_job_runs`, the score-row fields and the scheduler are done, and the Build List check passes with a real `SIGKILL`. Audit fixes the same day (`2b585af`): a failed run records `rows_written: 0`; a watcher in the API alerts on runs stuck `running` over 2 hours (`job_stuck`); `refresh_cadence` and `refresh_time_ist` are locked (fixed for Wave 1A). The other nightly jobs (M2 method two, M5, M8 and its monthly copy, M6, the fraud rules) arrive with their own items and join the same framework. Becomes Passed when the check runs on **test** (Definitions: every check runs on test) |
 | **Spec** | Build List v1.3 ENG-07 (and Settings sheet "M1 interest / Refresh"); SDA v1.6 SD-17, SD-19, SD-20, SD-21, SD-22; ENG-02 items 1, 3, 6 (jobs mode, settings read at the start of a job, structured job logs); ENG-04 item 7 (alerts) and item 8 (daily reconciliation) |
 
 ---
@@ -58,7 +58,8 @@ other).
 `reco/jobs/scheduler.py`:
 
 - **`next_run(now, at="02:00") -> datetime`**: the next `at` (HH:MM, IST) strictly after `now`, returned in UTC. IST is a fixed `+05:30` (India has no daylight saving), so there is no DST edge.
-- **The time is a setting (SD-22: "The times are settings").** `run_forever` re-reads the settings file (`config_sync.reload`) before each wait and passes `live.current().interest.refresh_time_ist` (`"02:00"`, validated as HH:MM in `reco/config/tunables.py`). A changed time applies from the next wait.
+- **The time is a setting (SD-22: "The times are settings").** `run_forever` re-reads the settings file (`config_sync.reload`) before each wait and passes `live.current().interest.refresh_time_ist` (`"02:00"`).
+  - **Fix, 1 Oct 2026 (audit, `2b585af`): the time and the cadence are locked for Wave 1A.** The Settings sheet row reads *"M1 interest | Refresh | daily, 2 AM IST | ENG-07 | hourly to weekly | Fixed for Wave 1A"*, and the sheet says a value changes only where its *When it changes* column allows. So `reco/config/tunables.py` now types them `refresh_time_ist: Literal["02:00"]` and `refresh_cadence: Literal["daily"]`: a settings file with another value is rejected (the engine keeps the settings in force, as for any invalid file, ENG-02). They stay settings, as SD-22 asks, but with one allowed value. This closes the open decision in §7.
 - **`run_forever(settings, jobs)`**: loop: reload settings, compute the next run, log `next nightly run` with `due`, sleep, reload settings again (a job reads the settings once, at its start: ENG-02 item 3), then `run_nightly`.
 - **`run_nightly(settings, jobs) -> list[str]`**: runs every name in `NIGHTLY` **one after another**. A job that raises is recorded, alerted with `alert("job_failed", …, job=, error=)` (`reco/monitoring/alerts.py`: a CRITICAL log line with `"alert": true` and owner Allen, as in ENG-04 item 7), and the **next job still runs**. Returns the names that failed.
 
@@ -89,10 +90,15 @@ Whichever is chosen, **only one** may run per environment: see §7, "overlapping
 | M8, both methods, monthly copy on the 1st | | waiting | ENG-16 |
 | M6 | | waiting | ENG-18 |
 | The fraud rules | | waiting | ENG-21 |
+| ENG-29 item 1: the daily unmapped-category check (not in this row; it joined the list) | `category_check` | **Running** (since `f7c82f3`, 1 Oct) | ENG-29 |
 | The engine sync's daily reconciliation (SD-22: "after the 2 AM refreshes") | `reconcile_sync` | **Running**, always **last** | ENG-04 item 8 |
 
-So today `NIGHTLY = ("interest", "reconcile_sync")`. A test asserts the
-reconciliation stays last.
+So today `NIGHTLY = ("interest", "category_check", "reconcile_sync")` (re-checked
+1 Oct 2026). A test asserts the reconciliation stays last.
+
+**The monthly copy of M8 on the 1st** is not scheduled yet: the scheduler has no
+monthly trigger. It arrives with M8 (ENG-16), which decides how the run on the 1st
+also writes the copy.
 
 **M1's input today.** `interest` still reads through the older platform readers
 (`reco/platform/readers.py`), not the engine's copies. On dev on 1 Oct it read 146
@@ -150,7 +156,7 @@ In `run_batch`, `work` is wrapped in `except BaseException`, so an ordinary
 exception **and** a cancelled task are both
 handled (a cancelled task: `asyncio.CancelledError`, e.g. the process stopped with Ctrl+C):
 
-- the run record gets `outcome: "failed"`, `error` (the `repr`, cut to 500 characters), `finished_at`, `duration_seconds`;
+- the run record gets `outcome: "failed"`, `error` (the `repr`, cut to 500 characters), `finished_at`, `duration_seconds`, and **`rows_written: 0`** (fix, 1 Oct 2026, `2b585af`: the Build List lists *rows written* for every run, and a failed run's rows are all removed, so 0 is the true count; before, the field was missing);
 - its partial rows are deleted (`delete_batches_except(…, only=job_run_id)`);
 - `mark_current` is never reached, so the previous batch stays current;
 - the exception is re-raised, so `run_nightly` alerts `job_failed` and moves on to the next job.
@@ -179,7 +185,7 @@ One document per run. `_id` **is** the `job_run_id`.
 | `model_version` | `MODEL_VERSION` (default `1.0.0`) |
 | `started_at`, `finished_at` | UTC |
 | `outcome` | `running`, `succeeded` or `failed` |
-| `rows_written` | on success |
+| `rows_written` | on success; `0` on a handled failure (since 1 Oct); absent for an abandoned run |
 | `duration_seconds` | on success or a handled failure; absent for an abandoned run |
 | `error` | on failure; `abandoned: stopped before it finished` for a killed run |
 | `is_current` | true on the batch requests read, one per `job` + `method` |
@@ -250,6 +256,23 @@ slot). The rule it satisfies: the Build List check, "ml_job_runs shows the failu
 Limits: the failure is recorded when the next run starts (normally the next night),
 not at the moment of the kill; `duration_seconds` is absent.
 
+**Fix, 1 Oct 2026 (audit, `2b585af`): a watcher alerts on a stuck run the same
+day.** Waiting for the next run meant a killed run said `running` for up to a day,
+and for ever if that job never ran again, with no alert. `reco/monitoring/watch.py`
+now runs inside the **API process** (started in `reco/main.py`'s lifespan, so it
+does not depend on the jobs process it watches), every `events.sync_interval_minutes`
+(5):
+
+- `stuck_runs()`: every `ml_job_runs` record still `outcome: "running"` whose `started_at` is more than **2 hours** ago (`STUCK_AFTER`; `writers.read_running_jobs`) raises `alert("job_stuck", …, job, method, job_run_id, started_at)`.
+- The same loop runs the sync's lag check (ENG-04 item 7).
+
+The watcher only alerts; it changes no record. The next run of that job still
+records the run as abandoned (above). *Choice:* the pack sets no time for a stuck
+run; 2 hours is well past any Wave 1A job on today's data (the nightly run takes
+about 3 s on dev). Rule it satisfies: the Build List check, *"ml_job_runs shows
+the failure"*, and SD-21. Test: `tests/test_watch.py::test_a_run_left_running_too_long_is_alerted`
+(a run started 3 h ago is alerted, one started 5 min ago is not).
+
 ### B. Extra: `scripts/show_job_runs.py`: done
 
 Read-only. Prints `ml_job_runs` newest first (id prefix, job, method, outcome, rows,
@@ -271,8 +294,9 @@ which is why it runs only there.
 
 | Setting | Where | Value | Read by |
 |---|---|---|---|
-| `interest.refresh_time_ist` | `settings/engine.toml` | `"02:00"` (HH:MM, IST) | `scheduler.run_forever`, before each wait (since 1 Oct) |
-| `interest.refresh_cadence` | `settings/engine.toml` | `"daily"` | **not read**: the scheduler always runs daily (Settings sheet: fixed for Wave 1A) |
+| `interest.refresh_time_ist` | `settings/engine.toml` | `"02:00"` (IST); **the only value accepted** since 1 Oct (fixed for Wave 1A) | `scheduler.run_forever`, before each wait |
+| `interest.refresh_cadence` | `settings/engine.toml` | `"daily"`; **the only value accepted** since 1 Oct | not read: the scheduler always runs daily (Settings sheet: fixed for Wave 1A) |
+| `events.sync_interval_minutes` | `settings/engine.toml` | 5 (fixed) | the watcher's interval (§2 A) |
 | `interest.window_bounds_days` | `settings/engine.toml` | `[7, 30, 90]` | `refresh.data_window` (time windows: last 90 days) |
 | `MODEL_VERSION` | environment | `1.0.0` | `model_version` on runs and rows |
 | `ML_MONGO_DB` | environment | e.g. `reco_demo` for demos | where batches and `ml_job_runs` go |
@@ -302,6 +326,10 @@ database, so each has its own `ml_job_runs` and batches (ENG-01).
 | `test_a_failure_halfway_keeps_the_previous_batch` | yes | exception after 2 of 4 users: previous batch read and current, failure recorded, partial rows gone |
 | `test_a_killed_run_is_recorded_as_failed_and_never_read` | yes | a run left `running` with half its rows: never read; the next run marks it `abandoned`; its rows cleared |
 
+`tests/test_watch.py` (new, 1 Oct, `2b585af`): `test_a_run_left_running_too_long_is_alerted`
+(database) covers the watcher's stuck-run alert; the file's other test is ENG-02's
+(a settings record that failed is retried).
+
 `tests/test_sync.py::test_every_sync_and_reconciliation_run_is_recorded`
 (database) covers `recorded_run`: a sync pass, a reconciliation and a failed sync
 pass give `sync succeeded`, `reconcile_sync succeeded`, `sync failed` in
@@ -314,7 +342,12 @@ TEST_MONGO_DB=reco_test_eng07 TEST_MONGO_TIMEOUT_MS=15000 .venv/bin/python -m py
 .venv/bin/python -m pytest -q -m "not mongo"
 ```
 
-**Results on 1 Oct 2026** (dev; Atlas build cluster, `TEST_MONGO_DB=reco_test_eng07`, dropped afterwards):
+**Results on 1 Oct 2026, after the audit fixes** (dev; Atlas build cluster, per-run test database, dropped afterwards):
+
+- `tests/test_nightly.py tests/test_watch.py`: **13 passed** (11 + 2).
+- Full suite: **634 passed, 1 skipped**.
+
+**Earlier results on 1 Oct 2026** (before the audit fixes; `TEST_MONGO_DB=reco_test_eng07`, dropped afterwards):
 
 - `tests/test_nightly.py`: **11 passed** (6 unit, 5 database).
 - `tests/test_sync.py -k every_sync_and_reconciliation`: **1 passed**.
@@ -372,6 +405,14 @@ IST day 30 Sep), `rows_written` 0 (nothing re-read) and `detail.passed` true for
 (`64a466da`) and the one it replaced (`f529f074`, kept one more night); the older
 `a36b1909` and the killed `1f82b556` are gone.
 
+**Re-run after the audit fixes, 1 Oct 2026** (demo rehearsal, `reco_demo`, dropped
+afterwards): the kill demo gave the same result (killed run `running`, then
+`failed: abandoned`, requests reading the previous batch); `nightly` exited 0 in
+about 3.1 s with `jobs: ["interest", "category_check", "reconcile_sync"]`: both
+interest methods 54 rows and CURRENT, `category_check` succeeded (alert: 42
+unmapped labels, ENG-29), and `reconcile_sync` passed on **four** sources (with
+`rec_serve_log`, ENG-29 item 7).
+
 **Checklist** (`scripts/run_checklist.sh`, section 7): 7.1 schedule, run time and
 order (5 passed); 7.2 complete-then-current and provenance (3); 7.3 failure halfway
 (1); 7.4 killed run (1); 7.5 the real `SIGKILL` demo; 7.6 the real nightly run, both
@@ -395,22 +436,29 @@ methods CURRENT. The whole script was not re-run for this note.
 2. Fix the cause, then re-run `nightly` (or the job on its own, e.g. `python -m reco.jobs interest`). A success becomes current at once.
 3. The fallback ladder (ENG-09, not built yet) treats a score over 48 hours old as stale (rung 4), so one missed night stays fresh; two in a row need attention.
 
-**A run shows `running` long after it should have finished:** the process was
-killed. Nothing needs cleaning by hand: the next run of that job and method records
-it as failed and its rows are cleared at the next success. Check first that no run
-is really still going (only one scheduler per environment).
+**A run shows `running` long after it should have finished** (since 1 Oct, a
+`job_stuck` alert after 2 hours, from the watcher in the API): the process was
+killed or hung. Check first that no run is really still going (only one scheduler
+per environment); stop a hung one. Nothing needs cleaning by hand: the next run of
+that job and method records it as failed and its rows are cleared at the next
+success. The alert repeats every 5 minutes until then.
 
 ## 7. Open
 
 | Open item | Needs |
 |---|---|
-| The other nightly jobs: M2 method two (ENG-14), M5 (ENG-17), M8 and the monthly copy on the 1st (ENG-16), M6 (ENG-18), the fraud rules (ENG-21) | Their items; each adds its name to `NIGHTLY`, before `reconcile_sync` |
+| The other nightly jobs: M2 method two (ENG-14), M5 (ENG-17), M8 (ENG-16), M6 (ENG-18), the fraud rules (ENG-21) | Their items; each adds its name to `NIGHTLY`, before `reconcile_sync` |
+| The monthly trigger for M8's copy on the 1st: the scheduler has none | ENG-16 |
 | M1's input from `ml_events` instead of the older readers | ENG-10 |
 | On the servers: the `scheduler` loop or cron calling `nightly` | The servers (ENG-01, SD-03); decide then |
 | Overlapping runs are not prevented: if two runs of the same job + method overlap (two schedulers, or cron plus the loop), the second records the first as abandoned while it still runs | Run one scheduler per environment; add a lock if the server setup needs one |
-| `refresh_time_ist` can be changed in the file, though the Settings sheet says the refresh is "Fixed for Wave 1A"; `refresh_cadence` is not read | A decision: mark them fixed in `tunables.py`, or keep the time changeable per SD-22 |
 | Run the check on **test**, then mark Passed | The test environment (ENG-01) |
 | Alert channel: alerts are CRITICAL log lines until one is chosen | As ENG-04 item 7 |
+
+Closed on 1 Oct 2026 (audit, `2b585af`): a killed run left `running` with no
+alert (now `job_stuck` after 2 h, §2 A); a failed run with no `rows_written` (now
+0, §2.4); `refresh_time_ist` / `refresh_cadence` changeable although fixed for
+Wave 1A (now locked, §2.1).
 
 ## 8. Files changed
 
@@ -431,6 +479,12 @@ is really still going (only one scheduler per environment).
 | `reco/sync/run.py`, `reco/sync/reconcile.py` (`7442bda`) | Each sync pass and each reconciliation recorded in `ml_job_runs` |
 | `tests/test_sync.py` (`7442bda`) | `test_every_sync_and_reconciliation_run_is_recorded` |
 | `tests/test_score_model.py`, `tests/test_score_store.py` | New key and fields |
+| `reco/jobs/batches.py` (`2b585af`) | `rows_written: 0` on a handled failure |
+| `reco/monitoring/watch.py` (`2b585af`) | New: `stuck_runs`, `watch_once`, `watch_loop` |
+| `reco/main.py` (`2b585af`) | Starts and stops the watcher with the API |
+| `reco/store/writers.py` (`2b585af`) | `read_running_jobs` |
+| `reco/config/tunables.py` (`2b585af`) | `refresh_cadence: Literal["daily"]`, `refresh_time_ist: Literal["02:00"]` |
+| `tests/test_watch.py` (`2b585af`) | New: the stuck-run alert |
 
 ## 9. Demo
 

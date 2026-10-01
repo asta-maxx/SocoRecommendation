@@ -24,6 +24,11 @@ Almost every model reads SOCO's data: interest, retrieval, promoter score, produ
 > - **New rules:** who did something can be a person *or* a business; a card's post and product are kept apart; the card's position, undo marks and post-page visits are kept.
 > - **A bigger check:** besides follows with text IDs, it now names a business acting, a product post on SOCO's feed, and an order with a history and a return request.
 
+> [!tip] Later on 1 Oct: a check against the pack, and answers to questions
+> - A post-page visit is now recognised **whatever its capital letters**. → part 10
+> - Three questions are answered from the pack itself, so they're off my list: which cards a person has seen (11), how a post card showing a product is labelled (4), and where business follows come from (6). → parts 5, 6, 10
+> - The records gained a few fields that the "may this be shown?" rules (ENG-08) need, including a **guessed** shape for SOCO's block list, which is still a question for Aravinth. → part 2
+
 ## Subtasks, one by one
 The v1.3 Build List splits ENG-03 into ten parts (1–10). There are two extras (A and B).
 
@@ -40,6 +45,7 @@ The v1.3 Build List splits ENG-03 into ten parts (1–10). There are two extras 
 - **What we did:** made one clean "record" for each of the 11 kinds of SOCO data (users, businesses, posts, activity, follows, orders, cart lines, products, variants, categories, and served lists). Each fills in only the fields the pack names. A missing time is recovered from the ID, which secretly contains the moment it was created.
 - **Orders** get the most care. Their history is the list of steps SOCO keeps on each order (`tracking_info`: placed, delivered, cancelled…). From it the record works out whether the order was **returned** and **who cancelled** it, and keeps any cancel reason (stored, never scored). Orders placed in **incognito** still count for the buyer: incognito only hides who bought, it doesn't hide the purchase.
 - **Why it matters:** every model now reads "order value" or "was it returned" from the same place, so no model can use the wrong field.
+- **Added 1 Oct (for ENG-08):** a "not interested" or "hide" now keeps **what it was about** (a post, a product or an author); people and businesses keep their **restriction level** once SOCO adds it; and a reader for **blocks** in SOCO's `followers` collection. That collection is empty on dev and its fields aren't documented, so the block reader **assumes** "this user blocked that follower". Question 16 to Aravinth confirms or corrects it. → [[People]]
 - **Status:** done. All **8,682 real documents** were read with **no failures**.
 
 → [[Platform Database]]
@@ -63,7 +69,7 @@ The v1.3 Build List splits ENG-03 into ten parts (1–10). There are two extras 
 ### 5. One place for each kind of data, and no switch ✅
 - **What it asks:** every activity (views, likes, clicks, feedback…) is read from one place: the engine's own copy of SOCO's activity log. SOCO's 26 kinds of activity are each tagged with the pack's event code. There is no switch between old and new logs any more.
 - **What we did:**
-  - wrote down the one place for every kind of data: activity and served lists from the engine's copy, orders from the engine's copy of orders, follows and blocks from SOCO;
+  - wrote down the one place for every kind of data: activity and served lists from the engine's copy, orders from the engine's copy of orders, follows and blocks from SOCO (answered 1 Oct: business follows come from SOCO's `follows` too, not from the activity log);
   - built the table of SOCO's 26 activity types. Each gets its code and a flag: does a model use it, or is it just kept for later?
   - mapped SOCO's screens to the engine's two: the home feed is *feed*; the product page and the cart are *product*;
   - removed the old switch and the readers for SOCO's old logs. The engine now reads only the 13 SOCO collections its login is allowed to read.
@@ -76,7 +82,7 @@ The v1.3 Build List splits ENG-03 into ten parts (1–10). There are two extras 
 - **What it asks:** a card on the feed can be a post that *shows* a product. Its ID is the post's, but it's labelled "product". Read it as a post, and keep the product's ID next to it.
 - **What we did:** every activity row now carries three things: the card that was shown, its post, and its product. On the feed, a "product" card with a post ID is read as that post, with the product kept alongside.
 - **Why it matters:** without this, a post's ID would be looked up as a product and find nothing, or the wrong thing.
-- **Status:** done. Tested with a post card showing a product on SOCO's feed.
+- **Status:** done. Tested with a post card showing a product on SOCO's feed. **Answered 1 Oct:** the pack (and SOCO's real feed clicks) confirm such a card is labelled "product", with the post's ID as the card and the product kept alongside, exactly as read here. The engine's own lists now label it the same way (ENG-06).
 
 → [[Activity events]]
 
@@ -104,7 +110,8 @@ The v1.3 Build List splits ENG-03 into ten parts (1–10). There are two extras 
 - **What it asks:** when someone opens a post's own page, that counts as a page visit. It must never count as seeing a card in a list.
 - **What we did:** activity on the post page is marked as a page visit, and it isn't put on the feed or product screen.
 - **Why it matters:** otherwise every post-page visit would look like a card that was shown and seen, which would inflate the numbers.
-- **Status:** done. None of today's 146 rows are page visits. One question is with Kala: should "which cards were seen" come from the engine's copy or from SOCO's own seen list?
+- **Fixed 1 Oct (audit):** SOCO might write the page's name as `post_detail` or `Post_Detail`. Both now count as a page visit; before, only the exact lower-case spelling did, so a capitalised one could have slipped through as a card view.
+- **Status:** done. None of today's 146 rows are page visits. **Answered 1 Oct** (no longer a question for Kala): the pack says paging leaves out what the engine **served** in the last 24 hours, from its own records (ENG-19). SOCO's own seen list is for measurement.
 
 ### A. Extra: readers that hand over clean records ✅
 - **What we did:** a helper fetches SOCO's data and returns the clean records, so no model ever touches a raw SOCO field. The same file also has the reads the [[Engine sync]] uses to copy SOCO's logs; those belong to ENG-04.
@@ -134,11 +141,14 @@ Other things the data showed on 1 Oct:
 - The pack's check, *"read one of each record type, including a follows record with text IDs, a businessRegister actor, a product post on a platform feed list, and an order with a status log and a return request"*, **passes**. All four named cases have their own test.
 - This task's tests: **60 passed**, none failed (59 plain tests, plus 1 against a throwaway database).
 - Every real SOCO document reads: **8,682, 0 failed**.
+- Re-run after the audit fixes (1 Oct): this task's tests **60 passed** again; the whole suite **634 passed, 1 skipped**. The real-data check gives the same counts, plus one line for SOCO's serve log, which doesn't exist yet.
 
 ## Decided
 - **1 Oct 2026:** rebuilt to the v1.3 row; the event source switch and the old-log readers are removed.
 - **1 Oct 2026:** where a product has no category path yet, its single category field is used, under the same "one of the 23 or dropped" rule.
 - **1 Oct 2026:** the order history comes from `tracking_info`, as ENG-29 says, since SOCO has no separate status log or return record.
+- **1 Oct 2026 (audit):** a post-page visit is matched ignoring capital letters, like every other status word.
+- **1 Oct 2026:** blocks are read as "`userId` blocked `followerId`, status blocked" until Aravinth confirms the real shape (question 16).
 
 > [!note] Added on top since (1 Oct 2026)
 > [[ENG-29 - Adapting to the platform as built]] built on these readers: status **spellings** from the settings, the **steps** of an order's tracking (each one named, with who acted and when it was first delivered, returned or cancelled), a reader for SOCO's **serve log**, and one helper for the **test and exempt account** lists.
@@ -147,9 +157,8 @@ Other things the data showed on 1 Oct:
 | What | Waiting on |
 |---|---|
 | Fill the category map so products count | ENG-29 (me) |
-| Status spelling map; read blocks and SOCO's serve log | ENG-29, ENG-08 |
-| "Which cards were seen": engine copy or SOCO's list? | Kala → [[People]] |
-| Move the interest score onto these clean records | ENG-10 |
+| Confirm the shape of SOCO's block list (the reader guesses it today) | Aravinth, question 16 → [[People]] |
+| Move the interest score onto these clean records. Today it still reads SOCO's **live** activity log through the old demo reader, not the engine's copy | ENG-10 |
 | Re-run the check on the **test** server, then mark it Passed | The test server |
 
 ## How this connects

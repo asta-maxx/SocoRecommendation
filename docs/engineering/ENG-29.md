@@ -6,7 +6,7 @@
 | **Step** | Step 2 (within 12 working days, proposed estimate) |
 | **Waits on** | ENG-03 (built: the platform reader), ENG-04 (built: the engine sync) |
 | **Needed by** | ENG-06, ENG-08, ENG-10, ENG-16, ENG-21, ENG-27 (and ENG-23, which runs on the item 8 data) |
-| **Status** | **Built** (1 Oct 2026, on dev). All eight parts are built and the row's unit tests pass. Item 1 waits on Allen filling `lists.category_map` (42 labels unmapped on dev); item 7 waits on APP-15 creating `rec_serve_log`; item 8's data lives on the dev engine cluster until the test cluster exists (ENG-01). Becomes Passed when re-run on **test** |
+| **Status** | **Built** (1 Oct 2026, on dev). All eight parts are built and the row's unit tests pass. Item 1 waits on Allen filling `lists.category_map` (42 labels unmapped on dev); item 7 waits on APP-15 creating `rec_serve_log`; item 8's data lives on the dev engine cluster until the test cluster exists (ENG-01). Becomes Passed when re-run on **test**. Audit fixes the same day (`6c3ef46`, `2b585af`): item 6's `item_type` settled (question 4); `rec_serve_log` read append-only by `_id` with an overlap re-read, time field `at` first (F80); unknown tracking stages logged (DS-017 §6.4). Questions 3, 4, 5 and 12 are answered |
 | **Spec** | Build List v1.3 ENG-29 (and Changes sheet v1.3: APP-09, DB-04, DB-07, DB-09, DB-11, DB-13, APP-11, APP-20 "Not needed"); DS-017 v2.5 §4.3 (serve log), §6.4 (who cancelled), §7 (sync sources); SDA v1.6 (engine sync reads `rec_serve_log`); Capture Register (29 Sep) X-16, X-17, X-18, X-20, X-21, F75, F80 |
 
 > **Why a separate item.** Build List v1.3, Changes sheet: ENG-29 is *"New. Holds every 29 September adaptation that would otherwise change ENG-01 to ENG-04, which are built and left unchanged."* So this item adds on top of ENG-03 and ENG-04; their own rows stay as they were.
@@ -56,19 +56,23 @@ Numbered as in the Obsidian note: 1–8 are the Build List's parts, A–C are ex
   - runs inside `recorded_run(settings, "category_check")`, so every run is in `ml_job_runs` (SD-21; detail `{unmapped: n}`).
 - **Daily:** added to the nightly list. `reco.jobs.scheduler.NIGHTLY = ("interest", "category_check", "reconcile_sync")`, so it runs at 2 AM IST every day (ENG-07). It runs before the reconciliation, which stays last (SD-22).
 
-*"Older seller categories" (the row's wording) aren't in any collection the engine can read: only `categories` is on DB-02's list. Kala question 12.* The check covers every place a category label appears in the readable collections.
+*"Older seller categories" (the row's wording):* **answered 1 Oct 2026** (question 12, `Tracing/REALIGNMENT_v1.3.md`, "Questions (reviewed 1 Oct 2026)"): they are `businessregisters.category` (free text) and the category tree (`categories`), both read here. The daily check already covers both, so nothing changed in the code.
 
 **Real run, 1 Oct 2026, dev platform (read-only), into `reco_demo`:** **42 unmapped labels** covering 2,064 uses. The two largest are product categories whose top level is `Menswear catimp…` (1,005 and 1,000 products); then `Fashion` (3 user interests, 1 product), `Sports`, `Food`, `Business`, `Nature`, `Automobiles`, …, `Cricket`, `(no category id)`. The map is empty, so every label not spelled exactly as one of the 23 is unmapped. **Filling the map is Allen's decision**; re-run the job to see the current list (it prints labels and counts only, never user ids).
 
 ### 2. Spelling and order-status maps in the settings: built
 
-- **Status spellings (new use):** `lists.status_spellings` (stored spelling → the value compared with). Keys and values are lower-cased and trimmed by a validator (`Lists._lower_keys`). `reco.platform.records.status_is(value, expected)` now maps both sides through it before comparing ignoring case, so `{"activated": "activate"}` makes `Activated` read as `Activate`. `records.spellings_of("activate")` returns every stored spelling that reads as `activate`; the product "servable" filter in `fetch._servable` (used by `read_newest`, ENG-06's interim lists) builds its case-insensitive regex from that list. The map is empty today (dev uses `Activate` only).
+- **Status spellings (new use):** `lists.status_spellings` (stored spelling → the value compared with). Keys and values are lower-cased and trimmed by a validator (`Lists._lower_keys`). `reco.platform.records.status_is(value, expected)` now maps both sides through it before comparing ignoring case, so `{"activated": "activate"}` makes `Activated` read as `Activate`. `records.spellings_of("activate")` returns every stored spelling that reads as `activate`. (It also built the case-insensitive regex of the product "servable" filter `fetch._servable` in `read_newest`; that database pre-filter was **removed on 1 Oct 2026**, `d1e5427`, so that ENG-08 logs every exclusion; the eligibility rules apply `status_is` instead.) The map is empty today (dev uses `Activate` only).
 - **Order-status values (from ENG-03):** `lists.order_status` holds the exact stored values: `Delivered`, `Cancelled`, `Rejected`, `Return Requested`, `Returned` (AS-23).
 - **New: tracking stages.** `lists.tracking_stages` (settings **version 3**): the beginning of a `tracking_info` entry's text → a stage, one of `created, accepted, confirmed, shipped, paid, delivered, return_requested, returned, cancelled, rejected`. Matched ignoring case; **the longest matching beginning wins** (`records.tracking_stage`).
 
   *Why:* on dev, `tracking_info` entries are free text with keys `status`, `timestamp`, `_id`: "Order created by Rahul", "Order Accepted By Seller", "Confirmed by buyer", "Shipped by seller", "Payment Completed", "Delivered (Urban Vogue Fashion Studio)", "Cancelled by seller". *Choice (the pack is silent on the text of an entry); rule it satisfies: item 2, "spelling and order-status maps in the settings", and item 4, which reads Delivered, a return request and a cancellation from the entry.* Being a setting, a new wording is a settings change (logged), not a code change.
 
   **Real dev orders, 1 Oct 2026:** 8 orders, 14 entries; every entry matched a stage (created 8, accepted 1, confirmed 1, shipped 1, paid 1, delivered 1, cancelled 1).
+
+  **Fix, 1 Oct 2026 (audit, `2b585af`): an entry with no stage is logged.** DS-017 §6.4 says any other value is *stored and logged, never rejected*. An entry whose text matches no beginning was already stored with `stage: None`; now the sync (`copies.make_copy`, orders) also logs a WARNING `tracking_info entries with no stage` on `reco.sync`, with `order_id` and up to 5 of the texts, so a new wording is noticed and can be added to `[lists.tracking_stages]`. Test: `tests/test_sync.py::test_an_order_history_entry_with_no_stage_is_logged`.
+
+  Also fixed the same day: the sync's own `status_history` (ENG-04 part 9, kept as the cross-check) now compares statuses with `records.status_is`, ignoring case and spellings, so `Delivered` then `delivered` is not two steps.
 
 ### 3. Exemption and test-account lists: built
 
@@ -85,7 +89,8 @@ Numbered as in the Obsidian note: 1–8 are the Build List's parts, A–C are ex
 - **Logged:** a list change is a settings change, so `live.differences` records it in `ml_config_changes` with old and new value and who made it (ENG-02 item 4). Test: `test_a_list_change_is_a_settings_change_with_who_changed_it`.
 - **Left out of learning (M1, now):** `reco.jobs.refresh.refresh` drops test accounts from the users it scores and counts them as `RefreshRun.test_accounts_skipped` (in the run summary: "Test accounts left out: n").
 - **Internal mode (ENG-06):** `reco/api/recommendations.py` now calls `accounts.is_test_account` (its private copy was removed).
-- **Later users:** measurement (ENG-25) and fraud (ENG-21) will use the same helper; exemptions are flagged, not actioned, in ENG-21 (X-21). Both lists are empty today.
+- **Later users:** measurement (ENG-25) and fraud (ENG-21) will use the same helper; exemptions are flagged, not actioned, in ENG-21 (X-21). Both lists are empty today. Popularity used by the fallback ladder's rung 3 must also leave test accounts out ("left out of learning"); that waits on ENG-09.
+- **Test accounts and fraud: answered 1 Oct 2026** (question 5, `Tracing/REALIGNMENT_v1.3.md`, "Questions (reviewed 1 Oct 2026)"): test accounts are **left out of fraud entirely**; exempt accounts are flagged, never actioned. The Build List (this row, item 3, and X-21) outranks the Fraud Policy's §11 wording. ENG-21 applies it.
 
 ### 4. Order history from `tracking_info`: built
 
@@ -102,21 +107,42 @@ Numbered as in the Obsidian note: 1–8 are the Build List's parts, A–C are ex
 
 `is_returned` = `order_status` is `Return Requested` or `Returned` (the exact stored values, item 2), **or** the history has a `return_requested` or `returned` stage. So an order returned and later moved on still counts as returned (X-18). Partial refunds are not modelled (as the row says).
 
-### 6. Item adapter: built in ENG-03 and ENG-06; ⏳ one value open
+### 6. Item adapter: built in ENG-03 and ENG-06
 
-Nothing new in this commit:
+Nothing new in commit `f7c82f3`:
 
 - **Reading** (ENG-03, `records.card_identity`): a platform event or list row for a post card showing a product gives `item_id` = the post id, `post_id` = the post id and `product_id` = the product id, kept apart (X-16, F75).
 - **Serving** (ENG-06): every response item carries `item_id`, `item_type`, `post_id`, `product_id`; a feed post card keeps the post id as `item_id`; product rails carry product ids.
-- **Open:** the exact `item_type` value for a post card that shows a product ("as the app expects"). Kala question 4.
+
+**Answered 1 Oct 2026 (question 4; commit `6c3ef46`):** the `item_type` of a post
+card that shows a product ("as the app expects") is **`product`**, with `item_id`
+= `post_id` = the post id and `product_id` = the product. Source: the Capture
+Register's F10 note (28 Sep), *"On platform feed lists, item_type product with a
+post id is a post card showing a product: read post_id = item_id (X-16)"*, and
+the real feed clicks on dev. ENG-06's `_post_card` now returns it that way (it
+returned `post` before); a plain post card stays `post`. See ENG-06 §2.11.
 
 Test: `test_a_product_post_on_a_feed_list_keeps_post_id_and_product_id_apart` (the row's check).
 
 ### 7. `rec_serve_log` in the sync: built; ⏳ the collection doesn't exist yet
 
-- **Record:** `records.ServeLogRecord` / `parse_serve_log(doc)`: `request_id` (opaque), `user_id`, `native_surface`, `surface`, `page`, `origin` (engine | fallback | cache), `outcome` (ok | timeout | error | off | skipped), `elapsed_ms`, `created_at` (its `time` field, else `timestamp`, else `created_at`, else the `_id` time), `updated_at`. Fields from DS-017 §4.3 and F80. `serve_log` added to `RECORD_KINDS`.
-- **Sync:** a fourth `SyncSource` in `reco/sync/copies.py`: `rec_serve_log` → `ml_events`, copied as `event_type: "serve_log"`, `event_code: None`, `scored: False`. Read "the same way as recommendationrequests": backfill by `_id`, incremental by `updated_at`, the daily reconciliation by its time fields (`time`, `timestamp`, `created_at`) comparing `origin`, `outcome`, `elapsed_ms`, `updated_at`.
-- **No `updated_at`:** F80 has none, so the incremental read finds nothing; the backfill and the daily reconciliation copy it (about a day late). Kala question 3.
+- **Record:** `records.ServeLogRecord` / `parse_serve_log(doc)`: `request_id` (opaque), `user_id`, `native_surface`, `surface`, `page`, `origin` (engine | fallback | cache), `outcome` (ok | timeout | error | off | skipped), `elapsed_ms`, `created_at` (its **`at`** field first, since 1 Oct, F80; else `time`, `timestamp`, `created_at`, else the `_id` time), `updated_at`. Fields from DS-017 §4.3 and F80 (*"request_id, user_id, surface, page, origin, outcome, elapsed_ms, at"*). `serve_log` added to `RECORD_KINDS`.
+- **Sync:** a fourth `SyncSource` in `reco/sync/copies.py`: `rec_serve_log` → `ml_events`, copied as `event_type: "serve_log"`, `event_code: None`, `scored: False`, marked **`append_only=True`**:
+  - **backfill** by `_id`, as for every source;
+  - **incremental: by `_id`**, carrying on from the backfill's position (`backfill.after_id` in the sync state), and first stepping back `events.sync_overlap_minutes` (2) by `_id` time, because several SOCO_BE servers write it and `_id`s can arrive slightly out of order. Copies are upserts keyed on `_id`, so a re-read never duplicates (the pass's "copied" count includes re-read rows);
+  - **daily reconciliation** by its time fields (`at`, `time`, `timestamp`, `created_at`), comparing **`origin`, `outcome`, `elapsed_ms`** (no `updated_at`).
+
+**Fix, 1 Oct 2026 (`6c3ef46`, `2b585af`): `rec_serve_log` is append-only.** This
+doc said before that it was read *"incremental by `updated_at`"*, so new rows were
+copied only by the backfill and the daily reconciliation, about a day late
+(question 3). Question 3 is **answered** (`Tracing/REALIGNMENT_v1.3.md`,
+"Questions (reviewed 1 Oct 2026)"): DS-017 §4.3 says SOCO_BE *"writes one row to
+rec_serve_log"* per list request, so a row is written once and needs no
+`updated_at`; the sync reads new rows by `_id`. Reading by `_id` is still "the same
+way as recommendationrequests" for its backfill; the row's wording does not require
+an `updated_at`. The overlap re-read and the `at` field came with the audit
+(`2b585af`). Test: `tests/test_sync.py::test_a_serve_log_row_written_slightly_out_of_order_is_still_copied`
+(a row stamped 30 s earlier, landing after the first was copied, is still copied).
 - **On dev, 1 Oct:** the collection doesn't exist yet (APP-15). The sync's pass reports `rec_serve_log: 0` and its backfill as done; ENG-04's checklist line 4.10 now expects **4** sources with `backfill done`.
 - **No delivered-list record, no `engine_position`:** none was ever built (ENG-03 part 7 reads the event's position as the engine's).
 
@@ -125,7 +151,7 @@ Test: `test_a_product_post_on_a_feed_list_keeps_post_id_and_product_id_apart` (t
 - `tests/platform_dataset.py`, `build_dataset(now)` → `(collections, CASES)`: **56 documents** in all **13** platform collections the engine reads (users 10, businessregisters 2, follows 3, followers 1, categories 3, products 4, productvariants 2, posts 11, postevents 10, orders 5, carts 1, recommendationrequests 1, rec_serve_log 3), in the platform's own field names. **41 named cases**, so a test finds "the hidden post" by key, not position, among them: hidden, private, deranked, under-review, adult and unmapped-category posts; private and inactive authors; a blocker; test and exempt accounts; a minor; out-of-stock, inactive, no-category and `Activated` products; orders delivered, return requested, cancelled by seller, incognito and with no incognito value; a like and its unlike; a feed product click with no `item_id`; a post-detail impression; a fallback list; three serve-log rows (engine, fallback, cache). Ids are fixed (stamped 1 Sep 2026 + a counter), so a seeded database is the same every time.
 - `scripts/seed_test_platform.py <name>` writes it into a database **on the engine cluster** (the platform login is read-only), emptying each collection first, then parses every document back through the ENG-03 parsers. It refuses any name without "test" and the configured platform and engine databases.
 - **Seeded, 1 Oct 2026:** `soco_engine_test` on the dev engine cluster: "56 documents in soco_engine_test; 41 named cases; all parse". It moves to the test cluster when that exists (ENG-01's remainder). To point the engine at it: `APP_MONGO_URI=<engine cluster URI> APP_MONGO_DB=soco_engine_test`.
-- **Assumed:** the shape of `followers` (empty on dev, fields undocumented). The data assumes `userId` (blocker), `followerId` (blocked), `status: "blocked"`. Kala question 16.
+- **Assumed:** the shape of `followers` (empty on dev, fields undocumented). The data assumes `userId` (blocker), `followerId` (blocked), `status: "blocked"`. Question 16, still open (Aravinth, or the backend code).
 
 ### A. Extra: settings version 3
 
@@ -194,6 +220,11 @@ TEST_MONGO_TIMEOUT_MS=15000 .venv/bin/python -m pytest -q tests/test_platform_da
 - `tests/test_platform_dataset.py`: **14 passed** (re-run with `TEST_MONGO_DB=reco_demo`: 14 passed).
 - Full suite (`TEST_MONGO_DB=reco_test_eng29doc`): **598 passed, 1 skipped**.
 
+**After the audit fixes, 1 Oct 2026** (`6c3ef46`, `2b585af`, `964f4ec`):
+- `test_rec_serve_log_rows_are_copied` now counts the copies in `ml_events` (3) instead of the pass's "copied" figure, because the append-only overlap re-reads recent rows on purpose (`964f4ec`).
+- New in `tests/test_sync.py`: `test_a_serve_log_row_written_slightly_out_of_order_is_still_copied`, `test_an_order_history_entry_with_no_stage_is_logged`.
+- Full suite: **634 passed, 1 skipped**.
+
 `scripts/run_checklist.sh` section 8 (8.1–8.9): the row's checks by test (8.1–8.7), the real category check on SOCO's dev data into `reco_demo` (8.8, expects `"outcome": "succeeded"`), and the seeder (8.9, expects `all parse`). Section 4's line 4.10 now expects 4 sources.
 
 ---
@@ -221,14 +252,19 @@ TEST_MONGO_TIMEOUT_MS=15000 .venv/bin/python -m pytest -q tests/test_platform_da
 | Open item | Waits on |
 |---|---|
 | Fill `lists.category_map` so every category in use maps (42 unmapped on 1 Oct, incl. 2,005 products under `Menswear catimp…`) | **Allen** (a decision per label) |
-| Where are the "older seller categories" stored? Only `categories` is readable | Kala, question 12 |
 | `rec_serve_log` on the platform | **APP-15** (Aravinth) |
-| `rec_serve_log` has no `updated_at`, so it is copied by the backfill and reconciliation only | Kala, question 3 |
-| The exact `item_type` for a post card showing a product | Kala, question 4 |
-| Test accounts in fraud: left out (X-21, ENG-29) or flagged not actioned (Fraud §11)? | Kala, question 5 |
-| The `followers` shape assumed in the constructed data | Kala, question 16 (and ENG-08) |
-| Test accounts left out of measurement and fraud | ENG-25, ENG-21 (they call `accounts.is_test_account`) |
+| The `followers` shape assumed in the constructed data | Question 16 (Aravinth, or the backend code; and ENG-08) |
+| Test accounts left out of popularity (the fallback ladder's rung 3) | ENG-09 |
+| Test accounts left out of measurement | ENG-25 (calls `accounts.is_test_account`) |
+| Test accounts left out of fraud; exemptions flagged, never actioned | ENG-21 (same helper) |
 | Seed `soco_engine_test` on the test cluster and re-run the checks there; then Passed | ENG-01's remainder (the test cluster) |
+
+Answered on 1 Oct 2026 and removed from this list (`Tracing/REALIGNMENT_v1.3.md`,
+"Questions (reviewed 1 Oct 2026)"): **3** (`rec_serve_log` needs no `updated_at`;
+read by `_id`, item 7), **4** (`item_type` `product` for a post card showing a
+product, item 6), **5** (test accounts left out of fraud entirely, item 3), **12**
+(older seller categories are `businessregisters.category` and the category tree,
+item 1).
 
 ---
 
@@ -256,6 +292,19 @@ Commit `f7c82f3` (1 Oct 2026):
 | `scripts/seed_test_platform.py` | New: the seeder |
 | `scripts/run_checklist.sh` | Section 8; 4.1 and 4.10 for four sources |
 | `Tracing/REALIGNMENT_v1.3.md` | Question 16; ENG-29 in "Built after the realignment" |
+
+Since then, on 1 Oct 2026:
+
+| Commit | File | Change |
+|---|---|---|
+| `6c3ef46` | `reco/sync/copies.py`, `reco/sync/run.py` | `SyncSource.append_only`; `rec_serve_log` read by `_id` from the backfill position; `updated_at` no longer compared |
+| `6c3ef46` | `reco/ranking/serving.py` | `item_type` `product` for a post card showing a product (item 6) |
+| `6c3ef46` | `Tracing/REALIGNMENT_v1.3.md` | Questions reviewed: 15 answered, 2 open |
+| `2b585af` | `reco/platform/records.py` | `parse_serve_log` reads `at` first (F80) |
+| `2b585af` | `reco/sync/copies.py` | `at` in the serve log's time fields; a WARNING for tracking entries with no stage; `status_history` compares with `status_is` |
+| `2b585af` | `reco/sync/run.py` | Overlap re-read before the `_id` position |
+| `2b585af` | `tests/test_sync.py` | Two new tests |
+| `964f4ec` | `tests/test_platform_dataset.py` | Serve-log copies counted in `ml_events` |
 
 ## 9. Demo
 

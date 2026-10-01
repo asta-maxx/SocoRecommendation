@@ -139,7 +139,7 @@ check "5.4 missing settings or user_id: everyone gets the default, logged" "$T -
 check "5.5 the real settings file splits within 2 points" "$PY scripts/show_assignment.py | grep -c 'within 2 points'" "3"
 
 echo "== 6. ENG-06: serve a list and record it (throwaway reco_demo, port 8192)"
-check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "14 passed"
+check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "17 passed"
 check "6.2 constructed data: eligible newest first; record matches the response" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m mongo" "2 passed"
 sed 's/^surface_mode_feed = "off"/surface_mode_feed = "live"/; s/^surface_mode_product = "off"/surface_mode_product = "live"/' settings/engine.toml >"$WORK/serve.toml"
 SERVE_TOKEN="checklist-$RANDOM$RANDOM"

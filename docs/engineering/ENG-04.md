@@ -38,7 +38,19 @@ The Build List v1.3 row, verbatim:
 - **Item 4:** *"tracking_info (APP-08) is the history of each order … Status changes the sync observes itself (ENG-04 point 9, if built) are kept as a cross-check only. The daily reconciliation compares tracking_info in place of statusLog and return_info."* The platform has no `statusLog` or `return_info`. This item already compares `tracking_info` (§2.8); part 9 is built and kept as the cross-check.
 - **Item 7:** *"Add rec_serve_log (APP-15) to the sync, read the same way as recommendationrequests."* Not in this item: `rec_serve_log` doesn't exist on the platform yet, and ENG-29 adds it to `SYNC_SOURCES`.
 
-> **Since ENG-29 (1 Oct 2026, `f7c82f3`):** the sync has a **fourth source**, `rec_serve_log` → `ml_events` (`event_type: serve_log`; compared fields `origin`, `outcome`, `elapsed_ms`, `updated_at`), and the order copies carry the `tracking_info` stages and times (ENG-29 items 4 and 7). The collection doesn't exist on dev yet (APP-15), so it copies 0 rows. Checklist line 4.10 now expects **4** sources with `backfill done`. See `docs/engineering/ENG-29.md` §2.7.
+> **Since ENG-29 (1 Oct 2026, `f7c82f3`):** the sync has a **fourth source**, `rec_serve_log` → `ml_events` (`event_type: serve_log`; compared fields `origin`, `outcome`, `elapsed_ms`; `updated_at` dropped 1 Oct, see below), and the order copies carry the `tracking_info` stages and times (ENG-29 items 4 and 7). The collection doesn't exist on dev yet (APP-15), so it copies 0 rows. Checklist line 4.10 now expects **4** sources with `backfill done`. See `docs/engineering/ENG-29.md` §2.7.
+
+> **Updated 1 Oct 2026 (audit, `6c3ef46`, `2b585af`, `964f4ec`), `rec_serve_log`:**
+> it is **append-only**: written once per list request (DS-017 §4.3), so it needs
+> no `updated_at` (question 3 answered, `Tracing/REALIGNMENT_v1.3.md`). The
+> incremental read carries on **by `_id`** from the backfill's `after_id`, first
+> stepping back `sync_overlap_minutes` (2) of `_id` time, because several SOCO_BE
+> servers write it and their `_id`s can land slightly out of order; copies are
+> upserts, so the re-read never duplicates. Its time field is **`at`** (Capture
+> Register F80; then `time`, `timestamp`, `created_at`, then the `_id`). The
+> reconciliation compares `origin`, `outcome`, `elapsed_ms` (no `updated_at`).
+> Test: `test_a_serve_log_row_written_slightly_out_of_order_is_still_copied`.
+> The rest of the 1 Oct audit is under parts 7 and 9, extras B and E, and §3.
 
 **Settings sheet (fixed for Wave 1A):** Engine sync *"every 5 minutes, re-reading a 2-minute overlap; alert when more than 15 minutes behind"* (range 1 to 15 minutes); Keep event data *"engine copies: at least 365 days from the event time"*.
 
@@ -46,7 +58,7 @@ The Build List v1.3 row, verbatim:
 
 ## 2. What was built, subtask by subtask
 
-Numbered as in the Obsidian note: 1–9 are the Build List's parts, A–C are extras.
+Numbered as in the Obsidian note: 1–9 are the Build List's parts, A–E are extras (D and E added 1 Oct).
 
 Layout: `reco/sync/copies.py` (what is copied and the shape of a copy), `reco/sync/run.py` (backfill, incremental, checkpoints, lag alert), `reco/sync/reconcile.py` (daily reconciliation). Reads go only through `reco/platform/fetch.py` and writes only through `reco/store/writers.py` (ENG-02's module rule). Jobs in `reco/jobs/__main__.py`:
 
@@ -137,6 +149,16 @@ Real dev copies, 1 Oct 2026 (`scripts/show_events.py`): `postevents` E2 5, E3 3,
 - Alerts when lag > `events.sync_lag_alert_minutes` (15, fixed), when the last run failed, or when a source has state but no successful pass yet.
 - `run.sync_source` also alerts the moment a source fails (`reason: sync_failed`), records `last_run.outcome = failed` and the error, and re-raises.
 
+**The watcher (1 Oct 2026 audit, `2b585af`): the lag check no longer depends on
+the sync.** Until then the lag check ran only at the end of a sync pass or in
+the `sync_check` job, so a sync process that had died or hung (the very case
+item 7 is for) raised nothing. `reco/monitoring/watch.py`, `watch_loop`, now runs
+**inside the API process** (started and cancelled in `reco/main.py`'s lifespan,
+beside the settings reload) and calls `run.check_lag` every
+`events.sync_interval_minutes` (5), independently of any sync. The API is the one
+process that is always up (SD-01). An error in the watcher is logged and it
+carries on. It also runs the stuck-run alert (extra E).
+
 `reco/monitoring/alerts.py`, `alert(reason, message, **fields)`: a **CRITICAL** structured log line on logger `reco.alert` with `"alert": true`, `"reason"` and `"owner": "Allen"`. *Choice: the pack names who is alerted (the service owner, Allen) but not the channel. Until one is chosen the log line is the alert, and a log collector can route on the one field.* Restart is "from the last checkpoint": simply run the next pass.
 
 ### 8. Daily reconciliation: ids and field values: done
@@ -167,6 +189,17 @@ Real dev copies, 1 Oct 2026 (`scripts/show_events.py`): `postevents` E2 5, E3 3,
 
 `copies.with_history(copy, held)`: for orders, `run.write_page` reads the held copies first and carries `status_history` forward, appending `{status, at: updated_at}` whenever the status now seen differs from the last one held (falls back to `created_at` when `updated_at` is missing). Tested: Placed → Delivered → Return Requested gives three entries and `is_returned`.
 
+**Fixes, 1 Oct 2026 (audit, `2b585af`):**
+- The new status is compared with the last one held **ignoring case**
+  (`records.status_is`), so `Delivered` then `delivered` is one entry, not two
+  (Build List v1.3 ENG-03: "Status fields: compared ignoring case").
+- A `tracking_info` entry whose text matches no stage in `lists.tracking_stages`
+  is **stored as read and logged** (`reco.sync` WARNING "tracking_info entries with
+  no stage", with the order id and up to five texts), never rejected: DS-017 §6.4,
+  "any other value is stored and logged". Test:
+  `test_an_order_history_entry_with_no_stage_is_logged`. (The case-insensitive
+  compare has no test of its own.)
+
 ENG-29 item 4 makes `tracking_info` the order's history; this list is kept **as a cross-check only**. It sees only the statuses the sync happened to observe, so before APP-12 it holds one entry per order.
 
 ### A. Extra: the alert module: done
@@ -176,6 +209,18 @@ ENG-29 item 4 makes `tracking_info` the order's history; this list is kept **as 
 ### B. Extra: `scripts/show_events.py`: done
 
 Read-only view of the sync: `ml_events` copies by source and E code, the `ml_orders` count, each source's backfill / checkpoint / `current_as_of` / last run, and the latest reconciliation results. Prints counts, codes and times only, no user ids.
+
+**Check (g), "the retention setting is shown" (1 Oct 2026 audit, `2b585af`):** the
+script now prints the retention: the `retention` index's `expireAfterSeconds` in
+days, beside the setting in force. Run on dev (`SoCo`), 1 Oct 2026:
+
+```
+ml_orders: 8 orders
+retention: copies kept 365 days from the original event time (setting events.retention_days = 365; index on created_at)
+sync state:
+```
+
+Before, (g) was shown only by a test and by reading `settings/engine.toml`.
 
 ### C. Extra: the real backfill into dev: done
 
@@ -196,18 +241,29 @@ marked failed ("abandoned") when the same job next starts. The reconciliation
 also runs last in the nightly jobs (SD-22, ENG-07). Test:
 `test_every_sync_and_reconciliation_run_is_recorded`.
 
+### E. Extra: an alert for job runs stuck "running": done (1 Oct 2026 audit)
+
+`watch.stuck_runs` (run by the watcher, part 7) reads `ml_job_runs` for runs still
+`outcome: running` more than **2 hours** after `started_at`
+(`writers.read_running_jobs`) and raises `alert("job_stuck", …)` for each, with the
+job, method, run id and start time. A killed process runs no handler, so its run
+would otherwise stay "running" until the same job next starts (extra D). ENG-07:
+"ml_job_runs shows the failure". *Choice: the pack sets no time. Rule it must
+satisfy: well past any Wave 1A job on today's data, so a slow run is not reported.*
+Test: `tests/test_watch.py::test_a_run_left_running_too_long_is_alerted`.
+
 ## 3. Configuration reference
 
 No new environment variables. Settings (`settings/engine.toml`, `[events]`, validated in `reco/config/tunables.py`; from the Settings sheet):
 
 | Setting | Value | Rule |
 |---|---|---|
-| `sync_interval_minutes` | 5 | 1–15 (Settings sheet "Engine sync") |
+| `sync_interval_minutes` | 5 | fixed for Wave 1A since the 1 Oct audit (the sheet's 1–15 range is for later waves; ENG-02 §2 part 3) |
 | `sync_overlap_minutes` | 2 | fixed |
 | `sync_lag_alert_minutes` | 15 | fixed |
 | `retention_days` | 365 | fixed (at least 365, SD-29) |
 
-Code constants (choices, §2): `run.PAGE_SIZE = 500`; `reconcile.IST`; `reconcile.LISTED = 50`; `alerts.SERVICE_OWNER = "Allen"`.
+Code constants (choices, §2): `run.PAGE_SIZE = 500`; `reconcile.IST`; `reconcile.LISTED = 50`; `alerts.SERVICE_OWNER = "Allen"`; `watch.STUCK_AFTER = 2 h` (1 Oct audit).
 
 ---
 
@@ -219,7 +275,7 @@ Code constants (choices, §2): `run.PAGE_SIZE = 500`; `reconcile.IST`; `reconcil
 | test | Not yet: the server and its constructed data come with ENG-01 / ENG-29 item 8. The official check runs here |
 | production | Not yet. The backfill must run before the oldest rows reach the platform's 90 days |
 
-`sync_loop` is not yet scheduled anywhere; on a server it runs as its own long-lived job process (SDA: "the engine sync (every 5 minutes)"). `reconcile_sync` belongs after the 2 AM refreshes (ENG-07).
+The lag alert now runs in the API process (the watcher, part 7), so on a server the alert works as long as the API is up, whether or not `sync_loop` is. On the laptop this means an API started against `SoCo` without `sync_loop` running logs a `sync_lag` alert per source every 5 minutes once the copies are more than 15 minutes old: expected, and the reminder to run `sync_loop`. `sync_loop` is not yet scheduled anywhere; on a server it runs as its own long-lived job process (SDA: "the engine sync (every 5 minutes)"). `reconcile_sync` belongs after the 2 AM refreshes (ENG-07).
 
 ---
 
@@ -248,9 +304,16 @@ TEST_MONGO_TIMEOUT_MS=15000 .venv/bin/python -m pytest -q tests/test_sync.py
 - `tests/test_sync.py`: **16 passed** (11 database tests marked `mongo`, 5 without). Re-run the same day with `TEST_MONGO_DB=reco_test_eng04doc`: 16 passed.
 - Full suite at commit `6c4299c`: **541 passed, 1 skipped**.
 
-> Run the suite with its own `TEST_MONGO_DB` when another suite may be running: two runs sharing `reco_test` race on collection creation (`CollectionInvalid: … already exists`).
+**After the audit fixes, 1 Oct 2026:** `tests/test_sync.py` now has **19** tests
+(extra D's run-diary test, the out-of-order serve-log row, the tracking entry with
+no stage) and `tests/test_watch.py` 2 (stuck run; ENG-02's late settings record).
+Both **passed** (19 + 2), run with ENG-02's and ENG-03's files: 181 passed, 0
+failed. Whole suite after `964f4ec`: **634 passed, 1 skipped**. Demo step 8's
+selection: 10 passed, 9 deselected.
 
-`scripts/run_checklist.sh` section 4 runs these per check (4.1–4.9), then a real backfill from the platform into `reco_demo` (4.10, expects 3 sources with `backfill done`) and yesterday's real reconciliation (4.11, expects `"passed": true`).
+> ~~Run the suite with its own `TEST_MONGO_DB` when another suite may be running: two runs sharing `reco_test` race on collection creation.~~ Since 1 Oct (audit, `tests/conftest.py`) each run gets its own `reco_test_<pid>` and `reco_test_<pid>_platform`, dropped at the end; `TEST_MONGO_DB` still overrides.
+
+`scripts/run_checklist.sh` section 4 runs these per check (4.1–4.9), then a real backfill from the platform into `reco_demo` (4.10, expects 3 sources with `backfill done`; **4** since ENG-29) and yesterday's real reconciliation (4.11, expects `"passed": true`).
 
 ---
 
@@ -266,14 +329,14 @@ TEST_MONGO_TIMEOUT_MS=15000 .venv/bin/python -m pytest -q tests/test_sync.py
 # What has been copied, how far behind each source is, and the latest reconciliations (read-only).
 .venv/bin/python scripts/show_events.py
 
-# The lag alert on its own.
+# The lag alert on its own. (The API also runs it every 5 minutes, with the stuck-run alert: reco/monitoring/watch.py.)
 .venv/bin/python -m reco.jobs sync_check
 
 # Yesterday's reconciliation (IST day).
 .venv/bin/python -m reco.jobs reconcile_sync
 ```
 
-**When the alert fires** (`"alert": true`, `"owner": "Allen"` in the logs): read `reason` and `source`, check `scripts/show_events.py` for `last run failed` and the error in `ml_sync_state.last_run.error`, fix the cause (usually the platform connection), then run `python -m reco.jobs sync`. It restarts from the saved checkpoint (or the backfill's `after_id`); re-reads are upserts.
+**When the alert fires** (`"alert": true`, `"owner": "Allen"` in the logs): `reason: job_stuck` means a job run has said "running" for over 2 hours (killed or hung): check the process, then rerun the job. Otherwise read `reason` and `source`, check `scripts/show_events.py` for `last run failed` and the error in `ml_sync_state.last_run.error`, fix the cause (usually the platform connection), then run `python -m reco.jobs sync`. It restarts from the saved checkpoint (or the backfill's `after_id`); re-reads are upserts.
 
 **A reconciliation for a given day:** `reconcile.reconcile_day(settings, "YYYY-MM-DD")` (no CLI argument yet).
 
@@ -288,12 +351,12 @@ TEST_MONGO_TIMEOUT_MS=15000 .venv/bin/python -m pytest -q tests/test_sync.py
 | `updated_at` on every platform row, so the incremental read sees changes (0/146 postevents, 3/8 orders, 0/12 served lists on 1 Oct) | **APP-12** (Aravinth); verified by this reconciliation |
 | Run the checks (a)–(g) on test, then mark Passed | The test environment (ENG-01) and its constructed data (ENG-29 item 8) |
 | Run the backfill on test and production before rows reach 90 days | Those environments |
-| `rec_serve_log` added to the sync | **ENG-29** item 7, and APP-15 (the collection doesn't exist yet). Question to Kala: it has no `updated_at` (`Tracing/REALIGNMENT_v1.3.md`, Q3) |
+| `rec_serve_log` copied for real | ENG-29 item 7 added it to the sync; APP-15 (the collection doesn't exist yet). Q3 **answered 1 Oct**: append-only, no `updated_at` needed, read by `_id` with the overlap |
 | `tracking_info` as the order history; part 9 as the cross-check | **ENG-29** item 4 (the reconciliation already compares `tracking_info`) |
 | Schedule `sync_loop` and `reconcile_sync` | ENG-07 and the servers |
 | An alert channel beyond the log line | A decision (ENG-24 monitoring) |
 | DB-16 step 4: written confirmation that the reconciliation passed 7 days in a row | Allen, per environment, after APP-12 |
-| Do migrated `postevents` rows keep their `_id` and get an `updated_at`? | Kala / DB-16 (`Tracing/REALIGNMENT_v1.3.md`, Q10) |
+| ~~Do migrated `postevents` rows keep their `_id` and get an `updated_at`?~~ Q10 **answered 1 Oct**: not needed, the backfill runs after the migration (DB-16 step 4) and keys on `_id` (`Tracing/REALIGNMENT_v1.3.md`) | — |
 
 ---
 
@@ -313,6 +376,19 @@ Commit `6c4299c` (1 Oct 2026):
 | `scripts/show_events.py` | Shows sync state and reconciliation results |
 | `scripts/run_checklist.sh` | Section 4 (4.1–4.11) |
 | `tests/test_sync.py` | New: 16 tests |
+
+1 Oct 2026, audit (`6c3ef46`, `2b585af`, `964f4ec`):
+
+| File | Change |
+|---|---|
+| `reco/monitoring/watch.py` | New: `watch_loop`, `watch_once`, `stuck_runs` (part 7, extra E) |
+| `reco/main.py` | Starts and stops the watcher with the API |
+| `reco/store/writers.py` | `read_running_jobs` |
+| `reco/sync/copies.py` | `rec_serve_log` append-only, time field `at`, compared `origin`/`outcome`/`elapsed_ms`; status history ignores case; unknown tracking stages logged |
+| `reco/sync/run.py` | Append-only incremental read by `_id`, with the overlap re-read |
+| `reco/platform/records.py` | `parse_serve_log` reads `at` first (F80) |
+| `scripts/show_events.py` | Prints the retention (check g) |
+| `tests/test_sync.py`, `tests/test_watch.py`, `tests/test_platform_dataset.py` | Two sync tests; the watcher tests; serve-log copies counted as distinct rows |
 
 ## 9. Demo
 
