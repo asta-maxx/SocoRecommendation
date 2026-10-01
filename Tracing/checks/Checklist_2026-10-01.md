@@ -17,3 +17,9 @@ login (DB-02), the private network (DB-12).
 ## Run 3, after ENG-29 (1 Oct)
 
 Commit `485fe77`: **62 passed, 0 failed** (section 8, ENG-29, lines 8.1–8.9, added; 4.10 now expects four sync sources).
+
+## Run 4, after ENG-08 and the audit fixes (1 Oct)
+
+Commit `42e539b`: **67 passed, 1 failed** of 68.
+
+The one failure is 6.4, the product surface over HTTP. On dev every product is left out (E-07 x143, E-08 x857 per 1,000 read): the two import sellers have no `status`, and the engine counts that as not active until Aravinth answers question 17. So the rail is empty and the request reads the whole 1,000-row window (p95 about 350 ms from the laptop). It is a data question, not a code fault.

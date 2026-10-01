@@ -134,7 +134,7 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 - **Anything else:** it's a real problem. Note which line failed and look at the message under it.
 
 ## Last full run
-1 Oct 2026, after ENG-29: **62 passed, 0 failed** (commit `485fe77`). Earlier the same day, before ENG-29: 53 of 53. Record: `Tracing/checks/Checklist_2026-10-01.md`.
+1 Oct 2026, after ENG-08 and the audit fixes: **67 of 68 passed** (commit `42e539b`). The one failure is **6.4**: the product rail is empty on dev because every seller there has no status, which the rules count as "not active" until Aravinth answers (question 17). Record: `Tracing/checks/Checklist_2026-10-01.md`.
 
 Earlier: 29 Sep 2026, on the 22 Sep design: 31 passed, 0 failed (`Tracing/checks/Checklist_2026-09-29.md`).
 
