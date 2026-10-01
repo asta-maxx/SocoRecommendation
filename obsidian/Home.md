@@ -42,6 +42,7 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[ENG-05 - Same method for each user]]: built on laptop, 1 Oct
 - [[ENG-06 - Serve a recommendation list]]: in progress; serving and recording work, real ranking waits on later tasks
 - [[ENG-07 - Nightly jobs]]: built on laptop, 1 Oct; more jobs join as their tasks are built
+- [[ENG-29 - Adapting to the platform as built]]: built on dev, 1 Oct; the category map still to fill
 
 ## Demos
 - [[Checklist]]: one command that checks everything still works
@@ -53,3 +54,4 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[Demo - ENG-05]]: the same method for each user
 - [[Demo - ENG-06]]: serving a list and its record
 - [[Demo - ENG-07]]: nightly jobs, and a job killed halfway
+- [[Demo - ENG-29]]: adapting to the platform as built

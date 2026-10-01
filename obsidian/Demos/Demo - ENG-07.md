@@ -5,6 +5,8 @@ duration: about 8 minutes
 ---
 # Demo: ENG-07, nightly jobs that never show a half-finished batch
 
+> [!note] Since 1 Oct (ENG-29) the settings file is **version 3**. Where the outputs below show version 2 (`cfg2…`, `config_version 2`), a rehearsal today shows 3. Nothing else changes.
+
 ## What this demo proves
 The Build List's check for ENG-07: *"Kill a job halfway: requests keep reading the previous batch. ml_job_runs shows the failure."*
 

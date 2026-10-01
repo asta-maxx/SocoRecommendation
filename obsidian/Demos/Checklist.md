@@ -67,7 +67,7 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 4.7 | (e) A failure before the bookmark is saved reads that batch again (tests) |
 | 4.8 | (f) The alert fires when the sync is behind, and when a run fails (tests) |
 | 4.9 | (g) Copies are kept 365 days from when the event really happened (tests) |
-| 4.10 | A real backfill from SOCO's data into the throwaway database finishes for all three collections |
+| 4.10 | A real backfill from SOCO's data into the throwaway database finishes for all four collections (the serve log joined with ENG-29) |
 | 4.11 | A real audit of yesterday passes |
 
 ### 5. ENG-05: the same method for each user → [[ENG-05 - Same method for each user]]
@@ -98,6 +98,19 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 7.4 | A killed run is recorded as failed and never read (tests) |
 | 7.5 | A real kill (SIGKILL) halfway: requests still read the previous batch, and the run diary shows the failure |
 | 7.6 | A real nightly run: both interest methods end up current |
+
+### 8. ENG-29: adapting to the platform as built → [[ENG-29 - Adapting to the platform as built]]
+| Line | Checks |
+|---|---|
+| 8.1 | The made-up test data covers every SOCO collection the engine reads, and all of it reads correctly (tests) |
+| 8.2 | A category outside the 23 is reported, and its items are left out until the map covers it (tests) |
+| 8.3 | Test-account and exemption lists respect their expiry, changes are logged, and a test account is left out of scoring (tests) |
+| 8.4 | An order's history is read from its tracking notes: first delivery, return request, who cancelled (tests) |
+| 8.5 | A product post on a feed list keeps the post's ID and the product's ID apart (tests) |
+| 8.6 | Serve-log rows are read and copied (tests) |
+| 8.7 | Status spellings from the settings (tests) |
+| 8.8 | The real daily category check runs on SOCO's data |
+| 8.9 | The engine's test database holds the made-up data |
 
 ### Last line: clean up
 | Line | Checks |

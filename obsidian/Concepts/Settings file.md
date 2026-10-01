@@ -8,7 +8,7 @@ The engine uses lots of **numbers**: how much a "like" counts, how fast old acti
 Since pack v1.3 it also holds:
 - **Surface modes:** for the feed and for product pages, each is `off`, `internal` (engine lists only for the test accounts, for checks before launch) or `live`. Both start `off`.
 - **The engine sync's timings:** a read every 5 minutes, a 2-minute overlap, an alert when more than 15 minutes behind → [[Engine sync]].
-- **Lists:** the category map, order-status spellings, exemptions and test accounts. Each entry says who changed it and when it expires.
+- **Lists:** the category map, status spellings, the words that mark each step of an order's history ("Delivered…", "Cancelled by seller"), exemptions and test accounts. Each account entry says why, who changed it and when it expires → [[ENG-29 - Adapting to the platform as built]].
 
 ## The rules for it (from the pack)
 - **One file** holds every one of those numbers, and nothing else. Passwords never go in it → [[Secrets and passwords]].

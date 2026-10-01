@@ -38,6 +38,8 @@ The Build List v1.3 row, verbatim:
 - **Item 4:** *"tracking_info (APP-08) is the history of each order … Status changes the sync observes itself (ENG-04 point 9, if built) are kept as a cross-check only. The daily reconciliation compares tracking_info in place of statusLog and return_info."* The platform has no `statusLog` or `return_info`. This item already compares `tracking_info` (§2.8); part 9 is built and kept as the cross-check.
 - **Item 7:** *"Add rec_serve_log (APP-15) to the sync, read the same way as recommendationrequests."* Not in this item: `rec_serve_log` doesn't exist on the platform yet, and ENG-29 adds it to `SYNC_SOURCES`.
 
+> **Since ENG-29 (1 Oct 2026, `f7c82f3`):** the sync has a **fourth source**, `rec_serve_log` → `ml_events` (`event_type: serve_log`; compared fields `origin`, `outcome`, `elapsed_ms`, `updated_at`), and the order copies carry the `tracking_info` stages and times (ENG-29 items 4 and 7). The collection doesn't exist on dev yet (APP-15), so it copies 0 rows. Checklist line 4.10 now expects **4** sources with `backfill done`. See `docs/engineering/ENG-29.md` §2.7.
+
 **Settings sheet (fixed for Wave 1A):** Engine sync *"every 5 minutes, re-reading a 2-minute overlap; alert when more than 15 minutes behind"* (range 1 to 15 minutes); Keep event data *"engine copies: at least 365 days from the event time"*.
 
 ---

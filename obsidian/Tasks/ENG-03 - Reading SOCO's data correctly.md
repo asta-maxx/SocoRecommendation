@@ -140,6 +140,9 @@ Other things the data showed on 1 Oct:
 - **1 Oct 2026:** where a product has no category path yet, its single category field is used, under the same "one of the 23 or dropped" rule.
 - **1 Oct 2026:** the order history comes from `tracking_info`, as ENG-29 says, since SOCO has no separate status log or return record.
 
+> [!note] Added on top since (1 Oct 2026)
+> [[ENG-29 - Adapting to the platform as built]] built on these readers: status **spellings** from the settings, the **steps** of an order's tracking (each one named, with who acted and when it was first delivered, returned or cancelled), a reader for SOCO's **serve log**, and one helper for the **test and exempt account** lists.
+
 ## Still to do
 | What | Waiting on |
 |---|---|

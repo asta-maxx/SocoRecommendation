@@ -104,6 +104,9 @@ The Build List splits ENG-04 into nine numbered parts (1–9). There are three e
 - **Why it matters:** the pack wants every job run recorded (SD-21). A run that quietly stopped shows up as failed instead of vanishing.
 - **Status:** done, 1 Oct. → [[Nightly batches]]
 
+> [!note] Since ENG-29 (1 Oct 2026): a fourth source
+> The sync now also copies SOCO's **serve log** (`rec_serve_log`), next to activity, orders and served lists ([[ENG-29 - Adapting to the platform as built]], part 7). SOCO hasn't created it yet, so it copies 0 rows. The checklist line 4.10 now expects **4** sources with their first full copy done.
+
 ## Result (1 Oct 2026)
 - All nine parts are built. The pack's checks (a)–(g) each have a test, and all pass: **16 passed** in the sync's own tests (11 of them against a database).
 - The whole test suite passed at the time of the change: **541 passed, 1 skipped**.

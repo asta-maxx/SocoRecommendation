@@ -5,6 +5,8 @@ duration: about 5 minutes
 ---
 # Demo: ENG-05, the same method for each user
 
+> [!note] Since 1 Oct (ENG-29) the settings file is **version 3**. Where the outputs below show version 2 (`cfg2…`, `config_version 2`), a rehearsal today shows 3. Nothing else changes.
+
 ## What this demo proves
 The Build List's check for ENG-05: *"The same user gets the same method across two restarts. Changing a split changes assignment with no deploy. Over 10,000 test ids, the split is within 2 points."*
 

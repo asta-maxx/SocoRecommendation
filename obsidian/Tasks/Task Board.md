@@ -16,6 +16,7 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 ## Step 2: serving lists
 - [ ] [[ENG-06 - Serve a recommendation list]]: **in progress** (1 Oct: serving, record, modes, exploration and errors work; interim newest-first lists until ENG-08, ENG-09, ENG-17, ENG-19 and ENG-29) · [[Demo - ENG-06|demo]]
 - [ ] [[ENG-07 - Nightly jobs]]: **built** (1 Oct, laptop: batches, run diary, 2 AM scheduler, M1; other jobs join with their tasks) · [[Demo - ENG-07|demo]]
+- [ ] [[ENG-29 - Adapting to the platform as built]]: **built** (1 Oct, dev: tracking stages, spellings, account lists, daily category check, serve log in the sync, made-up test data; the category map is yours to fill) · [[Demo - ENG-29|demo]]
 - [ ] ENG-08: Filters (blocked, hidden, out of stock…)
 - [ ] ENG-09: Fallback ladder for new users
 - [ ] ENG-10: Interest score on real data

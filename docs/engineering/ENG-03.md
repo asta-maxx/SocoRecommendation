@@ -50,6 +50,14 @@ stored `Return Requested` / `Returned` values (items 2 and 5), and there is no
 delivered-list record or `engine_position` (item 7). The records below are built
 that way.
 
+> **Added on top by ENG-29 (1 Oct 2026, `f7c82f3`):** status spellings from the
+> settings (`lists.status_spellings`, used by `status_is` and `spellings_of`),
+> tracking stages and actors on each `tracking_info` entry (`lists.tracking_stages`;
+> `delivered_at`, `return_requested_at`, `returned_at`, `cancelled_at`), the
+> `serve_log` record kind (`parse_serve_log`), and the account lists helper
+> (`reco/config/accounts.py`). See `docs/engineering/ENG-29.md` and, in the vault,
+> `obsidian/Tasks/ENG-29 - Adapting to the platform as built.md`.
+
 ---
 
 ## 2. What was built, subtask by subtask

@@ -5,6 +5,8 @@ duration: about 8 minutes
 ---
 # Demo: ENG-06, ask for a list, check its receipt, switch a surface off
 
+> [!note] Since 1 Oct (ENG-29) the settings file is **version 3**. Where the outputs below show version 2 (`cfg2…`, `config_version 2`), a rehearsal today shows 3. Nothing else changes.
+
 ## What this demo proves
 The Build List's check for ENG-06: *"A request returns within 200 ms on test, and one request record exists with served_items matching the response. Setting a surface to off returns 503."*
 
