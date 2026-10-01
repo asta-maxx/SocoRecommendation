@@ -39,6 +39,14 @@ def test_the_next_run_is_2am_ist(now: str, due: str) -> None:
     assert scheduler.next_run(datetime.fromisoformat(now)) == datetime.fromisoformat(due)
 
 
+def test_the_run_time_is_the_setting_and_reconciliation_runs_last() -> None:
+    from reco.config import live
+
+    assert live.current().interest.refresh_time_ist == "02:00"  # SD-22, the Settings sheet
+    assert scheduler.next_run(datetime.fromisoformat("2026-10-01T03:00:00+05:30"), "03:30") == datetime.fromisoformat("2026-10-01T03:30:00+05:30")
+    assert scheduler.NIGHTLY[-1] == "reconcile_sync"
+
+
 async def test_a_failed_nightly_job_does_not_stop_the_others(monkeypatch, caplog) -> None:
     ran = []
 

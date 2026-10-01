@@ -152,7 +152,7 @@ pkill -f "uvicorn reco.main:app --port 8192" >/dev/null 2>&1
 
 echo "== 7. ENG-07: daily refresh jobs (throwaway reco_demo)"
 T="$PY -m pytest -q tests/test_nightly.py -p no:cacheprovider"
-check "7.1 the scheduler runs at 2 AM IST; one failed job doesn't stop the rest" "$T -k '2am or does_not_stop'" "4 passed"
+check "7.1 the scheduler runs at the set time (2 AM IST), reconciliation last; one failed job doesn't stop the rest" "$T -k '2am or does_not_stop or run_time'" "5 passed"
 check "7.2 a batch is read only once complete; rows carry provenance" "TEST_MONGO_TIMEOUT_MS=15000 $T -k 'current or provenance or replaces'" "3 passed"
 check "7.3 a failure halfway keeps the previous batch" "TEST_MONGO_TIMEOUT_MS=15000 $T -k halfway" "1 passed"
 check "7.4 a killed run is recorded as failed and never read" "TEST_MONGO_TIMEOUT_MS=15000 $T -k killed" "1 passed"
