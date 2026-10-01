@@ -20,3 +20,11 @@ same turn:
 Follow the `update-docs` skill (`.claude/skills/update-docs/SKILL.md`) for the
 layout, templates and style. Run its link check before reporting the work as
 done. Work isn't finished until both are updated.
+
+## Picking up the work
+
+Start with `Tracing/CONTINUE_ON_ANOTHER_LAPTOP.md` (setup, state, open items, next
+steps). The pack's text, for reading and searching, is in `Tracing/pack_text/`
+(regenerate with `python3 scripts/extract_pack.py`). Before calling a task done,
+check its Build List row line by line against the code and tests
+(`Tracing/AUDIT_2026-10-01.md` shows how).
