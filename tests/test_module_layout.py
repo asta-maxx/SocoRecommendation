@@ -17,7 +17,7 @@ PACKAGE = Path(__file__).resolve().parents[1] / "reco"
 #: SD-05, in the order the agreement lists them.
 MODULES = (
     "api", "config", "slots", "store", "platform", "eligibility",
-    "ranking", "fallback", "events", "jobs", "fraud", "monitoring",
+    "ranking", "fallback", "sync", "jobs", "fraud", "monitoring",
 )
 
 #: Calls that change a database. Only reco/store may make them.

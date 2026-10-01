@@ -1,6 +1,6 @@
 # SOCO recommendation engine: settings. ENG-02, SD-07.
 #
-# Every value on the Wave 1A Build List's Settings sheet, and nothing else.
+# Every value on the Wave 1A Build List's Settings sheet (v1.3), and nothing else.
 # Passwords, tokens and connection strings never go here (SD-08).
 #
 # HOW TO CHANGE A VALUE
@@ -13,7 +13,7 @@
 # config_version is rejected: the engine keeps the last good version and logs
 # the fault. "fixed" means the sheet fixes the value for Wave 1A.
 
-config_version = "1"
+config_version = "2"
 changed_by = "Allen"
 
 [serving]
@@ -26,8 +26,8 @@ circuit_breaker_failures = 5             # 3-20. APP-15
 circuit_breaker_test_call_seconds = 30   # 10-300
 over_fetch_items = 0                     # fixed: the engine applies every filter and returns exactly `limit`
 cache_max_seconds = 60                   # fixed. APP-15
-surface_mode_feed = "off"                # off | live. Live only once its checks pass (ENG-24)
-surface_mode_product = "off"             # off | live
+surface_mode_feed = "off"                # off | internal | live. Live only once its checks pass (ENG-24);
+surface_mode_product = "off"             #   internal = engine lists for lists.test_accounts only (SD-10)
 sample_random_percent = 10               # 1-100. ENG-06: plus every returned item, and all of an exploration list
 exploration_percent = 5                  # 3-5. Feed only, never product
 exploration_top_kept = 3                 # fixed
@@ -57,13 +57,15 @@ qualified_view_seconds = 3               # 1-10. APP-00, ENG-10
 qualified_view_visible_fraction = 0.5    # 0.1-1.0
 app_batch_seconds = 10                   # fixed. APP-12 (app side): every 10 s, or 20 events, or backgrounding
 app_batch_events = 20                    # fixed
-forward_batch_max = 100                  # fixed. APP-12, ENG-04
-forward_timeout_seconds = 2              # fixed
-retention_days = 365                     # fixed: at least this. No expiry on postevents
-session_background_minutes = 30          # fixed. APP-01
+sync_interval_minutes = 5                # 1-15. ENG-04 engine sync (replaces the retired SOCO_BE forward)
+sync_overlap_minutes = 2                 # fixed: each read re-reads a 2-minute overlap
+sync_lag_alert_minutes = 15              # fixed: alert when a source is more than 15 minutes behind
+retention_days = 365                     # fixed: engine copies kept at least this long from the event time (SD-29)
+session_away_minutes = 30                # fixed. APP-01: new session after 30 minutes or more away
 
 [filters]
 feedback_hide_days = 90                  # 30-365. ENG-08 (E-03)
+eligibility_refresh_minutes = 15         # 5-60. ENG-27, ENG-08: full re-read of posts, accounts, products
 
 # M1 interest. ENG-09, ENG-10.
 [interest]
@@ -211,3 +213,24 @@ min_relative_lift = 0.03
 confidence = 0.95
 rollback_drop = 0.05
 cycle_days = 14
+
+# Lists. ENG-29, Settings sheet "Lists". Maintained by Allen: every change raises
+# config_version and is logged in ml_config_changes.
+[lists]
+# Platform category (name, any case) -> one of the 23. Every category in use must
+# be mapped; unmapped ones are reported daily and left out of category scoring.
+category_map = {}
+# Status spellings compared ignoring case: stored spelling -> compared value.
+status_spellings = {}
+# Exemptions: flagged, never actioned. Test accounts: left out of learning,
+# measurement and fraud; the accounts internal mode serves. Each entry:
+#   { account_id = "<24-char id>", reason = "...", expiry = 2026-12-31, changed_by = "Allen" }
+exemptions = []
+test_accounts = []
+
+[lists.order_status]                     # the exact stored order_status values (AS-23, ENG-23 V8)
+delivered = "Delivered"
+cancelled = "Cancelled"
+rejected = "Rejected"
+return_requested = "Return Requested"
+returned = "Returned"

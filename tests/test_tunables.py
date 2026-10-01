@@ -12,6 +12,9 @@ from reco.config import Settings, live, sync
 from reco.config.tunables import Tunables
 
 FILE = Path(__file__).resolve().parents[1] / "settings" / "engine.toml"
+#: The committed file's version, and the next one (tests must not pin a number).
+V = tomllib.loads(FILE.read_text())["config_version"]
+NEXT = str(int(V) + 1)
 
 
 # --- the file holds the Settings sheet ----------------------------------------------
@@ -227,10 +230,10 @@ def _settings(path: str) -> Settings:
 async def test_start_puts_the_file_in_force_and_records_it(tmp_path: Path, change_log: FakeLog) -> None:
     await sync.load_at_start(_settings(_write(tmp_path, FILE.read_text())))
 
-    assert live.current().config_version == "1"
+    assert live.current().config_version == V
     assert live.state().source == "file"
     [record] = change_log.records
-    assert (record["config_version"], record["previous_version"], record["changed_by"]) == ("1", "0", "Allen")
+    assert (record["config_version"], record["previous_version"], record["changed_by"]) == (V, "0", "Allen")
 
 
 async def test_a_change_is_picked_up_on_reload_and_logged(tmp_path: Path, change_log: FakeLog) -> None:
@@ -239,7 +242,7 @@ async def test_a_change_is_picked_up_on_reload_and_logged(tmp_path: Path, change
 
     Path(path).write_text(
         FILE.read_text()
-        .replace('config_version = "1"', 'config_version = "2"')
+        .replace(f'config_version = "{V}"', f'config_version = "{NEXT}"')
         .replace('changed_by = "Allen"', 'changed_by = "Kala"')
         .replace("stale_after_hours = 48", "stale_after_hours = 60")
     )
@@ -247,7 +250,7 @@ async def test_a_change_is_picked_up_on_reload_and_logged(tmp_path: Path, change
 
     assert live.current().interest.stale_after_hours == 60
     record = change_log.records[-1]
-    assert record["changed_by"] == "Kala" and record["previous_version"] == "1"
+    assert record["changed_by"] == "Kala" and record["previous_version"] == V
     assert record["changes"] == [{"key": "interest.stale_after_hours", "old": 48, "new": 60}]
     assert record["values"]["interest"]["stale_after_hours"] == 60
 
@@ -259,7 +262,7 @@ async def test_a_broken_file_keeps_the_last_good_version(tmp_path: Path, change_
     Path(path).write_text("this is = not [valid")
     await sync.reload(_settings(path))
 
-    assert live.current().config_version == "1"  # still in force
+    assert live.current().config_version == V  # still in force
     assert len(change_log.records) == 1  # nothing recorded for the broken file
 
 
@@ -301,7 +304,7 @@ async def test_the_same_version_as_recorded_is_not_recorded_twice(tmp_path: Path
     await sync.load_at_start(_settings(path))
     await sync.load_at_start(_settings(path))
 
-    assert [r["config_version"] for r in change_log.records] == ["1"]
+    assert [r["config_version"] for r in change_log.records] == [V]
 
 
 # --- the change log in a real database -------------------------------------------

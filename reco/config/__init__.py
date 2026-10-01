@@ -230,8 +230,9 @@ class Settings(BaseModel):
     settings_file: str = "settings/engine.toml"
 
     # --- Tokens (SD-08: server environment only, never a file in production) -
-    # ENG-04: SOCO_BE sends Authorization: Bearer <INGEST_TOKEN> on
-    # POST /v1/events (and, AS-04, on POST /v1/recommendations). repr=False, so
+    # DS-017 v2.5 section 3, AS-04: SOCO_BE sends Authorization: Bearer
+    # <INGEST_TOKEN> on POST /v1/recommendations (the name is kept for the
+    # serving token; POST /v1/events is retired). repr=False, so
     # it never appears in a log line, error page or test header. Empty means no
     # token is configured, and every call is refused.
     ingest_token: str = Field(default="", repr=False)

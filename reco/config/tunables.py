@@ -15,6 +15,7 @@ in the server environment (SD-08) and in reco.config.Settings.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -55,10 +56,13 @@ class Serving(_Section):
     circuit_breaker_test_call_seconds: int = between(30, 10, 300)
     over_fetch_items: int = fixed(0)  # ENG-06: the engine returns exactly `limit`
     cache_max_seconds: int = fixed(60)  # APP-15
-    #: ENG-06, ENG-24. The sheet's value is "live, each only if its checks pass".
-    #: The checks have not passed, so both are off until ENG-24 switches them.
-    surface_mode_feed: Literal["off", "live"] = "off"
-    surface_mode_product: Literal["off", "live"] = "off"
+    #: ENG-06, ENG-24, SD-10. off, internal or live -- no shadow mode. Internal
+    #: gives engine lists only to the test accounts in lists.test_accounts (503
+    #: to everyone else), for checks on production before launch. The sheet's
+    #: value is "live, each only if its checks pass"; none has passed, so both
+    #: are off until ENG-24 switches them.
+    surface_mode_feed: Literal["off", "internal", "live"] = "off"
+    surface_mode_product: Literal["off", "internal", "live"] = "off"
     sample_random_percent: int = between(10, 1, 100)  # ENG-06
     exploration_percent: int = between(5, 3, 5)  # ENG-06, feed only
     exploration_top_kept: int = fixed(3)
@@ -101,14 +105,22 @@ class Events(_Section):
     qualified_view_visible_fraction: float = between(0.5, 0.1, 1.0)
     app_batch_seconds: int = fixed(10)  # APP-12 (app side)
     app_batch_events: int = fixed(20)
-    forward_batch_max: int = fixed(100)  # APP-12, ENG-04
-    forward_timeout_seconds: int = fixed(2)
-    retention_days: int = fixed(365)  # DB-01, ENG-04: at least this; no expiry on postevents
-    session_background_minutes: int = fixed(30)  # APP-01
+    #: ENG-04 engine sync (replaces the retired SOCO_BE forward): every 5
+    #: minutes, re-reading a 2-minute overlap; alert when more than 15 minutes behind.
+    sync_interval_minutes: int = between(5, 1, 15)
+    sync_overlap_minutes: int = fixed(2)
+    sync_lag_alert_minutes: int = fixed(15)
+    #: DB-01, ENG-04, SD-29: engine copies kept at least this many days from the
+    #: original event time, under the engine's own expiry (the platform keeps 90).
+    retention_days: int = fixed(365)
+    session_away_minutes: int = fixed(30)  # APP-01: new session after 30 minutes or more away
 
 
 class Filters(_Section):
     feedback_hide_days: int = between(90, 30, 365)  # ENG-08, E-03
+    #: ENG-27, ENG-08: full re-read of posts, accounts and products; completed
+    #: refreshes only; blocks, visibility and stock re-checked on returned items.
+    eligibility_refresh_minutes: int = between(15, 5, 60)
 
 
 # --- M1 interest -----------------------------------------------------------------
@@ -391,6 +403,60 @@ class Comparison(_Section):
     cycle_days: int = fixed(14)
 
 
+# --- Lists (ENG-29, Settings sheet "Lists") ------------------------------------------
+
+
+class AccountEntry(_Section):
+    """An exemption or test-account entry: account id, reason, expiry, who changed it."""
+
+    account_id: str
+    reason: str
+    expiry: date
+    changed_by: str
+
+    @field_validator("account_id")
+    @classmethod
+    def _account(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) != 24 or any(c not in "0123456789abcdef" for c in v.lower()):
+            raise ValueError(f"account_id must be a 24-character id, got {v!r}")
+        return v.lower()
+
+    @field_validator("reason", "changed_by")
+    @classmethod
+    def _filled(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("reason and changed_by must not be blank")
+        return v.strip()
+
+
+class OrderStatusValues(_Section):
+    """The exact stored order_status values the engine reads (AS-23, ENG-23 V8)."""
+
+    delivered: str = "Delivered"
+    cancelled: str = "Cancelled"
+    rejected: str = "Rejected"
+    return_requested: str = "Return Requested"
+    returned: str = "Returned"
+
+
+class Lists(_Section):
+    """Maintained by Allen; every change is a new config_version, logged in ml_config_changes."""
+
+    #: Platform category (name, any case) -> one of the 23. Must cover every
+    #: category in use; unmapped categories are reported daily and left out of
+    #: category scoring until mapped, never guessed (ENG-29 item 1, X-20).
+    category_map: dict[str, str] = Field(default_factory=dict)
+    #: Status spellings, compared ignoring case: stored spelling -> the value the
+    #: engine compares with (ENG-29 item 2), e.g. {"activated": "activate"}.
+    status_spellings: dict[str, str] = Field(default_factory=dict)
+    order_status: OrderStatusValues = OrderStatusValues()
+    #: Flagged, never actioned (ENG-21, X-21).
+    exemptions: list[AccountEntry] = Field(default_factory=list)
+    #: Left out of learning, measurement and fraud; the accounts internal mode serves.
+    test_accounts: list[AccountEntry] = Field(default_factory=list)
+
+
 # --- the whole file -----------------------------------------------------------------
 
 
@@ -415,6 +481,7 @@ class Tunables(_Section):
     promoter: Promoter = Promoter()
     commerce: Commerce = Commerce()
     fraud: Fraud = Fraud()
+    lists: Lists = Lists()
     comparison: Comparison = Comparison()
 
     @field_validator("config_version", "changed_by")

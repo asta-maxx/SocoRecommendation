@@ -14,11 +14,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable
 
 from reco.config import Settings, get_settings, sync
-from reco.events.reconcile import reconcile_day
 from reco.jobs.refresh import refresh
 from reco.monitoring.logs import configure_logging, job_logger, job_run
 from reco.platform import connection as platform_conn
@@ -44,17 +42,10 @@ async def _interest(settings: Settings) -> None:
             )
 
 
-async def _reconcile_events(settings: Settings) -> None:
-    """ENG-04 item 7: compare yesterday (UTC) in ml_events with the old collections."""
-    day = (datetime.now(timezone.utc) - timedelta(days=1)).date()
-    async with job_run("reconcile_events", day=day.isoformat()):
-        await reconcile_day(settings, day)
-
 
 #: Job name -> what it runs. ENG-07 adds the rest of the nightly jobs here.
 JOBS: dict[str, Callable[[Settings], Awaitable[None]]] = {
     "interest": _interest,
-    "reconcile_events": _reconcile_events,
 }
 
 

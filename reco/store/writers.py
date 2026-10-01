@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from typing import Any, Iterable
 
 from pymongo import DESCENDING, UpdateOne
-from pymongo.errors import BulkWriteError, DuplicateKeyError
+from pymongo.errors import DuplicateKeyError
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -340,80 +340,3 @@ async def read_latest_config_change(settings: Settings) -> dict[str, Any] | None
     """The most recent settings change, with its full snapshot, or None."""
     changes = ml_db(settings)["ml_config_changes"]
     return await changes.find_one({}, sort=[("changed_at", DESCENDING)])
-
-
-async def insert_events(settings: Settings, documents: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
-    """Store events in ml_events. ENG-04 items 4-5.
-
-    The unique index on event_id (ENG-01) is the de-duplication: an event whose
-    event_id is already stored -- a retry, or a repeat within the same batch --
-    is refused by the database, not overwritten. Returns (stored event_ids,
-    duplicate event_ids).
-    """
-    if not documents:
-        return [], []
-    events = _collection(ml_db(settings), "ml_events")
-    duplicates: set[int] = set()
-    try:
-        await events.insert_many([dict(d) for d in documents], ordered=False)
-    except BulkWriteError as exc:
-        for error in exc.details.get("writeErrors", []):
-            if error.get("code") == 11000:
-                duplicates.add(error["index"])
-            else:
-                raise
-    stored = [d["event_id"] for i, d in enumerate(documents) if i not in duplicates]
-    duplicate = [d["event_id"] for i, d in enumerate(documents) if i in duplicates]
-    return stored, duplicate
-
-
-# --- ENG-04 item 7: reconciliation results and the switch date ------------------------
-
-
-async def read_events(settings: Settings, event_name: str, start: datetime, end: datetime) -> list[dict[str, Any]]:
-    """ml_events rows of one name with server_ts in [start, end)."""
-    events = ml_db(settings)["ml_events"]
-    return await events.find(
-        {"event_name": event_name, "server_ts": {"$gte": start, "$lt": end}}
-    ).to_list(None)
-
-
-async def record_reconciliation(settings: Settings, result: dict[str, Any]) -> None:
-    """One document per day in ml_measurements (measure 'event_reconciliation').
-
-    Re-running a day replaces its result, so the latest run of a day is the one
-    that counts.
-    """
-    measurements = _collection(ml_db(settings), "ml_measurements")
-    await measurements.replace_one(
-        {"measure": "event_reconciliation", "day": result["day"]},
-        {"measure": "event_reconciliation", **result},
-        upsert=True,
-    )
-
-
-async def read_reconciliations(settings: Settings, days: list[str]) -> dict[str, dict[str, Any]]:
-    measurements = ml_db(settings)["ml_measurements"]
-    found = measurements.find({"measure": "event_reconciliation", "day": {"$in": days}})
-    return {doc["day"]: doc async for doc in found}
-
-
-async def record_switch_date(settings: Settings, switch_date: str, evidence: list[str]) -> bool:
-    """Record the ENG-03 switch date once. A date already recorded is never moved.
-
-    Returns True if this call recorded it.
-    """
-    measurements = _collection(ml_db(settings), "ml_measurements")
-    result = await measurements.update_one(
-        {"measure": "event_source_switch"},
-        {"$setOnInsert": {"measure": "event_source_switch", "switch_date": switch_date,
-                          "evidence_days": evidence, "recorded_at": datetime.now(timezone.utc)}},
-        upsert=True,
-    )
-    return result.upserted_id is not None
-
-
-async def read_switch_date(settings: Settings) -> str | None:
-    """The recorded switch date (YYYY-MM-DD), or None while there is none yet."""
-    doc = await ml_db(settings)["ml_measurements"].find_one({"measure": "event_source_switch"})
-    return doc["switch_date"] if doc else None
