@@ -110,7 +110,18 @@ check "3.4 ignored platform data is never read" "$PY -m pytest -q tests/test_pla
 check "3.5 every real platform document reads cleanly" "$PY scripts/check_platform_records.py" "PASS: 0 document(s) could not be read"
 
 echo "== 4. ENG-04: the engine sync"
-echo "  (rebuilt for pack v1.3: lines added with the sync)"
+T="$PY -m pytest -q tests/test_sync.py -p no:cacheprovider"
+check "4.1 copies keep source, ids, undo fields, E code; order history" "$T -k 'copy or e1 or history or three_sources'" "5 passed"
+check "4.2 backfill keyed on the platform _id, restartable" "TEST_MONGO_TIMEOUT_MS=15000 $T -k backfill" "2 passed"
+check "4.3 (a) reconciliation: ids and field values, mismatches re-read" "TEST_MONGO_TIMEOUT_MS=15000 $T -k reconciliation" "2 passed"
+check "4.4 (b) a like undone after copying updates the copy" "TEST_MONGO_TIMEOUT_MS=15000 $T -k undo" "1 passed"
+check "4.5 (c) an hour stopped: nothing lost, nothing doubled" "TEST_MONGO_TIMEOUT_MS=15000 $T -k hour_stopped" "1 passed"
+check "4.6 (d) same updated_at across a page boundary" "TEST_MONGO_TIMEOUT_MS=15000 $T -k page_boundary" "1 passed"
+check "4.7 (e) a failure before the checkpoint re-reads the batch" "TEST_MONGO_TIMEOUT_MS=15000 $T -k failure_before" "1 passed"
+check "4.8 (f) the alert fires: behind, and a failed run" "TEST_MONGO_TIMEOUT_MS=15000 $T -k alert_fires" "2 passed"
+check "4.9 (g) retention: 365 days on the original time" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_sync.py tests/test_engine_environment.py -p no:cacheprovider -k retention" " passed"
+check "4.10 real backfill from SOCO into reco_demo" "ML_MONGO_DB=reco_demo $PY -m reco.jobs sync && ML_MONGO_DB=reco_demo $PY scripts/show_events.py | grep -c 'backfill done'" "3"
+check "4.11 real reconciliation of yesterday passes" "ML_MONGO_DB=reco_demo $PY -m reco.jobs reconcile_sync" '"passed": true'
 
 cleanup
 trap - EXIT

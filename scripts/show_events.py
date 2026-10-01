@@ -36,9 +36,19 @@ async def main() -> int:
         print(f"ml_orders: {await db['ml_orders'].count_documents({})} orders")
         print("sync state:")
         async for state in db["ml_sync_state"].find({}):
+            backfill = state.get("backfill") or {}
+            run = state.get("last_run") or {}
             print(
-                f"  {state['_id']:26} backfill {'done' if state.get('backfill_done') else 'in progress'}"
-                f" | checkpoint {state.get('checkpoint_updated_at')} | last success {state.get('last_success_at')}"
+                f"  {state['_id']:26} backfill {'done' if backfill.get('done') else 'in progress'}"
+                f" ({backfill.get('copied', 0)} copied) | checkpoint {state.get('checkpoint')}"
+                f" | current as of {state.get('current_as_of')} | last run {run.get('outcome')}"
+            )
+        print("reconciliation:")
+        async for r in db["ml_measurements"].find({"measure": "sync_reconciliation"}).sort("day", -1).limit(9):
+            print(
+                f"  {r['day']}  {r['source']:26} {'PASSED' if r['passed'] else 'NOT PASSED'}"
+                f"  ids {r['platform_ids']}/{r['engine_ids']}  missing {r['missing']}"
+                f"  mismatched {r['mismatched']}  extra {r['extra']}  re-read {r['reread']}"
             )
     finally:
         await store_conn.close_client()

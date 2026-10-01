@@ -4,6 +4,10 @@ The same codebase as the API, started the other way: it runs scheduled work and
 exits. Nothing here serves a request, so a failed job never touches the feed.
 
     python -m reco.jobs interest            # M1, both Wave 1A methods
+    python -m reco.jobs sync                # one engine sync pass (ENG-04)
+    python -m reco.jobs sync_loop           # a pass every sync_interval_minutes
+    python -m reco.jobs sync_check          # the sync lag alert, on its own
+    python -m reco.jobs reconcile_sync      # yesterday's reconciliation (IST day)
     python -m reco.jobs --list
 
 The 2 AM IST scheduler that calls these arrives with ENG-07.
@@ -23,6 +27,8 @@ from reco.platform import connection as platform_conn
 from reco.store import connection as store_conn
 from reco.store.scores import Method
 from reco.store.writers import ensure_engine_collections, ensure_indexes
+from reco.sync import reconcile as sync_reconcile
+from reco.sync import run as sync_run
 
 
 async def _interest(settings: Settings) -> None:
@@ -42,10 +48,41 @@ async def _interest(settings: Settings) -> None:
             )
 
 
+async def _sync(settings: Settings) -> None:
+    """ENG-04: one pass over postevents, orders and recommendationrequests."""
+    async with job_run("sync"):
+        copied = await sync_run.sync_once(settings)
+        job_logger.info("sync pass finished", extra={"job": "sync", "copied": copied})
+
+
+async def _sync_loop(settings: Settings) -> None:
+    async with job_run("sync_loop"):
+        await sync_run.sync_forever(settings)
+
+
+async def _sync_check(settings: Settings) -> None:
+    async with job_run("sync_check"):
+        statuses = await sync_run.check_lag(settings)
+        job_logger.info("sync lag", extra={"job": "sync_check", "sources": statuses})
+
+
+async def _reconcile_sync(settings: Settings) -> None:
+    async with job_run("reconcile_sync"):
+        results = await sync_reconcile.reconcile_day(settings)
+        job_logger.info(
+            "sync reconciliation finished",
+            extra={"job": "reconcile_sync", "passed": all(r["passed"] for r in results),
+                   "sources": {r["source"]: r["passed"] for r in results}},
+        )
+
 
 #: Job name -> what it runs. ENG-07 adds the rest of the nightly jobs here.
 JOBS: dict[str, Callable[[Settings], Awaitable[None]]] = {
     "interest": _interest,
+    "sync": _sync,
+    "sync_loop": _sync_loop,
+    "sync_check": _sync_check,
+    "reconcile_sync": _reconcile_sync,
 }
 
 

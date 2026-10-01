@@ -340,3 +340,59 @@ async def read_latest_config_change(settings: Settings) -> dict[str, Any] | None
     """The most recent settings change, with its full snapshot, or None."""
     changes = ml_db(settings)["ml_config_changes"]
     return await changes.find_one({}, sort=[("changed_at", DESCENDING)])
+
+
+# --- the engine sync (ENG-04) ------------------------------------------------------------
+
+
+async def upsert_copies(settings: Settings, target: str, copies: list[dict[str, Any]], copied_at: datetime) -> int:
+    """Write engine copies keyed on _id: a row already held is updated, never skipped
+    (ENG-04 item 3). first_copied_at is set once; created_at, the original event
+    time, comes from the platform row and never moves (SD-29)."""
+    if not copies:
+        return 0
+    collection = _collection(ml_db(settings), target)
+    operations = [
+        UpdateOne(
+            {"_id": copy["_id"]},
+            {"$set": {**{k: v for k, v in copy.items() if k != "_id"}, "last_copied_at": copied_at},
+             "$setOnInsert": {"first_copied_at": copied_at}},
+            upsert=True,
+        )
+        for copy in copies
+    ]
+    await collection.bulk_write(operations, ordered=True)
+    return len(operations)
+
+
+async def read_copies(settings: Settings, target: str, ids: list[Any]) -> dict[Any, dict[str, Any]]:
+    collection = ml_db(settings)[target]
+    return {doc["_id"]: doc async for doc in collection.find({"_id": {"$in": list(ids)}})}
+
+
+async def read_copies_touched(settings: Settings, target: str, source: str, start: datetime, end: datetime) -> list[dict[str, Any]]:
+    """Copies of `source` rows whose original time or updated_at falls in [start, end)."""
+    window = {"$gte": start, "$lt": end}
+    query = {"source": source, "$or": [{"created_at": window}, {"updated_at": window}]}
+    return await ml_db(settings)[target].find(query).to_list(None)
+
+
+async def read_sync_state(settings: Settings, source: str) -> dict[str, Any]:
+    return await ml_db(settings)["ml_sync_state"].find_one({"_id": source}) or {"_id": source}
+
+
+async def write_sync_state(settings: Settings, source: str, fields: dict[str, Any]) -> None:
+    """ml_sync_state: checkpoint and lag per source collection (ENG-04 item 4)."""
+    state = _collection(ml_db(settings), "ml_sync_state")
+    await state.update_one({"_id": source}, {"$set": fields}, upsert=True)
+
+
+async def read_all_sync_state(settings: Settings) -> list[dict[str, Any]]:
+    return await ml_db(settings)["ml_sync_state"].find({}).to_list(None)
+
+
+async def record_sync_reconciliation(settings: Settings, result: dict[str, Any]) -> None:
+    """One document per source collection per day in ml_measurements."""
+    measurements = _collection(ml_db(settings), "ml_measurements")
+    key = {"measure": "sync_reconciliation", "source": result["source"], "day": result["day"]}
+    await measurements.replace_one(key, {**key, **result}, upsert=True)
