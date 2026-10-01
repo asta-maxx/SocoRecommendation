@@ -131,7 +131,24 @@ check "5.3 10,000 ids: each split within 2 points" "$T -k ten_thousand" "4 passe
 check "5.4 missing settings: everyone gets the default, logged" "$T -k missing" "1 passed"
 check "5.5 the real settings file splits within 2 points" "$PY scripts/show_assignment.py | grep -c 'within 2 points'" "3"
 
-# == 6. ENG-06 goes here
+echo "== 6. ENG-06: serve a list and record it (throwaway reco_demo, port 8192)"
+check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "14 passed"
+check "6.2 constructed data: eligible newest first; record matches the response" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m mongo" "2 passed"
+sed 's/^surface_mode_feed = "off"/surface_mode_feed = "live"/; s/^surface_mode_product = "off"/surface_mode_product = "live"/' settings/engine.toml >"$WORK/serve.toml"
+SERVE_TOKEN="checklist-$RANDOM$RANDOM"
+INGEST_TOKEN="$SERVE_TOKEN" SETTINGS_FILE="$WORK/serve.toml" ML_MONGO_DB=reco_demo $PY -m uvicorn reco.main:app --port 8192 >"$WORK/serve.log" 2>&1 &
+disown
+if wait_for "curl -sf http://127.0.0.1:8192/health" 60; then
+  check "6.3 feed over HTTP: p95 within 200 ms; every record matches" "INGEST_TOKEN=$SERVE_TOKEN ML_MONGO_DB=reco_demo $PY scripts/try_recommendations.py http://127.0.0.1:8192 feed" "19 of 19"
+  check "6.4 product over HTTP: p95 within 200 ms; every record matches" "INGEST_TOKEN=$SERVE_TOKEN ML_MONGO_DB=reco_demo $PY scripts/try_recommendations.py http://127.0.0.1:8192 product" "19 of 19"
+  check "6.5 a wrong token is 401" "curl -s -X POST http://127.0.0.1:8192/v1/recommendations -H 'Authorization: Bearer wrong' -d '{}' -w ' HTTP%{http_code}'" "HTTP401"
+  V=$(sed -n 's/^config_version = "\([0-9]*\)"/\1/p' "$WORK/serve.toml"); NEXT=$((V + 1))
+  sed -i '' "s/config_version = \"$V\"/config_version = \"$NEXT\"/; s/^surface_mode_feed = \"live\"/surface_mode_feed = \"off\"/" "$WORK/serve.toml"
+  if wait_for "grep -q '\"settings changed\".*\"config_version\": \"$NEXT\"' '$WORK/serve.log'" 60; then
+    check "6.6 feed set to off (no restart): 503" "curl -s -X POST http://127.0.0.1:8192/v1/recommendations -H 'Authorization: Bearer $SERVE_TOKEN' -d '{\"user_id\":\"64f1c0ffee0000000000abcd\",\"surface\":\"feed\",\"page\":1,\"limit\":5,\"session_id\":\"ses_1\"}' -w ' HTTP%{http_code}'" "HTTP503"
+  else fail "6.6 feed set to off (no restart): 503" "the settings change was not picked up"; fi
+else fail "6.3 engine with live surfaces started" "$(tail -1 "$WORK/serve.log")"; fi
+pkill -f "uvicorn reco.main:app --port 8192" >/dev/null 2>&1
 
 echo "== 7. ENG-07: daily refresh jobs (throwaway reco_demo)"
 T="$PY -m pytest -q tests/test_nightly.py -p no:cacheprovider"

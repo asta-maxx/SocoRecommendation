@@ -93,10 +93,15 @@ def test_missing_settings_give_everyone_the_default_and_log_it(caplog) -> None:
     assert any("slot settings missing" in r.message for r in caplog.records)
 
 
-def test_policy_id_records_the_method() -> None:
-    put_in_force({"slots.product_ranking.split": 0})
+def test_policy_id_records_the_method_per_slot() -> None:
+    """DS-017 4.2: cfg<version>.<slot>-<method number> for each slot touched."""
+    put_in_force({"slots.product_ranking.split": 0, "slots.interest.split": 50})
     a = assign("product_ranking", USER)
-    assert policy_id(a) == f"cfg{live.current().config_version}.product_ranking-attribute_similarity"
+    v = live.current().config_version
+    assert policy_id(a) == f"cfg{v}.product_ranking-1"
+    both = assign_all(USER)
+    expected_interest = 2 if both["interest"].bucket < 50 else 1
+    assert policy_id(both["interest"], both["promoter_score"]).startswith(f"cfg{v}.interest-{expected_interest}.promoter_score-")
 
 
 def test_an_unknown_slot_is_refused() -> None:
@@ -108,3 +113,10 @@ def test_the_defaults_start_at_fifty_with_method_one_default() -> None:
     for slot in SLOT_NAMES:
         settings = getattr(Tunables().slots, slot)
         assert settings.split == 50 and settings.default_method == "method_one"
+
+
+def test_a_missing_user_id_gets_the_default_in_every_slot() -> None:
+    put_in_force({f"slots.{slot}.split": 50 for slot in SLOT_NAMES})
+    for slot in SLOT_NAMES:
+        a = assign(slot, "")
+        assert a.which == "method_one" and a.from_default

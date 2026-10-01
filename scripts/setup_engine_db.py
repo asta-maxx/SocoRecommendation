@@ -3,7 +3,7 @@
     ENGINE_ENV=dev  python scripts/setup_engine_db.py
     ENGINE_ENV=test python scripts/setup_engine_db.py
 
-Creates the twelve ml_ collections and the ml_events indexes, then confirms the
+Creates the sixteen ml_ collections and the ml_events indexes, then confirms the
 platform database answers on the read-only connection. Idempotent: run it again
 and nothing changes. Prints database names and hosts, never a connection string.
 """

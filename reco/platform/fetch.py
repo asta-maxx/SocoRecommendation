@@ -116,3 +116,35 @@ async def read_touched(settings: Settings, kind: str, time_fields: tuple[str, ..
         {"_id": {"$gte": ObjectId.from_datetime(start), "$lt": ObjectId.from_datetime(end)}},
     ]}
     return await app_db(settings)[PLATFORM_COLLECTIONS[kind]].find(query).to_list(None)
+
+
+# --- reads for serving (ENG-06) ---------------------------------------------------------
+
+#: The time each kind is ordered by, newest first.
+_NEWEST_BY = {"post": "timestamp", "product": "createdAt"}
+
+#: Narrowed at the database so fewer rows travel; the eligibility module still
+#: checks every record (ENG-06: re-checked when each list is built).
+_SERVABLE = {
+    "post": {"visibility": "public", "isHidden": {"$ne": True}},
+    "product": {"status": {"$regex": r"^\s*activate\s*$", "$options": "i"}, "availability.inStock": True},
+}
+
+_EMPTY_INDEX = ProductCategoryIndex()
+
+
+async def read_newest(settings: Settings, kind: str, limit: int, skip: int = 0) -> list[Any]:
+    """Posts or products, newest first, parsed. A serving read: products skip the
+    category lookup (no list built here needs a product's category yet)."""
+    if kind == "product":
+        parse: Callable[[dict[str, Any]], Any] = lambda doc: records.parse_product(doc, _EMPTY_INDEX)  # noqa: E731
+    else:
+        parse = await _parser(settings, kind)
+    cursor = (
+        app_db(settings)[PLATFORM_COLLECTIONS[kind]]
+        .find(_SERVABLE[kind])
+        .sort([(_NEWEST_BY[kind], -1), ("_id", -1)])
+        .skip(skip)
+        .limit(limit)
+    )
+    return [parse(doc) async for doc in cursor]

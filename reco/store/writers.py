@@ -475,3 +475,16 @@ async def delete_batches_except(
 
 async def read_job_runs(settings: Settings, limit: int = 20) -> list[dict[str, Any]]:
     return await ml_db(settings)["ml_job_runs"].find({}).sort("started_at", DESCENDING).limit(limit).to_list(None)
+
+
+# --- served lists (ENG-06) ----------------------------------------------------------------
+
+
+async def record_served_list(settings: Settings, record: dict[str, Any]) -> None:
+    """The engine's own E1 (recommendation_request) record, in ml_events, keyed on its
+    request_id. Written before the list is returned: no record, no list."""
+    await _collection(ml_db(settings), "ml_events").insert_one(record)
+
+
+async def read_served_list(settings: Settings, request_id: str) -> dict[str, Any] | None:
+    return await ml_db(settings)["ml_events"].find_one({"_id": request_id, "event_code": "E1"})

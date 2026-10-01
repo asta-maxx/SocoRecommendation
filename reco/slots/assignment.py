@@ -2,7 +2,7 @@
 
     bucket("interest", user_id)          0-99
     assign("interest", user_id)          Assignment(slot, method, which, bucket, config_version)
-    policy_id(assignment)                "cfg2.interest-recency_decay"
+    policy_id(a1, a2)                    "cfg2.interest-1.promoter_score-2"
 
 The rule (Build List ENG-05):
 
@@ -13,6 +13,8 @@ The rule (Build List ENG-05):
      split starts at 50 in every slot and the default is method one.
   4. If the settings are missing, everyone gets the default and the fault is
      logged.
+
+policy_id follows DS-017 section 4.2's example: the method is its number.
 
 Never Python's hash() (salted per process, so it changes on restart), never a
 session or device id: the same user keeps the same method across restarts and
@@ -75,13 +77,24 @@ def assign(slot: str, user_id: str, tunables: Tunables | None = None) -> Assignm
         fallback = getattr(Slots(), slot)
         which: Which = fallback.default_method
         return Assignment(slot, getattr(fallback, which), which, user_bucket, version, from_default=True)
+    if not str(user_id or "").strip():
+        # DS-017 4.1: if user_id is ever missing, the default method in every slot.
+        which = settings.default_method
+        return Assignment(slot, getattr(settings, which), which, user_bucket, version, from_default=True)
     which = "method_two" if user_bucket < settings.split else "method_one"
     return Assignment(slot, getattr(settings, which), which, user_bucket, version)
 
 
-def policy_id(assignment: Assignment) -> str:
-    """cfg<version>.<slot>-<method>, as a served list records it."""
-    return f"cfg{assignment.config_version}.{assignment.slot}-{assignment.method}"
+def method_number(assignment: Assignment) -> int:
+    return 2 if assignment.which == "method_two" else 1
+
+
+def policy_id(*assignments: Assignment, config_version: str | None = None) -> str:
+    """cfg<version>.<slot>-<method> for each slot the request touched, as DS-017
+    section 4.2 shows it ("cfg3.interest-2.promoter-1"): the method as its number,
+    1 or 2. Slot names are the settings' (promoter_score, not promoter)."""
+    version = config_version if config_version is not None else (assignments[0].config_version if assignments else "")
+    return ".".join([f"cfg{version}", *(f"{a.slot}-{method_number(a)}" for a in assignments)])
 
 
 def assign_all(user_id: str, tunables: Tunables | None = None) -> dict[str, Assignment]:
