@@ -30,10 +30,14 @@ _SERVER_ENGINE_ENV = os.environ.get("ENGINE_ENV", "").strip().lower()
 if _SERVER_ENGINE_ENV != "production":
     load_dotenv()
 
-#: ENG-01 item 2: every collection the engine database holds. All prefixed ml_
-#: (SD-18). The build list names these twelve and no others.
+#: ENG-01 item 2 (Build List v1.3): every collection the engine database holds,
+#: all prefixed ml_ (SD-18). The build list names these sixteen and no others.
 ENGINE_COLLECTIONS: tuple[str, ...] = (
-    "ml_events",
+    "ml_events",  # copies of platform events and served lists, and the engine's own E1
+    "ml_orders",  # copies of orders, with order_status, tracking_info and status history
+    "ml_sync_state",  # the engine sync's checkpoint and lag per source collection
+    "ml_item_state",  # current eligibility state of posts, accounts and products (ENG-27)
+    "ml_deletions",  # accounts confirmed deleted, and when their data was purged (ENG-28)
     "ml_user_interest_scores",
     "ml_product_scores",
     "ml_promoter_scores",

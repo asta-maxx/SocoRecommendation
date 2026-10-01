@@ -52,18 +52,48 @@ def _collection(database: AsyncDatabase, name: str) -> AsyncCollection:
     return database[name]
 
 
+async def _ensure_index(collection: AsyncCollection, keys: list[tuple[str, int]], name: str, **options) -> None:
+    """Create an index; if one with the same name exists with a different definition, replace it.
+
+    Engine collections built to an earlier design keep their old index names
+    (e.g. user_time on server_ts in the 22 Sep design), and MongoDB refuses a
+    different index under an existing name.
+    """
+    existing = {index["name"]: index async for index in await collection.list_indexes()}
+    current = existing.get(name)
+    if current is not None:
+        same_keys = list(current["key"].items()) == keys
+        same_options = all(current.get(k) == v for k, v in options.items())
+        if same_keys and same_options:
+            return
+        await collection.drop_index(name)
+    await collection.create_index(keys, name=name, **options)
+
+
 async def ensure_engine_collections(settings: Settings) -> list[str]:
-    """Create every engine collection that does not exist yet. ENG-01. Idempotent.
+    """Create every engine collection that does not exist yet, with its indexes. Idempotent.
 
-    Also creates the ml_config_changes indexes (ENG-02) and the ml_events indexes, which the build list states outright
-    (ENG-04, DS-017 section 7): unique on event_id, and indexed on user and time
-    and on request_id. No expiry index: ml_events keeps at least 365 days (X-08),
-    and no expiry is added unless Allen and Aravinth agree it in writing.
+    ENG-01: the sixteen ml_ collections. Indexes:
 
-    The other collections get their indexes with the item that first writes them.
+      ml_events, ml_orders  keyed on the platform _id (the document _id), as the
+                            engine sync requires (ENG-04, DS-017 section 7);
+                            retention: an expiry index on created_at, the ORIGINAL
+                            event time, of at least 365 days (SD-29, X-08). The
+                            platform's 90-day expiry never touches these copies,
+                            and an update never moves created_at.
+      ml_events             user and time; request_id; E code and time.
+      ml_orders             buyer and time; checkout_id.
+      ml_config_changes     unique config_version (ENG-02).
+
+    The 22 Sep design's unique index on event_id is dropped if present: copies
+    are keyed on the platform _id, and event_id is an opaque platform value.
+    ml_sync_state is keyed by source collection. ml_item_state and ml_deletions
+    get their indexes with ENG-27 and ENG-28.
 
     Returns the names created by this call.
     """
+    from reco.config import live
+
     database = ml_db(settings)
     existing = set(await database.list_collection_names())
 
@@ -74,10 +104,20 @@ async def ensure_engine_collections(settings: Settings) -> list[str]:
             await database.create_collection(name)
             created.append(name)
 
+    retention = int(live.current().events.retention_days) * 24 * 3600
+
     events = _collection(database, "ml_events")
-    await events.create_index([("event_id", 1)], unique=True, name="uniq_event_id")
-    await events.create_index([("user_id", 1), ("server_ts", -1)], name="user_time")
-    await events.create_index([("request_id", 1)], name="request_id")
+    if "uniq_event_id" in {index["name"] async for index in await events.list_indexes()}:
+        await events.drop_index("uniq_event_id")
+    await _ensure_index(events, [("user_id", 1), ("created_at", -1)], "user_time")
+    await _ensure_index(events, [("request_id", 1)], "request_id")
+    await _ensure_index(events, [("event_code", 1), ("created_at", -1)], "code_time")
+    await _ensure_index(events, [("created_at", 1)], "retention", expireAfterSeconds=retention)
+
+    orders = _collection(database, "ml_orders")
+    await _ensure_index(orders, [("buyer_id", 1), ("created_at", -1)], "buyer_time")
+    await _ensure_index(orders, [("checkout_id", 1)], "checkout_id")
+    await _ensure_index(orders, [("created_at", 1)], "retention", expireAfterSeconds=retention)
 
     # ENG-02 item 4: one record per settings version. Unique, so when the API and
     # a job both see the same new version, only one records it.

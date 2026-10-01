@@ -52,7 +52,7 @@ check "0.3 unit tests pass" "$PY -m pytest -q -m 'not mongo' -p no:cacheprovider
 check "0.4 database tests pass (Atlas awake)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q -m mongo -p no:cacheprovider" " passed"
 
 echo "== 1. ENG-01: the engine's home and databases"
-check "1.1 environment, own database, 12 collections" "$PY scripts/setup_engine_db.py" "12 of 12 collections present"
+check "1.1 environment, own database, 16 collections" "$PY scripts/setup_engine_db.py" "16 of 16 collections present"
 check "1.2 platform login is read-only" "$PY scripts/check_platform_access.py" "NONE (read-only)"
 check "1.3 safety lock refuses engine = platform" "$PY -c \"
 from reco.config import Settings

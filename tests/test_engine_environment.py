@@ -108,9 +108,14 @@ def test_refusal_does_not_print_the_password() -> None:
 # --- ENG-01 item 2: the twelve collections ------------------------------------
 
 
-def test_engine_collections_are_the_twelve_in_eng01() -> None:
+def test_engine_collections_are_the_sixteen_in_eng01() -> None:
+    """Build List v1.3, ENG-01 item 2."""
     assert set(ENGINE_COLLECTIONS) == {
         "ml_events",
+        "ml_orders",
+        "ml_sync_state",
+        "ml_item_state",
+        "ml_deletions",
         "ml_user_interest_scores",
         "ml_product_scores",
         "ml_promoter_scores",
@@ -123,7 +128,7 @@ def test_engine_collections_are_the_twelve_in_eng01() -> None:
         "ml_config_changes",
         "ml_measurements",
     }
-    assert len(ENGINE_COLLECTIONS) == 12
+    assert len(ENGINE_COLLECTIONS) == 16
     assert all(name.startswith("ml_") for name in ENGINE_COLLECTIONS)
 
 
@@ -162,12 +167,27 @@ async def test_all_twelve_collections_are_created_once(settings: Settings, engin
 
 
 @pytest.mark.mongo
-async def test_ml_events_has_the_eng04_indexes_and_no_expiry(settings: Settings, engine_db) -> None:
+@pytest.mark.parametrize("collection", ["ml_events", "ml_orders"])
+async def test_copies_expire_365_days_after_the_original_event_time(
+    settings: Settings, engine_db, collection: str
+) -> None:
+    """SD-29, X-08: at least 365 days, under the engine's own expiry, on created_at."""
+    await ensure_engine_collections(settings)
+    indexes = {index["name"]: index async for index in await engine_db[collection].list_indexes()}
+
+    assert list(indexes["retention"]["key"].items()) == [("created_at", 1)]
+    assert indexes["retention"]["expireAfterSeconds"] == 365 * 24 * 3600
+
+
+@pytest.mark.mongo
+async def test_ml_events_is_keyed_on_the_platform_id_not_event_id(settings: Settings, engine_db) -> None:
+    """The sync upserts on the platform _id (ENG-04); the 22 Sep unique event_id index is dropped."""
+    # As built to the 22 Sep design: unique event_id, and user_time on server_ts.
+    await engine_db["ml_events"].create_index([("event_id", 1)], unique=True, name="uniq_event_id")
+    await engine_db["ml_events"].create_index([("user_id", 1), ("server_ts", -1)], name="user_time")
     await ensure_engine_collections(settings)
     indexes = {index["name"]: index async for index in await engine_db["ml_events"].list_indexes()}
 
-    assert indexes["uniq_event_id"]["unique"] is True
-    assert list(indexes["uniq_event_id"]["key"].items()) == [("event_id", 1)]
-    assert list(indexes["user_time"]["key"].items()) == [("user_id", 1), ("server_ts", -1)]
+    assert "uniq_event_id" not in indexes
+    assert list(indexes["user_time"]["key"].items()) == [("user_id", 1), ("created_at", -1)]
     assert list(indexes["request_id"]["key"].items()) == [("request_id", 1)]
-    assert not any("expireAfterSeconds" in index for index in indexes.values())
