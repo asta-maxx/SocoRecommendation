@@ -362,3 +362,30 @@ async def test_every_sync_and_reconciliation_run_is_recorded(synced, monkeypatch
         ("sync", "succeeded"), ("reconcile_sync", "succeeded"), ("sync", "failed")]
     assert runs[0]["rows_written"] >= 1 and runs[1]["detail"]["passed"][POSTEVENTS] is True
     assert "data_window" in runs[1] and runs[1]["data_window"]["from"] is not None
+
+
+@pytest.mark.mongo
+async def test_a_serve_log_row_written_slightly_out_of_order_is_still_copied(synced) -> None:
+    """Append-only rec_serve_log is read by _id with the sync overlap re-read."""
+    settings, platform, engine = synced
+    now = utc_now()
+    first = {"_id": ObjectId.from_datetime(now), "request_id": "r1", "surface": "feed", "page": 1,
+             "origin": "engine", "outcome": "ok", "elapsed_ms": 50, "at": now}
+    await platform["rec_serve_log"].insert_one(first)
+    await run.sync_once(settings)
+    # A second SOCO_BE server's row, stamped 30 s earlier, lands after the first was copied.
+    late_id = ObjectId.from_datetime(now - timedelta(seconds=30))
+    await platform["rec_serve_log"].insert_one({**first, "_id": late_id, "request_id": "r2"})
+
+    await run.incremental(settings, source_named("rec_serve_log"))
+
+    assert await engine["ml_events"].count_documents({"source": "rec_serve_log"}) == 2
+
+
+def test_an_order_history_entry_with_no_stage_is_logged(caplog) -> None:
+    doc = order("Pending")
+    doc["tracking_info"].append({"status": "Out for delivery today", "timestamp": utc_now()})
+    with caplog.at_level(logging.WARNING, logger="reco.sync"):
+        copy = make_copy(source_named(ORDERS), doc, OrderStatusValues())
+    assert copy["tracking"][-1]["stage"] is None  # stored, never rejected (DS-017 6.4)
+    assert any("no stage" in r.getMessage() for r in caplog.records)

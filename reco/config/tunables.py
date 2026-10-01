@@ -24,7 +24,9 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def fixed(value: float) -> Any:
-    """A number the Settings sheet fixes for Wave 1A: only this value is valid."""
+    """A number the Settings sheet fixes for Wave 1A: only this value is valid.
+    The sheet: "A value changes only where the 'When it changes' column says so"
+    -- rows marked "Fixed for Wave 1A" keep their value even where a range is given."""
     return Field(value, ge=value, le=value)
 
 
@@ -52,8 +54,8 @@ class Serving(_Section):
     stage_limit_retrieval_ms: int = fixed(80)  # ENG-12, ENG-19
     stage_limit_ranking_ms: int = fixed(80)
     stage_limit_network_ms: int = fixed(40)
-    circuit_breaker_failures: int = between(5, 3, 20)  # APP-15
-    circuit_breaker_test_call_seconds: int = between(30, 10, 300)
+    circuit_breaker_failures: int = fixed(5)  # APP-15; sheet range 3-20, fixed for Wave 1A
+    circuit_breaker_test_call_seconds: int = fixed(30)  # sheet range 10-300, fixed for Wave 1A
     over_fetch_items: int = fixed(0)  # ENG-06: the engine returns exactly `limit`
     cache_max_seconds: int = fixed(60)  # APP-15
     #: ENG-06, ENG-24, SD-10. off, internal or live -- no shadow mode. Internal
@@ -63,10 +65,10 @@ class Serving(_Section):
     #: are off until ENG-24 switches them.
     surface_mode_feed: Literal["off", "internal", "live"] = "off"
     surface_mode_product: Literal["off", "internal", "live"] = "off"
-    sample_random_percent: int = between(10, 1, 100)  # ENG-06
-    exploration_percent: int = between(5, 3, 5)  # ENG-06, feed only
+    sample_random_percent: int = fixed(10)  # ENG-06; sheet range 1-100, fixed for Wave 1A
+    exploration_percent: int = fixed(5)  # ENG-06, feed only; sheet: "Stays at 5% for Wave 1A"
     exploration_top_kept: int = fixed(3)
-    page_dedup_hours: int = between(24, 1, 72)  # ENG-19
+    page_dedup_hours: int = fixed(24)  # ENG-19; sheet range 1-72, fixed for Wave 1A
 
 
 # --- Method choice ---------------------------------------------------------------
@@ -107,7 +109,7 @@ class Events(_Section):
     app_batch_events: int = fixed(20)
     #: ENG-04 engine sync (replaces the retired SOCO_BE forward): every 5
     #: minutes, re-reading a 2-minute overlap; alert when more than 15 minutes behind.
-    sync_interval_minutes: int = between(5, 1, 15)
+    sync_interval_minutes: int = fixed(5)  # sheet range 1-15, fixed for Wave 1A
     sync_overlap_minutes: int = fixed(2)
     sync_lag_alert_minutes: int = fixed(15)
     #: DB-01, ENG-04, SD-29: engine copies kept at least this many days from the
@@ -117,10 +119,10 @@ class Events(_Section):
 
 
 class Filters(_Section):
-    feedback_hide_days: int = between(90, 30, 365)  # ENG-08, E-03
+    feedback_hide_days: int = fixed(90)  # ENG-08, E-03; sheet range 30-365, fixed for Wave 1A
     #: ENG-27, ENG-08: full re-read of posts, accounts and products; completed
     #: refreshes only; blocks, visibility and stock re-checked on returned items.
-    eligibility_refresh_minutes: int = between(15, 5, 60)
+    eligibility_refresh_minutes: int = fixed(15)  # sheet range 5-60, fixed for Wave 1A
 
 
 # --- M1 interest -----------------------------------------------------------------
@@ -151,8 +153,8 @@ class Interest(_Section):
     #: Method two: 0-7, 8-30, 31-90 days. Upper bounds, ascending.
     window_bounds_days: list[int] = Field(default_factory=lambda: [7, 30, 90])
     window_weights: list[float] = Field(default_factory=lambda: [0.5, 0.3, 0.2])
-    refresh_cadence: Literal["hourly", "daily", "weekly"] = "daily"
-    refresh_time_ist: str = "02:00"  # ENG-07, SD-22
+    refresh_cadence: Literal["daily"] = "daily"  # sheet range hourly to weekly, fixed for Wave 1A
+    refresh_time_ist: Literal["02:00"] = "02:00"  # ENG-07, SD-22: a setting, fixed for Wave 1A
     stale_after_hours: float = between(48, 1, 72)  # ENG-09 rung 4
     personal_min_actions: int = fixed(5)  # ENG-09 rung 1
     personal_window_days: int = fixed(90)
@@ -195,10 +197,10 @@ class Interest(_Section):
 
 
 class SourceShares(_Section):
-    interest: float = 0.4
-    follows: float = 0.3
-    trending: float = 0.2
-    platform_popular: float = 0.1
+    interest: float = fixed(0.4)
+    follows: float = fixed(0.3)
+    trending: float = fixed(0.2)
+    platform_popular: float = fixed(0.1)
 
     @model_validator(mode="after")
     def _sum(self) -> SourceShares:
@@ -224,11 +226,11 @@ class Retrieval(_Section):
 class RankingWeights(_Section):
     """ENG-19. Commission is never a term."""
 
-    interest: float = 0.35
-    retrieval: float = 0.15
-    promoter: float = 0.20
-    freshness: float = 0.20
-    engagement_quality: float = 0.10
+    interest: float = fixed(0.35)
+    retrieval: float = fixed(0.15)
+    promoter: float = fixed(0.20)
+    freshness: float = fixed(0.20)
+    engagement_quality: float = fixed(0.10)
 
     @model_validator(mode="after")
     def _sum(self) -> RankingWeights:
@@ -250,11 +252,11 @@ class Ranking(_Section):
 
 
 class ProductWeights(_Section):
-    category: float = 0.35
-    cross_sell: float = 0.20
-    price_band: float = 0.15
-    popularity: float = 0.20
-    same_seller: float = 0.10
+    category: float = fixed(0.35)
+    cross_sell: float = fixed(0.20)
+    price_band: float = fixed(0.15)
+    popularity: float = fixed(0.20)
+    same_seller: float = fixed(0.10)
 
     @model_validator(mode="after")
     def _sum(self) -> ProductWeights:
@@ -268,16 +270,16 @@ class Product(_Section):
     weights: ProductWeights = ProductWeights()
     lift_strength: int = fixed(10)
     min_co_purchases: int = fixed(2)
-    price_band_fraction: float = between(0.30, 0.10, 0.50)
+    price_band_fraction: float = fixed(0.30)  # sheet range 10-50%, fixed for Wave 1A
 
 
 # --- M6 opportunity ---------------------------------------------------------------
 
 
 class OpportunityWeights(_Section):
-    commission: float = 0.30
-    sell_through: float = 0.40
-    fit: float = 0.30
+    commission: float = fixed(0.30)
+    sell_through: float = fixed(0.40)
+    fit: float = fixed(0.30)
 
     @model_validator(mode="after")
     def _sum(self) -> OpportunityWeights:
@@ -290,7 +292,7 @@ class Opportunity(_Section):
 
     weights: OpportunityWeights = OpportunityWeights()
     default_commission_rate: float = fixed(0.10)
-    sell_through_window_days: int = between(30, 7, 180)
+    sell_through_window_days: int = fixed(30)  # sheet range 7-180, fixed for Wave 1A
 
 
 # --- M8 promoter --------------------------------------------------------------------
@@ -299,12 +301,12 @@ class Opportunity(_Section):
 class PromoterWeights(_Section):
     """ENG-16. Rescaled over the components whose data exists."""
 
-    reach: float = 0.20
-    content_quality: float = 0.20
-    consistency: float = 0.10
-    net_commerce: float = 0.25
-    conversion: float = 0.15
-    sales_quality: float = 0.10
+    reach: float = fixed(0.20)
+    content_quality: float = fixed(0.20)
+    consistency: float = fixed(0.10)
+    net_commerce: float = fixed(0.25)
+    conversion: float = fixed(0.15)
+    sales_quality: float = fixed(0.10)
 
     @model_validator(mode="after")
     def _sum(self) -> PromoterWeights:

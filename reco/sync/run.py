@@ -28,6 +28,8 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from bson import ObjectId
+
 from reco.config import Settings, live
 from reco.config import sync as config_sync
 from reco.jobs.batches import recorded_run
@@ -89,7 +91,13 @@ async def incremental(settings: Settings, source: SyncSource) -> int:
     An append-only source carries on in _id order from where the backfill stopped."""
     state = await writers.read_sync_state(settings, source.collection)
     if source.append_only:
+        # Several SOCO_BE servers write it, so _ids can arrive a little out of order:
+        # re-read the same overlap as the updated_at read (sync_overlap_minutes)
+        # before the position. Copies are upserts, so a re-read never duplicates.
         after, copied = (state.get("backfill") or {}).get("after_id"), 0
+        if isinstance(after, ObjectId):
+            overlap = timedelta(minutes=live.current().events.sync_overlap_minutes)
+            after = ObjectId.from_datetime(after.generation_time - overlap)
         while docs := await fetch.read_page_by_id(settings, source.kind, after, PAGE_SIZE):
             copied += await write_page(settings, source, docs, utc_now())
             after = docs[-1]["_id"]

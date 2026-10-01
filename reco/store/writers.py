@@ -504,3 +504,9 @@ async def read_viewer_feedback(settings: Settings, user_id: str, since: datetime
     projection = {"feedback_type": 1, "target_id": 1, "target_type": 1, "post_id": 1, "product_id": 1,
                   "item_id": 1, "influencer_id": 1}
     return await ml_db(settings)["ml_events"].find(query, projection).to_list(None)
+
+
+async def read_running_jobs(settings: Settings, started_before: datetime) -> list[dict[str, Any]]:
+    """Job runs still marked running that started before `started_before`."""
+    query = {"outcome": "running", "started_at": {"$lt": started_before}}
+    return await ml_db(settings)["ml_job_runs"].find(query).to_list(None)

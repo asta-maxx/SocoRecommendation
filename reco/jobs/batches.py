@@ -76,6 +76,7 @@ async def run_batch(
         await writers.update_job_run(settings, job_run_id, {
             "outcome": "failed", "error": repr(exc)[:500], "finished_at": utc_now(),
             "duration_seconds": round(time.monotonic() - clock, 3),
+            "rows_written": 0,  # its partial rows are removed just below
         })
         await writers.delete_batches_except(settings, collection, method, keep=[], only=job_run_id)
         raise

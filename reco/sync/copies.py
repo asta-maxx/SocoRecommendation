@@ -24,6 +24,7 @@ rec_serve_log (ENG-29 item 7) is read the same way as recommendationrequests.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -31,6 +32,8 @@ from reco.config import PLATFORM_COLLECTIONS
 from reco.config.tunables import OrderStatusValues
 from reco.platform import records
 from reco.platform.ids import as_utc, to_str
+
+logger = logging.getLogger("reco.sync")
 
 
 @dataclass(frozen=True)
@@ -57,7 +60,7 @@ SYNC_SOURCES: tuple[SyncSource, ...] = (
     SyncSource("served_list", "ml_events", ("server_ts", "created_at"), ("seen_ids", "updated_at")),
     # ENG-29 item 7. One row per list request, written once (DS-017 4.3), so it
     # has no updated_at: new rows are read by _id (append_only).
-    SyncSource("serve_log", "ml_events", ("time", "timestamp", "created_at"), ("origin", "outcome", "elapsed_ms"),
+    SyncSource("serve_log", "ml_events", ("at", "time", "timestamp", "created_at"), ("origin", "outcome", "elapsed_ms"),
                append_only=True),
 )
 
@@ -74,7 +77,12 @@ def make_copy(source: SyncSource, doc: dict[str, Any], statuses: OrderStatusValu
     if source.kind == "postevent":
         fields = records.parse_postevent(doc).model_dump()
     elif source.kind == "order":
-        fields = records.parse_order(doc, statuses).model_dump()  # tracking stages from the settings in force
+        order = records.parse_order(doc, statuses)  # tracking stages from the settings in force
+        unknown = [e.status for e in order.tracking if e.stage is None]
+        if unknown:
+            # DS-017 6.4: any other value is stored and logged, never rejected.
+            logger.warning("tracking_info entries with no stage", extra={"order_id": order.order_id, "entries": unknown[:5]})
+        fields = order.model_dump()
     elif source.kind == "served_list":
         fields = records.parse_served_list(doc).model_dump()
         # The served list is the E1 record. Copies of the platform's lists are
@@ -108,7 +116,7 @@ def with_history(copy: dict[str, Any], held: dict[str, Any] | None) -> dict[str,
     """
     history = list((held or {}).get("status_history") or [])
     status = copy.get("status")
-    if status is not None and (not history or history[-1]["status"] != status):
+    if status is not None and (not history or not records.status_is(status, history[-1]["status"])):
         at = as_utc(copy.get("updated_at")) or copy.get("created_at")
         history.append({"status": status, "at": at})
     return {**copy, "status_history": history}

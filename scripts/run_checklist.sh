@@ -86,6 +86,13 @@ if wait_for "curl -s -o /dev/null http://127.0.0.1:8191/health" 60; then
   check "2.4 health 503 with the engine database down" "curl -s -w ' HTTP%{http_code}' http://127.0.0.1:8191/health" "HTTP503"
 else fail "2.4 health 503 with the engine database down" "second engine did not start"; fi
 pkill -f "uvicorn reco.main:app --port 8191" >/dev/null 2>&1
+APP_MONGO_URI="mongodb://127.0.0.1:1" MONGO_TIMEOUT_SECONDS=1 SETTINGS_FILE="$SETTINGS_COPY" ML_MONGO_DB=reco_demo \
+  $PY -m uvicorn reco.main:app --port 8191 >"$WORK/down2.log" 2>&1 &
+disown
+if wait_for "curl -s -o /dev/null http://127.0.0.1:8191/health" 60; then
+  check "2.4b health 503 with the platform database down" "curl -s -w ' HTTP%{http_code}' http://127.0.0.1:8191/health" "HTTP503"
+else fail "2.4b health 503 with the platform database down" "engine did not start"; fi
+pkill -f "uvicorn reco.main:app --port 8191" >/dev/null 2>&1
 check "2.5 every request is logged" "grep '\"logger\": \"reco.request\"' '$LOG'" "\"status\": 200"
 V=$(sed -n 's/^config_version = "\([0-9]*\)"/\1/p' "$SETTINGS_COPY"); NEXT=$((V + 1))
 sed -i '' "s/config_version = \"$V\"/config_version = \"$NEXT\"/; s/changed_by = \"Allen\"/changed_by = \"Checklist\"/; s/popularity_window_days = 30 /popularity_window_days = 45 /" "$SETTINGS_COPY"

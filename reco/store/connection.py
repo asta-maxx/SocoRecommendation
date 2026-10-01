@@ -98,9 +98,10 @@ async def verify_database(settings: Settings) -> None:
 
 
 async def ping(settings: Settings) -> bool:
-    """Whether the engine database can be reached, for the health check."""
+    """Whether the engine database can be READ, for the health check (SD-28): a real
+    read on ml_config_changes, not a ping, which passes without read rights."""
     try:
-        await ml_db(settings).command("ping")
+        await ml_db(settings)["ml_config_changes"].find_one({}, {"_id": 1})
         return True
     except Exception:
         logger.exception("Ping failed on the engine connection")

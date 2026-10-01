@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from reco.config import get_settings  # noqa: E402
+from reco.config import get_settings, live  # noqa: E402
 from reco.store import connection as store_conn  # noqa: E402
 
 
@@ -34,6 +34,11 @@ async def main() -> int:
         for (source, code), n in sorted(counts.items(), key=lambda x: (str(x[0][0]), str(x[0][1]))):
             print(f"  {str(source):26}{code:6}{n}")
         print(f"ml_orders: {await db['ml_orders'].count_documents({})} orders")
+        # ENG-04 check (g): the retention setting, shown.
+        index = (await db["ml_events"].index_information()).get("retention", {})
+        days = index.get("expireAfterSeconds", 0) / 86400
+        print(f"retention: copies kept {days:.0f} days from the original event time "
+              f"(setting events.retention_days = {live.current().events.retention_days}; index on created_at)")
         print("sync state:")
         async for state in db["ml_sync_state"].find({}):
             backfill = state.get("backfill") or {}

@@ -75,7 +75,7 @@ def test_only_platform_uses_the_platform_database() -> None:
 
 
 def test_wiring_files_only_open_close_and_ping_the_platform_connection() -> None:
-    allowed = {"init_client", "close_client", "verify_database", "ping"}
+    allowed = {"init_client", "close_client", "verify_database", "ping", "warm"}  # warm: pings, ahead of requests
     for relative in PLATFORM_CONNECTION_WIRING:
         tree = ast.parse((PACKAGE / relative).read_text(encoding="utf-8"))
         used = {

@@ -89,19 +89,37 @@ def test_a_value_outside_the_sheet_is_refused(key: str, bad) -> None:
         Tunables().with_changes({key: bad})
 
 
+def test_weights_must_sum_to_one() -> None:
+    with pytest.raises(ValidationError, match="sum to 1"):
+        Tunables().with_changes({"interest.window_weights": [0.5, 0.3, 0.3]})
+
+
 @pytest.mark.parametrize(
-    "key,bad",
+    "key,other",
     [
         ("ranking.weights.interest", 0.5),
         ("retrieval.source_shares.follows", 0.5),
         ("product.weights.category", 0.9),
         ("promoter.weights.reach", 0.9),
-        ("interest.window_weights", [0.5, 0.3, 0.3]),
+        ("opportunity.weights.fit", 0.2),
+        ("serving.exploration_percent", 3),
+        ("serving.sample_random_percent", 20),
+        ("serving.circuit_breaker_failures", 7),
+        ("serving.page_dedup_hours", 12),
+        ("events.sync_interval_minutes", 10),
+        ("filters.feedback_hide_days", 60),
+        ("filters.eligibility_refresh_minutes", 30),
+        ("interest.refresh_cadence", "weekly"),
+        ("interest.refresh_time_ist", "03:00"),
+        ("product.price_band_fraction", 0.2),
+        ("opportunity.sell_through_window_days", 60),
     ],
 )
-def test_weights_must_sum_to_one(key: str, bad) -> None:
-    with pytest.raises(ValidationError, match="sum to 1"):
-        Tunables().with_changes({key: bad})
+def test_settings_fixed_for_wave_1a_cannot_change(key: str, other) -> None:
+    """Settings sheet: "A value changes only where the 'When it changes' column says
+    so" -- rows marked "Fixed for Wave 1A" (and exploration, "Stays at 5%")."""
+    with pytest.raises(ValidationError):
+        Tunables().with_changes({key: other})
 
 
 def test_window_bounds_must_ascend() -> None:

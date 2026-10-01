@@ -346,7 +346,7 @@ def parse_postevent(doc: dict[str, Any]) -> PostEventRecord:
         actor=actor_kind(doc.get("user_model")),
         native_surface=native_surface,
         surface=surface,
-        is_page_visit=event_type == "impression" and native_surface == PAGE_VISIT_SURFACE,
+        is_page_visit=event_type == "impression" and str(native_surface or "").strip().lower() == PAGE_VISIT_SURFACE,
         request_id=_opaque(doc.get("request_id")),
         position=position if isinstance(position, int) and not isinstance(position, bool) else None,
         item_id=card,
@@ -431,7 +431,7 @@ class ServeLogRecord(_Record):
     origin: str | None  # engine | fallback | cache
     outcome: str | None  # ok | timeout | error | off | skipped
     elapsed_ms: float | None
-    created_at: datetime | None  # its time field, else created_at, else _id
+    created_at: datetime | None  # "at" (F80), else time / created_at, else _id
     updated_at: datetime | None
 
 
@@ -448,7 +448,7 @@ def parse_serve_log(doc: dict[str, Any]) -> ServeLogRecord:
         origin=lowered(doc.get("origin")),
         outcome=lowered(doc.get("outcome")),
         elapsed_ms=_number(doc.get("elapsed_ms")),
-        created_at=time_of(doc, "time", "timestamp", "created_at"),
+        created_at=time_of(doc, "at", "time", "timestamp", "created_at"),  # F80 names it "at"
         updated_at=as_utc(doc.get("updated_at")),
     )
 

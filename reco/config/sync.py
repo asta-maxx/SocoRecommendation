@@ -37,16 +37,34 @@ def _record(settings: Settings, previous: Tunables, new: Tunables, changes: list
     }
 
 
-async def _apply(settings: Settings, previous: Tunables, new: Tunables, changes: list[dict[str, Any]]) -> None:
-    live.put_in_force(new, "file")
+#: A change in force whose record could not be written yet; tried again on every
+#: reload until it is (ENG-02 item 4: every change is logged).
+_unrecorded: dict[str, Any] | None = None
+
+
+async def _record_pending(settings: Settings) -> None:
+    global _unrecorded
+    if _unrecorded is None:
+        return
     try:
-        recorded = await writers.record_config_change(
-            settings, _record(settings, previous, new, changes)
-        )
+        await writers.record_config_change(settings, _unrecorded)
+        logger.info("settings change recorded late", extra={"config_version": _unrecorded["config_version"]})
+        _unrecorded = None
     except Exception:
-        # The change is in force either way; only its record is missing. The
-        # next process to start records it, because the version is new to it.
+        logger.exception("still could not record the settings change in ml_config_changes")
+
+
+async def _apply(settings: Settings, previous: Tunables, new: Tunables, changes: list[dict[str, Any]]) -> None:
+    global _unrecorded
+    live.put_in_force(new, "file")
+    record = _record(settings, previous, new, changes)
+    try:
+        recorded = await writers.record_config_change(settings, record)
+    except Exception:
+        # The change is in force either way; only its record is missing. It is
+        # tried again on every reload until it is written.
         logger.exception("could not record the settings change in ml_config_changes")
+        _unrecorded = record
         recorded = False
     logger.info(
         "settings changed",
@@ -112,6 +130,7 @@ async def load_at_start(settings: Settings) -> None:
 
 async def reload(settings: Settings) -> None:
     """Look at the file again. Apply a good change; keep the last good one otherwise."""
+    await _record_pending(settings)
     read = live.read_file(settings.settings_file)
     if read.fingerprint is not None and read.fingerprint == live.state().seen:
         return  # unchanged since last look, good or bad

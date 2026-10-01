@@ -110,9 +110,10 @@ async def verify_database(settings: Settings) -> None:
 
 
 async def ping(settings: Settings) -> bool:
-    """Whether the platform database can be reached, for the health check."""
+    """Whether the platform database can be READ, for the health check (SD-28): a
+    real read on postevents, not a ping, which passes without read rights."""
     try:
-        await app_db(settings).command("ping")
+        await app_db(settings)["postevents"].find_one({}, {"_id": 1})
         return True
     except Exception:
         logger.exception("Ping failed on the platform connection")
