@@ -605,7 +605,6 @@ INGEST_TOKEN=… ML_MONGO_DB=<engine db> .venv/bin/python scripts/try_recommenda
 | Leave out items served to the user in the last 24 hours on later pages | ENG-19 (`page_dedup_hours`) |
 | The check on the **test** server (200 ms there, with the 250 ms limit; record matching) | The test server and its constructed data (ENG-01, ENG-29 item 8) |
 | Surfaces live in production | ENG-24 go-live rule (ENG-11, ENG-22, ENG-23, APP-21, ENG-20) |
-| Checklist line 6.1 still expects `14 passed`; the file has 17 contract tests now | A one-line change in `scripts/run_checklist.sh` |
 | Hand the serving token to Aravinth privately (DS-017 §9 step 1) | The servers |
 
 Closed on 1 Oct 2026: the full eligibility rules with the exclusion log and the
