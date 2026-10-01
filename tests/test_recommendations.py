@@ -158,7 +158,7 @@ async def test_exploration_keeps_the_top_three_and_never_on_product(served, monk
     assert [i["item_id"] for i in body["items"]] == ["post01", "post02", "post03", "post05", "post04"]
     _, product = await call(settings, {**feed(surface="product", context_item_id=str(ObjectId()))})
     assert product["is_exploration"] is False
-    assert records[0]["is_exploration"] and len(records[0]["scored_sample"]) == 5  # all items on exploration
+    assert records[0]["is_exploration"] and len(records[0]["scored_not_served"]) == 5  # every item on exploration (F72)
 
 
 async def test_the_record_holds_what_the_pack_lists(served, monkeypatch) -> None:
@@ -168,15 +168,47 @@ async def test_the_record_holds_what_the_pack_lists(served, monkeypatch) -> None
     _, body = await call(settings, feed(limit=3, page=2))
     record = records[0]
     for field in ("request_id", "surface", "user_id", "session_id", "policy_id", "server_ts", "candidate_ids",
-                  "served_items", "config_version", "slots", "scored_sample"):
+                  "served_items", "config_version", "slot_methods", "scored_not_served"):
         assert field in record, field
     assert record["_id"] == record["request_id"] == body["request_id"] and record["event_code"] == "E1"
     assert record["served_items"] == body["items"]
     assert record["candidate_ids"] == [f"post{n:02}" for n in range(1, 7)]
-    assert set(record["slots"]) == {"interest", "promoter_score"}
-    assert all({"method", "fallback_step"} <= set(s) for s in record["slots"].values())
-    # every returned item is in the sample; not-returned ones only at the 10% draw (none here)
-    assert [s["item_id"] for s in record["scored_sample"]] == [i["item_id"] for i in body["items"]]
+    # F71: one entry per slot touched, {slot, method, fallback_step}
+    assert [m["slot"] for m in record["slot_methods"]] == ["interest", "promoter_score"]
+    assert all({"slot", "method", "fallback_step"} <= set(m) for m in record["slot_methods"])
+    # F72: not on this request (the random draw missed and it is not an exploration list)
+    assert record["scored_not_served"] is None
+
+
+async def test_scored_not_served_is_on_about_ten_percent_of_requests(served, monkeypatch) -> None:
+    """F72: "Present on about 10% of E1 rows, and on every exploration row"."""
+    settings, records = served
+    put_in_force({**LIVE, "serving.exploration_percent": 5, "serving.sample_random_percent": 10})
+    for _ in range(400):
+        await call(settings, feed())
+    sampled = [r for r in records if r["scored_not_served"] is not None]
+    assert all(r["is_exploration"] or r["scored_not_served"] for r in sampled)
+    assert all(r["scored_not_served"] is not None for r in records if r["is_exploration"])
+    assert 0.07 < len(sampled) / len(records) < 0.25  # about 10%, plus the exploration rows
+    returned = {i["item_id"] for i in sampled[0]["served_items"]}
+    assert {x["item_id"] for x in sampled[0]["scored_not_served"] if x["returned"]} == returned
+
+
+async def test_the_database_clients_never_retry() -> None:
+    """SD-26, DS-017 4.6: no retries inside a request -- the driver's own retries are off."""
+    from reco.config import Settings
+    from reco.platform import connection as pconn
+    from reco.store import connection as sconn
+
+    settings = Settings()
+    pconn.init_client(settings)
+    sconn.init_client(settings)
+    try:
+        for client in (pconn._client, sconn._client):
+            assert client.options.retry_reads is False and client.options.retry_writes is False
+    finally:
+        await pconn.close_client()
+        await sconn.close_client()
 
 
 async def test_a_database_fault_is_503_at_once(served, monkeypatch) -> None:
@@ -225,6 +257,8 @@ async def platform(settings):
     for c in (posts, products, *others, store_conn.ml_db(settings)["ml_events"]):
         await c.drop()
     await writers.ensure_engine_collections(settings)
+    await platform_conn.warm(settings)
+    await store_conn.warm(settings)
     # E-08: authors and sellers must exist and be active; E-07: a variant in stock.
     await db[PLATFORM_COLLECTIONS["user"]].insert_one({"_id": AUTHOR, "status": "Active", "accountIsPublic": True})
     await db[PLATFORM_COLLECTIONS["business"]].insert_one({"_id": SELLER, "status": "active", "accountIsPublic": True})
@@ -250,11 +284,15 @@ def product(minutes_ago: int, **fields) -> dict:
 
 @pytest.mark.mongo
 async def test_a_feed_list_is_recorded_exactly_as_returned(platform, monkeypatch) -> None:
-    settings, posts, _ = platform
+    settings, posts, products = platform
     put_in_force(LIVE)
     monkeypatch.setattr(serving.rng, "random", lambda: 0.99)
     shown = [post(m) for m in (1, 2, 3, 4)]
-    with_product = post(5, products=[ObjectId()], Product_status="Activated")
+    shown_product = product(30)
+    with_product = post(5, products=[shown_product["_id"]], Product_status="Activated")
+    await products.insert_one(shown_product)  # E-07: the product a post card shows must be sellable
+    await platform_conn.app_db(settings)[PLATFORM_COLLECTIONS["variant"]].insert_one(
+        {"_id": ObjectId(), "productId": shown_product["_id"], "quantity": 4, "reservedStock": 0, "status": "active"})
     hidden, private, removed = post(0, isHidden=True), post(0, visibility="private"), post(0, compliance={"status": "Removed"})
     under_review = post(6, compliance={"status": "under_review"})  # E-12: served as normal
     await posts.insert_many([*shown, with_product, under_review, hidden, private, removed])
@@ -297,3 +335,12 @@ async def test_a_product_list_leaves_out_the_context_product(platform, monkeypat
     assert [i["item_id"] for i in body["items"]] == [str(r["_id"]) for r in rows[1:]]
     assert all(i["item_type"] == "product" and i["post_id"] is None and i["product_id"] == i["item_id"] for i in body["items"])
     assert body["policy_id"].endswith((".product_ranking-attribute_similarity", ".product_ranking-bought_together"))
+
+
+def test_the_request_budget_is_soco_be_timeout_off_dev() -> None:
+    from reco.config import Settings, live
+
+    t = live.current()
+    assert api.request_budget_seconds(Settings(engine_env="test"), t) == t.serving.soco_be_timeout_ms / 1000 == 0.25
+    assert api.request_budget_seconds(Settings(engine_env="dev"), t) == 2.0
+    assert api.request_budget_seconds(Settings(engine_env="production", request_budget_ms=300), t) == 0.3

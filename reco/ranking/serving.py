@@ -141,15 +141,13 @@ def explore(items: list[Candidate], keep_top: int) -> list[Candidate]:
     return head + tail
 
 
-def scored_sample(
-    candidates: list[Candidate], returned: set[str], exploration: bool, percent: int
-) -> list[dict[str, Any]]:
-    """ENG-06: every returned item, plus `percent`% of the scored items not returned
-    at random -- or all of them on an exploration list."""
-    sample = []
-    for c in candidates:
-        was_returned = c.item_id in returned
-        if was_returned or exploration or rng.random() * 100 < percent:
-            sample.append({"item_id": c.item_id, "item_type": c.item_type, "post_id": c.post_id,
-                           "product_id": c.product_id, "rank": c.rank, "returned": was_returned})
-    return sample
+def scored_not_served(candidates: list[Candidate], returned: set[str], exploration: bool, percent: int) -> list[dict[str, Any]] | None:
+    """ENG-06, Capture Register F72: on `percent`% of requests at random, and on
+    every exploration request, the scored items -- every returned item and every
+    one passed over -- each with its score. None on the other requests (F72:
+    "Present on about 10% of E1 rows, and on every exploration row"). Until the
+    rankers exist (ENG-17, ENG-19) there is no model score: score is null and the
+    interim rank is kept."""
+    if not (exploration or rng.random() * 100 < percent):
+        return None
+    return [{"item_id": c.item_id, "score": None, "rank": c.rank, "returned": c.item_id in returned} for c in candidates]

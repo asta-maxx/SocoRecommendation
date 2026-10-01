@@ -19,7 +19,9 @@ from reco.platform import connection as platform_conn
 from reco.store import connection as store_conn
 from reco.store.scores import InterestScore, Method, Window, utc_now
 
-TEST_DB = os.environ.get("TEST_MONGO_DB", "reco_test")
+#: Each test run gets its own throwaway databases (run id = process id), so two
+#: runs at once never share collections; both are dropped when the run ends.
+TEST_DB = os.environ.get("TEST_MONGO_DB", f"reco_test_{os.getpid()}")
 
 #: The DS-007 v1.1 values Kala's demo generator used (reference/v2). Tests that
 #: compare the engine with the demo dataset's expected answers pin these; every
@@ -152,3 +154,25 @@ def hours_ago():
         return utc_now() - timedelta(hours=hours)
 
     return _hours_ago
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _drop_the_run_databases():
+    """Drop this run's two throwaway databases at the end (ignored without MongoDB)."""
+    yield
+    import asyncio
+
+    from pymongo import AsyncMongoClient
+
+    async def drop() -> None:
+        client = AsyncMongoClient(_test_uri())
+        try:
+            for name in (TEST_DB, TEST_PLATFORM_DB):
+                await client.drop_database(name)
+        finally:
+            await client.close()
+
+    try:
+        asyncio.run(drop())
+    except Exception:  # pragma: no cover - environment dependent
+        pass

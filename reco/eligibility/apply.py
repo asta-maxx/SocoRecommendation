@@ -21,8 +21,8 @@ from collections import defaultdict
 from datetime import timedelta
 from typing import Any, Iterable
 
-from reco.config import Settings
-from reco.eligibility.rules import Account, Viewer, post_rule, product_rule
+from reco.config import Settings, live
+from reco.eligibility.rules import Account, Viewer, post_rule, product_is_sellable, product_rule
 from reco.platform import fetch
 from reco.platform.records import PostRecord, ProductRecord, VariantRecord
 from reco.store import writers
@@ -30,8 +30,6 @@ from reco.store.scores import utc_now
 
 logger = logging.getLogger("reco.eligibility")
 
-#: E-03: feedback older than this no longer hides the item.
-DISMISS_DAYS = 90
 _DISMISSING = ("not_interested", "hide", "report")
 
 
@@ -47,7 +45,8 @@ async def viewer_context(settings: Settings, user_id: str | None) -> Viewer:
         fetch.read_where(settings, "business", "user_id", [user_id]),
         fetch.read_where(settings, "follow", "userId", [user_id]),
         fetch.read_blocks(settings, [user_id]),
-        writers.read_viewer_feedback(settings, user_id, utc_now() - timedelta(days=DISMISS_DAYS)),
+        # E-03's window is the setting filters.feedback_hide_days (90; 30 to 365).
+        writers.read_viewer_feedback(settings, user_id, utc_now() - timedelta(days=live.current().filters.feedback_hide_days)),
     )
     own = {user_id, *(b.business_id for b in businesses)}
     if len(own) > 1:
@@ -56,12 +55,18 @@ async def viewer_context(settings: Settings, user_id: str | None) -> Viewer:
     muted, dismissed, mute_posts = set(), set(), []
     for row in feedback:
         kind = str(row.get("feedback_type") or "").lower()
+        target, target_type = row.get("target_id"), str(row.get("target_type") or "").lower()
         if kind == "mute_author":
-            if row.get("influencer_id"):
-                muted.add(str(row["influencer_id"]))
-            elif row.get("post_id"):
-                mute_posts.append(row["post_id"])
+            # E13: target_type author names the author; otherwise the followed
+            # account, or the author of the post the mute was made on.
+            author = target if target and target_type == "author" else row.get("influencer_id")
+            if author:
+                muted.add(str(author))
+            elif row.get("post_id") or (target and target_type == "post"):
+                mute_posts.append(row.get("post_id") or target)
         elif kind in _DISMISSING:
+            if target and target_type in ("post", "product"):
+                dismissed.add(str(target))
             dismissed.update(str(row[k]) for k in ("item_id", "post_id", "product_id") if row.get(k))
     if mute_posts:  # a mute recorded against a post: the author is muted
         muted.update(p.author_id for p in await fetch.read_where(settings, "post", "_id", mute_posts))
@@ -103,10 +108,25 @@ async def eligible_posts(
     settings: Settings, posts: list[PostRecord], viewer: Viewer, request_id: str | None = None,
     cache: AccountCache | None = None,
 ) -> list[PostRecord]:
-    authors = await _accounts(settings, [p.author_id for p in posts], cache)
+    """E-01 to E-12 on posts; a post card showing a product also needs that product
+    sellable (E-07: out-of-stock products are never shown, DS-017 4.5)."""
+    shown = sorted({p.product_ids[0] for p in posts if p.product_ids})
+    authors, products, variant_rows = await asyncio.gather(
+        _accounts(settings, [p.author_id for p in posts], cache),
+        fetch.read_where(settings, "product", "_id", shown),
+        fetch.read_where(settings, "variant", "productId", shown),
+    )
+    by_id = {p.product_id: p for p in products}
+    variants: dict[str, list[VariantRecord]] = defaultdict(list)
+    for v in variant_rows:
+        variants[v.product_id].append(v)
     kept = []
     for post in posts:
         rule = post_rule(post, authors.get(post.author_id), viewer)
+        if rule is None and post.product_ids:
+            product = by_id.get(post.product_ids[0])
+            if product is None or not product_is_sellable(product, variants[product.product_id]):
+                rule = "E-07"
         if rule:
             _log(request_id, post.post_id, rule, "post")
         else:

@@ -125,15 +125,8 @@ async def read_touched(settings: Settings, kind: str, time_fields: tuple[str, ..
 #: The time each kind is ordered by, newest first.
 _NEWEST_BY = {"post": "timestamp", "product": "createdAt"}
 
-#: Narrowed at the database so fewer rows travel; the eligibility module still
-#: checks every record (ENG-06: re-checked when each list is built).
-def _servable(kind: str) -> dict[str, Any]:
-    if kind == "post":
-        return {"visibility": "public", "isHidden": {"$ne": True}}
-    # 'Activate', ignoring case, or any spelling the settings map to it (ENG-29 item 2).
-    spellings = "|".join(re.escape(v) for v in records.spellings_of("activate"))
-    return {"status": {"$regex": rf"^\s*({spellings})\s*$", "$options": "i"}, "availability.inStock": True}
-
+#: No filter at the database: every item goes through the eligibility rules,
+#: so every exclusion is logged with its rule (ENG-08).
 _EMPTY_INDEX = ProductCategoryIndex()
 
 #: Serving and eligibility read only the fields the parsers use. Product documents
@@ -158,7 +151,7 @@ async def read_newest(settings: Settings, kind: str, limit: int, skip: int = 0) 
         parse = await _parser(settings, kind)
     cursor = (
         app_db(settings)[PLATFORM_COLLECTIONS[kind]]
-        .find(_servable(kind), _FIELDS[kind])
+        .find({}, _FIELDS[kind])
         .sort([(_NEWEST_BY[kind], -1), ("_id", -1)])
         .skip(skip)
         .limit(limit)

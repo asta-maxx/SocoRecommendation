@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The checklist, run end to end: every check for ENG-01 to ENG-07 and ENG-29 (pack v1.3).
+# The checklist, run end to end: every check for ENG-01 to ENG-08 and ENG-29 (pack v1.3).
 #
 #     bash scripts/run_checklist.sh
 #
@@ -170,6 +170,14 @@ check "8.6 rec_serve_log rows are read and copied" "$T -k serve_log" "2 passed"
 check "8.7 status spellings from the settings" "$T -k spellings" "1 passed"
 check "8.8 the real daily category check runs on SOCO's data" "ML_MONGO_DB=reco_demo $PY -m reco.jobs category_check" '"outcome": "succeeded"'
 check "8.9 the engine test environment holds the constructed data" "$PY scripts/seed_test_platform.py soco_engine_test" "all parse"
+
+echo "== 9. ENG-08: eligibility filters E-01 to E-12"
+T="TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_eligibility.py -p no:cacheprovider"
+check "9.1 each rule E-01 to E-12: one item excluded, one kept (the ENG-08 check)" "$T -m 'not mongo' -k 'test_e0 or test_e1'" "12 passed"
+check "9.2 the viewer's follows, blocks and feedback are read when the list is built" "$T -k viewer_context" "1 passed"
+check "9.3 every exclusion is logged with request_id, item_id and rule" "$T -k logged" "1 passed"
+check "9.4 an item failing the final recheck is replaced by the next eligible one" "$T -k recheck" "1 passed"
+check "9.5 the rules run on SOCO's real data" "$PY scripts/show_exclusions.py" "left out, by rule"
 
 cleanup
 trap - EXIT

@@ -40,6 +40,10 @@ def init_client(settings: Settings) -> None:
         # Connections opened ahead, so a request never waits for one to be set up
         # (serving reads several things at once, ENG-06/ENG-08).
         minPoolSize=MIN_POOL,
+        # SD-26, DS-017 4.6: no retries inside a request. The driver would otherwise
+        # retry a failed read or write once by itself.
+        retryReads=False,
+        retryWrites=False,
         serverSelectionTimeoutMS=int(settings.mongo_timeout_seconds * 1000),
     )
     logger.info("Platform client opened: db=%s (read-only)", settings.app_mongo_db)
@@ -113,3 +117,14 @@ async def ping(settings: Settings) -> bool:
     except Exception:
         logger.exception("Ping failed on the platform connection")
         return False
+
+
+async def warm(settings: Settings, connections: int = MIN_POOL) -> None:
+    """Open the pool's connections now, in parallel, so the first requests don't pay
+    for setting them up (a request has SOCO_BE's 250 ms at most, APP-15)."""
+    import asyncio
+
+    db = app_db(settings)
+    # Warm the members reads actually go to (the URI's read preference, e.g. a
+    # secondary), not only the primary that a plain ping would reach.
+    await asyncio.gather(*(db.command("ping", read_preference=db.read_preference) for _ in range(connections)))

@@ -48,6 +48,11 @@ async def lifespan(app: FastAPI):
             "has createIndex on the ml_ prefix"
         )
 
+    try:
+        await asyncio.gather(platform_conn.warm(settings), store_conn.warm(settings))
+    except Exception:
+        logger.exception("could not open the database connections ahead; requests will open them")
+
     # ENG-02 items 3-4: the settings in force, then a reload at least once a minute.
     await sync.load_at_start(settings)
     reloader = asyncio.create_task(sync.reload_loop(settings))

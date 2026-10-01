@@ -191,12 +191,23 @@ async def test_the_viewer_context_comes_from_the_platform_and_the_engine_copy(se
          "post_id": str(C["post"]), "created_at": now, "undone_at": None},
         {"_id": ObjectId(), "user_id": str(C["viewer"]), "event_type": "feedback", "feedback_type": "hide",
          "post_id": str(C["adult_post"]), "created_at": now - timedelta(days=91), "undone_at": None},  # too old
+        # E13 shape (F61, F62): target_id with target_type
+        {"_id": ObjectId(), "user_id": str(C["viewer"]), "event_type": "feedback", "feedback_type": "report",
+         "target_id": str(C["unmapped_category_post"]), "target_type": "post", "created_at": now, "undone_at": None},
+        # E-02 has no time limit: a mute from a year ago still applies
+        {"_id": ObjectId(), "user_id": str(C["viewer"]), "event_type": "feedback", "feedback_type": "mute_author",
+         "target_id": str(C["private_author"]), "target_type": "author", "created_at": now - timedelta(days=365), "undone_at": None},
+        # an undone mute does not apply
+        {"_id": ObjectId(), "user_id": str(C["viewer"]), "event_type": "feedback", "feedback_type": "mute_author",
+         "target_id": str(C["inactive_author"]), "target_type": "author", "created_at": now, "undone_at": now},
     ])
     viewer = await apply.viewer_context(settings, str(C["viewer"]))
     assert str(C["blocker"]) in viewer.blocked  # E-01, from followers, read now
     assert {str(C["author"]), str(C["seller"])} <= viewer.follows  # follows with ids as text and as ObjectId
     assert str(C["product_post"]) in viewer.dismissed and str(C["adult_post"]) not in viewer.dismissed
     assert str(C["author"]) in viewer.muted  # the mute was recorded against a post: its author
+    assert str(C["unmapped_category_post"]) in viewer.dismissed  # target_id / target_type
+    assert str(C["private_author"]) in viewer.muted and str(C["inactive_author"]) not in viewer.muted
     assert viewer.is_adult
 
 
@@ -227,3 +238,13 @@ async def test_an_item_failing_the_final_recheck_is_replaced(seeded) -> None:
     page = await serving.page_after_recheck(settings, built, page=1, limit=2, request_id="req-test-2")
 
     assert [c.item_id for c in page] == [str(C["post"]), str(C["under_review_post"])]
+
+
+@pytest.mark.mongo
+async def test_e07_a_post_card_showing_an_unsellable_product_is_left_out(seeded) -> None:
+    settings, platform, _ = seeded
+    viewer = await apply.viewer_context(settings, str(C["viewer"]))
+    card = records.parse_post(doc("posts", "product_post"), VOCAB)
+    assert [p.post_id for p in await apply.eligible_posts(settings, [card], viewer)] == [card.post_id]
+    await platform[PLATFORM_COLLECTIONS["variant"]].update_many({"productId": C["product"]}, {"$set": {"quantity": 0}})
+    assert await apply.eligible_posts(settings, [card], viewer) == []

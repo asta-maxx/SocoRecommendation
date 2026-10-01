@@ -177,6 +177,12 @@ class Settings(BaseModel):
     #: an operational bound, so an unreachable cluster fails at startup with a
     #: message rather than hanging.
     mongo_timeout_seconds: float = 10.0
+    #: The longest one POST /v1/recommendations may take before it answers 503.
+    #: Unset: SOCO_BE's own timeout (serving.soco_be_timeout_ms, 250 ms, APP-15)
+    #: on test and production, where the engine sits next to the database; 2 s on
+    #: dev, where the laptop is far from Atlas. The pack sets no value (SD-26 asks
+    #: only for an error at once with no retry).
+    request_budget_ms: int | None = None
 
     # --- Model identity ------------------------------------------------------
     model_version: str = "1.0.0"
@@ -355,6 +361,7 @@ class Settings(BaseModel):
             # never share an engine database by default.
             ml_mongo_db=_env_str("ML_MONGO_DB", f"soco_engine_{engine_env}"),
             mongo_timeout_seconds=_env_float("MONGO_TIMEOUT_SECONDS", 10.0),
+            request_budget_ms=int(os.environ["REQUEST_BUDGET_MS"]) if os.environ.get("REQUEST_BUDGET_MS") else None,
             model_version=_env_str("MODEL_VERSION", "1.0.0"),
             category_vocabulary_path=_env_str(
                 "CATEGORY_VOCABULARY_PATH", "reco/platform/categories.json"

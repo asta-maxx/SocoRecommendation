@@ -27,9 +27,11 @@ production until then (settings serving.surface_mode_*).
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from typing import Any
 
+import pymongo
 from bson import ObjectId
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
@@ -86,9 +88,18 @@ def _bad_request(body: Any) -> tuple[dict[str, Any] | None, JSONResponse | None]
     }, None
 
 
-def _slot_record(a: Assignment) -> dict[str, Any]:
-    return {"method": a.method, "method_number": method_number(a), "bucket": a.bucket,
-            "from_default": a.from_default, "fallback_step": None}
+def _slot_method(a: Assignment) -> dict[str, Any]:
+    """Capture Register F71: {slot, method, fallback_step}, plus how it was chosen."""
+    return {"slot": a.slot, "method": a.method, "fallback_step": None, "method_number": method_number(a),
+            "bucket": a.bucket, "from_default": a.from_default}
+
+
+def request_budget_seconds(settings: Settings, tunables) -> float:
+    if settings.request_budget_ms:
+        return settings.request_budget_ms / 1000
+    if settings.engine_env == "dev":
+        return 2.0
+    return tunables.serving.soco_be_timeout_ms / 1000
 
 
 @router.post("/v1/recommendations")
@@ -118,14 +129,20 @@ async def recommendations(
     assignments = [assign(slot, asked["user_id"] or "", tunables) for slot in SLOTS_BY_SURFACE[surface]]
     request_id = str(uuid.uuid4())
     server_ts = utc_now()
+    # SD-26: an error at once, never a retry, and no longer than SOCO_BE waits
+    # (serving.soco_be_timeout_ms, 250 ms): past that SOCO_BE has already fallen back,
+    # and a record of a list nobody saw would only mislead. On dev, 2 s (Settings).
+    budget = request_budget_seconds(settings, tunables)
+    clock = time.monotonic()
     try:
-        built = await serving.interim_candidates(
-            settings, surface, asked["page"], asked["limit"], asked["context_item_id"], asked["user_id"], request_id
-        )
-        page_items = await serving.page_after_recheck(settings, built, asked["page"], asked["limit"], request_id)
+        with pymongo.timeout(budget):
+            built = await serving.interim_candidates(
+                settings, surface, asked["page"], asked["limit"], asked["context_item_id"], asked["user_id"], request_id
+            )
+            page_items = await serving.page_after_recheck(settings, built, asked["page"], asked["limit"], request_id)
         candidates = built.candidates
     except Exception as exc:
-        logger.error("database unreadable", extra={"request_id": request_id, "error": repr(exc)[:300]})
+        logger.error("database unreadable: %s", repr(exc)[:300], extra={"request_id": request_id, "error": repr(exc)[:300]})
         return _error(503, "database_unavailable", "a database could not be read")
 
     exploration = serving.decide_exploration(surface, tunables.serving.exploration_percent)
@@ -162,17 +179,18 @@ async def recommendations(
         "created_at": server_ts,  # the retention expiry runs from it (ENG-01)
         "candidate_ids": [c.item_id for c in candidates],
         "served_items": items,
-        "slots": {a.slot: _slot_record(a) for a in assignments},
+        "slot_methods": [_slot_method(a) for a in assignments],
         "fallback_step": None,
         "is_exploration": exploration,
         "is_fallback": False,
         "ordering": INTERIM_ORDERING,
-        "scored_sample": serving.scored_sample(
+        "scored_not_served": serving.scored_not_served(
             candidates, {c.item_id for c in page_items}, exploration, tunables.serving.sample_random_percent
         ),
     }
     try:
-        await writers.record_served_list(settings, record)
+        with pymongo.timeout(max(0.01, budget - (time.monotonic() - clock))):
+            await writers.record_served_list(settings, record)
     except Exception as exc:
         logger.error("engine database unwritable", extra={"request_id": request_id, "error": repr(exc)[:300]})
         return _error(503, "database_unavailable", "the served list could not be recorded")

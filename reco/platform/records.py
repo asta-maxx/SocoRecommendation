@@ -296,6 +296,8 @@ class PostEventRecord(_Record):
     quantity: float | None
     value: float | None
     feedback_type: str | None
+    target_id: str | None  # E13 F61: the post, product or author the feedback is about
+    target_type: str | None  # E13 F62: post, product or author
     undone_at: datetime | None
     undo_of: str | None
     is_self: bool
@@ -361,6 +363,8 @@ def parse_postevent(doc: dict[str, Any]) -> PostEventRecord:
         quantity=_number(doc.get("quantity")),
         value=_number(doc.get("value")),
         feedback_type=feedback.strip().lower() if isinstance(feedback, str) else None,
+        target_id=maybe_str(doc.get("target_id")),
+        target_type=doc.get("target_type").strip().lower() if isinstance(doc.get("target_type"), str) else None,
         undone_at=as_utc(doc.get("undone_at")),
         undo_of=maybe_str(doc.get("undo_of")),
         is_self=bool(doc.get("is_self")),

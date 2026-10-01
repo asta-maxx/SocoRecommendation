@@ -496,8 +496,11 @@ async def record_measurement(settings: Settings, key: dict[str, Any], fields: di
 
 
 async def read_viewer_feedback(settings: Settings, user_id: str, since: datetime) -> list[dict[str, Any]]:
-    """The viewer's content feedback (E13) in the engine's copy of postevents, since
-    `since`, leaving out undone rows (ENG-08 E-02, E-03)."""
-    query = {"user_id": user_id, "event_type": "feedback", "created_at": {"$gte": since}, "undone_at": None}
-    projection = {"feedback_type": 1, "post_id": 1, "product_id": 1, "item_id": 1, "influencer_id": 1}
+    """The viewer's content feedback (E13) in the engine's copy of postevents, leaving
+    out undone rows (ENG-08): every mute_author (E-02 sets no time limit), and the
+    other kinds since `since` (E-03's window)."""
+    query = {"user_id": user_id, "event_type": "feedback", "undone_at": None,
+             "$or": [{"feedback_type": "mute_author"}, {"created_at": {"$gte": since}}]}
+    projection = {"feedback_type": 1, "target_id": 1, "target_type": 1, "post_id": 1, "product_id": 1,
+                  "item_id": 1, "influencer_id": 1}
     return await ml_db(settings)["ml_events"].find(query, projection).to_list(None)
