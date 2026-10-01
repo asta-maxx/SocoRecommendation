@@ -39,6 +39,9 @@ class SyncSource:
     target: str  # the engine collection the copies go into
     time_fields: tuple[str, ...]  # the platform row's own time, for the reconciliation's day
     compared: tuple[str, ...]  # field values the reconciliation compares (item 8)
+    #: Written once, never changed (rec_serve_log): no updated_at is needed; new
+    #: rows are read by _id, carrying on from the backfill's position.
+    append_only: bool = False
 
     @property
     def collection(self) -> str:
@@ -52,10 +55,10 @@ SYNC_SOURCES: tuple[SyncSource, ...] = (
     SyncSource("postevent", "ml_events", ("created_at",), ("undone_at", "undo_of", "updated_at")),
     SyncSource("order", "ml_orders", ("created_at",), ("order_status", "tracking_info", "updated_at")),
     SyncSource("served_list", "ml_events", ("server_ts", "created_at"), ("seen_ids", "updated_at")),
-    # ENG-29 item 7: read the same way as recommendationrequests. It has no
-    # updated_at today (Kala question 3), so the incremental read finds nothing;
-    # the backfill and the daily reconciliation copy it.
-    SyncSource("serve_log", "ml_events", ("time", "timestamp", "created_at"), ("origin", "outcome", "elapsed_ms", "updated_at")),
+    # ENG-29 item 7. One row per list request, written once (DS-017 4.3), so it
+    # has no updated_at: new rows are read by _id (append_only).
+    SyncSource("serve_log", "ml_events", ("time", "timestamp", "created_at"), ("origin", "outcome", "elapsed_ms"),
+               append_only=True),
 )
 
 

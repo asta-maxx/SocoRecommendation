@@ -85,8 +85,16 @@ async def backfill(settings: Settings, source: SyncSource) -> int:
 
 async def incremental(settings: Settings, source: SyncSource) -> int:
     """Items 2-4: rows with updated_at from (checkpoint - overlap), in (updated_at, _id)
-    order with keyset paging; the checkpoint moves after each page is written."""
+    order with keyset paging; the checkpoint moves after each page is written.
+    An append-only source carries on in _id order from where the backfill stopped."""
     state = await writers.read_sync_state(settings, source.collection)
+    if source.append_only:
+        after, copied = (state.get("backfill") or {}).get("after_id"), 0
+        while docs := await fetch.read_page_by_id(settings, source.kind, after, PAGE_SIZE):
+            copied += await write_page(settings, source, docs, utc_now())
+            after = docs[-1]["_id"]
+            await writers.write_sync_state(settings, source.collection, {"backfill.after_id": after})
+        return copied
     checkpoint: datetime | None = state.get("checkpoint")
     overlap = timedelta(minutes=live.current().events.sync_overlap_minutes)
     since = checkpoint - overlap if checkpoint else _EARLIEST

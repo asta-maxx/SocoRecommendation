@@ -266,7 +266,10 @@ async def test_a_feed_list_is_recorded_exactly_as_returned(platform, monkeypatch
 
     assert status == 200
     assert [i["item_id"] for i in body["items"]] == [str(p["_id"]) for p in [*shown, with_product, under_review]]  # newest first, eligible only
-    assert body["items"][4]["post_id"] == str(with_product["_id"]) and body["items"][4]["product_id"] == str(with_product["products"][0])
+    card = body["items"][4]  # X-16 / F10: a post card showing a product
+    assert (card["item_id"], card["item_type"], card["post_id"], card["product_id"]) == (
+        str(with_product["_id"]), "product", str(with_product["_id"]), str(with_product["products"][0]))
+    assert body["items"][0]["item_type"] == "post" and body["items"][0]["product_id"] is None
     record = await writers.read_served_list(settings, body["request_id"])
     assert record["served_items"] == body["items"]
     assert await store_conn.ml_db(settings)["ml_events"].count_documents({"request_id": body["request_id"]}) == 1

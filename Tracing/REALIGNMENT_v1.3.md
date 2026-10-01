@@ -69,25 +69,38 @@ The sync's **backfill** works on today's data. The incremental read needs
 **Urgent:** DB-01 keeps the platform's 90-day expiry. The backfill must copy
 events before their oldest rows reach 90 days.
 
-## Questions for Kala (in writing, quoting the item)
+## Questions (reviewed 1 Oct 2026)
 
-1. **DB-02:** its row is missing from the v1.3 Build List sheet (68 rows; the Home sheet says 69). It's still referenced by ENG-01, ENG-04, DB-12 and the Waits sheet, and the old check ("old login no longer connects; cannot write") has no home.
-2. **ENG-21 / DB-02:** fraud rule R12 reads `user_sessions` (device, IP), but `user_sessions` isn't on DB-02's read-only list.
-3. **ENG-04 / ENG-29:** `rec_serve_log` (F80) has no `updated_at`, yet ENG-29 says it's synced "the same way as recommendationrequests".
-4. **ENG-29 / X-16 / F10:** what exact `item_type` is returned for a post card that shows a product ("as the app expects")?
-5. **ENG-21 / X-21 vs Fraud §11:** are test accounts left out of fraud entirely (X-21, ENG-29), or flagged but not actioned (Fraud §11)?
-6. **ENG-10 / sheet 4:** are follows counted from `follows` or from `postevents` follow rows? Both are named.
-7. **ENG-08 ↔ ENG-27:** ENG-08 (Step 2) applies filters on ENG-27's state, while ENG-27 (Step 3) waits on ENG-08.
-8. **Version references:** several places cite "API contract v2.4"; the pack is v2.5.
-9. **ENG-23:** "Run each query on the test environment", while the Definitions say there is no platform test environment.
-10. **DB-16:** do migrated `postevents` rows keep their `_id` and get an `updated_at`? The sync keys on both.
-11. **X-05 vs ENG-03:** seen items come from `seen_ids` (X-05), or from the engine's own copy of impressions (ENG-03)?
-12. **ENG-29 #1:** where are the "older seller categories" stored? Only `categories` is readable.
-13. **ENG-05 / DS-017 4.2:** DS-017's example `cfg3.interest-2.promoter-1` numbers the methods and shortens the slot name, while Build List ENG-05/ENG-26 ("policy_id records method names, so history stays readable across the swap") and SD-15 name them. We follow the Build List: `cfg2.interest-recency_decay.promoter_score-shrinkage`. Please correct the DS-017 example.
-14. **ENG-06:** it waits on ENG-09 and ENG-29, which aren't built. We built it to its own interim clause ("on test, return eligible posts newest first"; both surfaces off in production). For the product surface the clause is silent: we return eligible products newest first, without the context product. Is that the intended interim?
-15. **ENG-06 exploration:** "shuffle positions 4 onward among eligible items". We shuffle within the page, so page 2 never repeats page 1. Or should items be drawn from beyond the page?
-16. **ENG-08 E-01 / DB-06:** blocks are "status blocked in followers", but `followers` is empty on dev and its field names aren't documented (only the `_id` index exists). Which fields hold the two accounts and the status? The constructed test data assumes `userId` (blocker), `followerId` (blocked), `status: "blocked"`.
-17. **ENG-08 E-08 / ENG-03:** "the author or seller is not active (users.status or businessregisters.status, ignoring case)". On dev the two import sellers (2,006 of 2,011 products), 2 users and 4 businesses have **no status field**. Does a missing status count as active? Until answered the engine treats it as not active, so no product on dev can be served. Asked of Aravinth on 1 Oct.
+Every question was checked against `docs/updated` (Build List v1.3 first, then
+DS-017 v2.5, SDA v1.6, Fraud Policy v1.3, Capture Register 29 Sep) and against
+SOCO's own data. Fifteen are answered; two are open.
+
+### Still open (only these need asking)
+
+| # | Question | Who can answer | Until then |
+|---|---|---|---|
+| 16 | **Blocks in `followers` (ENG-08 E-01, X-19):** which fields hold the blocker, the blocked account and the status? Can either side be a `businessregisters` id? The collection is empty on dev and has only the `_id` index. | Aravinth, or the backend code (the block endpoint / followers model) | The engine assumes `{userId: blocker, followerId: blocked, status: "blocked"}` |
+| 17 | **Missing `status` (ENG-08 E-08):** the two import sellers (2,006 of 2,011 products), 2 users and 4 businesses have no `status`. Does a missing status mean active? | Aravinth, or the backend code (account model defaults) | Treated as not active, so no product on dev can be served |
+
+### Answered
+
+| # | Question | Answer | From |
+|---|---|---|---|
+| 1 | DB-02 row missing from the Build List | Its content is on the "Waits on the other team" sheet (the read list); the login exists and works | Build List, Waits sheet |
+| 2 | `user_sessions` for fraud R12 | The current read-only login reads it (7 rows: `deviceId`, `ipAddress`, `userId`); keep it on the final login | Dev database |
+| 3 | `rec_serve_log` has no `updated_at` | It is written once per list request (DS-017 4.3), so it needs none: the sync reads new rows by `_id` (done) | DS-017 4.3, ENG-29 item 7 |
+| 4 | `item_type` for a post card showing a product | `product`, with the post id as `item_id` and `post_id`, and the product as `product_id` (done in ENG-06) | Capture Register F10, X-16; real feed clicks on dev |
+| 5 | Test accounts and fraud | Left out of fraud entirely; exemptions are flagged, never actioned | Build List ENG-29 item 3, X-21 (Build List outranks the Fraud Policy) |
+| 6 | Follows: `follows` or postevents follow rows | Business follows come from `follows` (followingReference businessRegister) | Build List ENG-10 |
+| 7 | ENG-08 ↔ ENG-27 circle | ENG-08 reads the platform directly until ENG-27's state exists; no block | Build List ENG-08, ENG-27 |
+| 8 | "API contract v2.4" references | The pack's own documents are v2.5; nothing to do | — |
+| 9 | ENG-23 "on the test environment" | The engine's test environment with constructed data (`soco_engine_test`, done) | Build List ENG-29 item 8 |
+| 10 | Migrated postevents `_id` / `updated_at` | Not needed: the backfill runs after the migration (DB-16 step 4) and keys on `_id`; it doesn't need `updated_at` | Build List DB-16, ENG-04 |
+| 11 | Seen items: `seen_ids` or impressions | Paging leaves out items *served* in the last 24 hours, from the engine's records; `seen_ids` is for measurement | Build List ENG-19, X-05 |
+| 12 | Where "older seller categories" live | `businessregisters.category` (free text) and the category tree; the daily check covers both | ENG-29 item 1; dev database |
+| 13 | policy_id names vs numbers | Method names | Build List ENG-05, ENG-26, SD-15 (outrank DS-017's example) |
+| 14 | ENG-06 interim on product | Eligible products newest first, until ENG-17; a choice within ENG-06's interim clause | Build List ENG-06 |
+| 15 | Exploration shuffle | Within the page, so paging stays stable; ENG-19 re-checks the author rule after shuffling | DS-017 4.3, Build List ENG-19 |
 
 ## Built after the realignment (1 Oct)
 

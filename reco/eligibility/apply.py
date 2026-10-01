@@ -151,8 +151,10 @@ async def recheck(
     read per list, for the returned ids) for blocks, visibility and stock. Returns
     the item_ids that now fail. Accounts read earlier in the same request are
     reused (`cache`); blocks were read from the platform when the list was built."""
-    post_ids = [i["item_id"] for i in items if i["item_type"] == "post"]
-    product_ids = [i["item_id"] for i in items if i["item_type"] == "product"]
+    # A card with a post id is a post card -- including one showing a product,
+    # whose item_type is product (X-16, F10); product rails carry product ids only.
+    post_ids = [i["item_id"] for i in items if i.get("post_id")]
+    product_ids = [i["item_id"] for i in items if not i.get("post_id")]
     failed: set[str] = set()
     if post_ids:
         posts = await fetch.read_where(settings, "post", "_id", post_ids)

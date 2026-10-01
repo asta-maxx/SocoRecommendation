@@ -47,9 +47,12 @@ class Candidate:
 
 
 def _post_card(post) -> tuple[str, str, str | None, str | None]:
-    # A post card keeps its post id as item_id; a product it shows rides along as
-    # product_id, so a post id is never read as a product id.
-    return post.post_id, "post", post.post_id, (post.product_ids[0] if post.product_ids else None)
+    # X-16 / F10: a post card keeps its post id as item_id. A post card showing a
+    # product has item_type product, as the platform's own feed lists write it
+    # (F10: "item_type product with a post id is a post card showing a product");
+    # post_id and product_id ride along, so a post id is never read as a product id.
+    product = post.product_ids[0] if post.product_ids else None
+    return post.post_id, ("product" if product else "post"), post.post_id, product
 
 
 def _product_card(product) -> tuple[str, str, str | None, str | None]:
@@ -114,7 +117,8 @@ async def page_after_recheck(
     if not page_items:
         return page_items
     failed = await recheck(
-        settings, [{"item_id": c.item_id, "item_type": c.item_type} for c in page_items], built.viewer, request_id, built.cache
+        settings, [{"item_id": c.item_id, "item_type": c.item_type, "post_id": c.post_id} for c in page_items],
+        built.viewer, request_id, built.cache
     )
     if not failed:
         return page_items
