@@ -83,3 +83,17 @@ events before their oldest rows reach 90 days.
 10. **DB-16:** do migrated `postevents` rows keep their `_id` and get an `updated_at`? The sync keys on both.
 11. **X-05 vs ENG-03:** seen items come from `seen_ids` (X-05), or from the engine's own copy of impressions (ENG-03)?
 12. **ENG-29 #1:** where are the "older seller categories" stored? Only `categories` is readable.
+13. **ENG-05 / DS-017 4.2:** DS-017's example `cfg3.interest-2.promoter-1` numbers the methods and shortens the slot name, while Build List ENG-05/ENG-26 ("policy_id records method names, so history stays readable across the swap") and SD-15 name them. We follow the Build List: `cfg2.interest-recency_decay.promoter_score-shrinkage`. Please correct the DS-017 example.
+14. **ENG-06:** it waits on ENG-09 and ENG-29, which aren't built. We built it to its own interim clause ("on test, return eligible posts newest first"; both surfaces off in production). For the product surface the clause is silent: we return eligible products newest first, without the context product. Is that the intended interim?
+15. **ENG-06 exploration:** "shuffle positions 4 onward among eligible items". We shuffle within the page, so page 2 never repeats page 1. Or should items be drawn from beyond the page?
+
+## Built after the realignment (1 Oct)
+
+| Item | State | Commit |
+|---|---|---|
+| ENG-04 | Rebuilt as the engine sync; real backfill into dev `SoCo` (postevents 146, orders 8, recommendationrequests 12) | 6c4299c |
+| ENG-05 | Built: SHA-256 buckets, policy_id per DS-017 4.2 | 4ec8f30, 4db835f |
+| ENG-06 | In progress: endpoint, E1 record, modes, exploration, sample, errors; interim newest-first lists until ENG-08/09/17/19/29 | 4db835f |
+| ENG-07 | Built: batches marked current only when complete, ml_job_runs, 2 AM IST scheduler; M1 runs as batches | 008390a |
+
+> The dev engine copy stays current only while `python -m reco.jobs sync_loop` runs (on the laptop for now; on the servers once ENG-01's remainder is done).

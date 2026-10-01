@@ -52,12 +52,14 @@ open -a "Visual Studio Code" /tmp/soco-demo.toml
 - **They should see:**
   ```
   interest
+  nightly
   reconcile_sync
+  scheduler
   sync
   sync_check
   sync_loop
   ```
-  `interest` is the interest-score job; the four `sync` jobs copy SOCO's events (ENG-04). ENG-07 adds the nightly jobs to this list. (Don't run any of them in the demo; they do real work and take a while.)
+  `interest` is the interest-score job; the four `sync` jobs copy SOCO's events (ENG-04); `nightly` and `scheduler` run the 2 AM jobs (ENG-07). (Don't run any of them in the demo; they do real work and take a while.)
 
 ### 3. A health check that tells the truth
 - **Say:** "The health page says OK only when both databases can be read."

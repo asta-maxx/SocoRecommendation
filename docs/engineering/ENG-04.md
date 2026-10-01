@@ -181,6 +181,19 @@ Run on 1 Oct 2026 against the dev platform with the read-only login, into `SoCo`
 
 ---
 
+### D. Extra: every pass and every reconciliation recorded in `ml_job_runs`: done (1 Oct, `7442bda`)
+
+SD-21: "Every job run is recorded in ml_job_runs: what ran, over what window,
+rows written, and whether it succeeded." `sync_once` runs inside
+`reco.jobs.batches.recorded_run(settings, "sync")` (rows_written = rows copied;
+detail = copied and failed per source); `reconcile_day` inside
+`recorded_run(settings, "reconcile_sync", data_window=<the IST day>)`
+(rows_written = rows re-read; detail.passed per source); the `sync_check` job
+as `sync_check`. A failed pass is recorded with its error; a killed one is
+marked failed ("abandoned") when the same job next starts. The reconciliation
+also runs last in the nightly jobs (SD-22, ENG-07). Test:
+`test_every_sync_and_reconciliation_run_is_recorded`.
+
 ## 3. Configuration reference
 
 No new environment variables. Settings (`settings/engine.toml`, `[events]`, validated in `reco/config/tunables.py`; from the Settings sheet):

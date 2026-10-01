@@ -70,6 +70,35 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 4.10 | A real backfill from SOCO's data into the throwaway database finishes for all three collections |
 | 4.11 | A real audit of yesterday passes |
 
+### 5. ENG-05: the same method for each user → [[ENG-05 - Same method for each user]]
+| Line | Checks |
+|---|---|
+| 5.1 | The same user gets the same method across two restarts (tests) |
+| 5.2 | Changing a split moves users at once, with no new release (tests) |
+| 5.3 | Over 10,000 made-up IDs, each split lands within 2 points, at 50, 25, 10 and 0 (tests) |
+| 5.4 | With the settings missing, everyone gets the default and the fault is logged (tests) |
+| 5.5 | The real settings file splits 10,000 IDs within 2 points in all three slots |
+
+### 6. ENG-06: serve a list and record it → [[ENG-06 - Serve a recommendation list]]
+| Line | Checks |
+|---|---|
+| 6.1 | The rules of the door: wrong token 401, bad input 400, surface off or internal 503, a database fault 503 with no retry, the answer's shape (tests) |
+| 6.2 | On made-up SOCO data: only eligible items, newest first, and the record matches the answer (tests) |
+| 6.3 | Over the network, 19 feed requests: p95 within 200 ms, every record matches the answer |
+| 6.4 | The same for the product surface |
+| 6.5 | A wrong token is refused (401) |
+| 6.6 | Setting the feed to off in the settings (no restart) gives 503 |
+
+### 7. ENG-07: nightly jobs → [[ENG-07 - Nightly jobs]]
+| Line | Checks |
+|---|---|
+| 7.1 | The scheduler runs at the time in the settings (2 AM India time), with the sync's daily audit last; one failed job doesn't stop the others (tests) |
+| 7.2 | A batch is read only once it's complete and current; every row carries its history (tests) |
+| 7.3 | A job that fails halfway leaves the previous batch in use (tests) |
+| 7.4 | A killed run is recorded as failed and never read (tests) |
+| 7.5 | A real kill (SIGKILL) halfway: requests still read the previous batch, and the run diary shows the failure |
+| 7.6 | A real nightly run: both interest methods end up current |
+
 ### Last line: clean up
 | Line | Checks |
 |---|---|
@@ -84,7 +113,7 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 ## Last full run
 29 Sep 2026, on the 22 Sep design (ENG-04 was then the events door): **31 passed, 0 failed.** Record: `Tracing/checks/Checklist_2026-09-29.md`.
 
-The v1.3 checklist above has 36 lines. No full run of it is recorded yet.
+The checklist above has 53 lines (ENG-01 to ENG-07, pack v1.3). Its last full run is recorded below once done.
 
 ## What the checklist can't check yet
 - The test and production servers, production's own login, and the private network: all waiting on Aravinth → [[People]].

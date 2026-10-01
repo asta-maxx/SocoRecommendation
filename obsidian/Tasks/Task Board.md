@@ -10,12 +10,12 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 - [ ] [[ENG-02 - Service skeleton and settings]]: **built** (realigned to v1.3 on 1 Oct: sync replaces events, v1.3 settings; check passed on laptop; re-run on the test server later) · [[Demo - ENG-02|demo]]
 - [ ] [[ENG-03 - Reading SOCO's data correctly]]: **built** (realigned to v1.3 on 1 Oct: no event source switch; check passed on laptop; re-run on the test server later) · [[Demo - ENG-03|demo]]
 - [ ] [[ENG-04 - Engine sync]]: **built** (laptop/dev; real backfill done 1 Oct; waits on APP-12 updated_at and the test server) · [[Demo - ENG-04|demo]]
-- [ ] [[ENG-05 - Same method for each user]]
+- [ ] [[ENG-05 - Same method for each user]]: **built** (1 Oct, laptop; re-run on the test server later) · [[Demo - ENG-05|demo]]
 - [ ] ENG-20 (part 1): Time today's feed (due this week)
 
 ## Step 2: serving lists
-- [ ] ENG-06: Serve a recommendation list
-- [ ] ENG-07: Nightly jobs
+- [ ] [[ENG-06 - Serve a recommendation list]]: **in progress** (1 Oct: serving, record, modes, exploration and errors work; interim newest-first lists until ENG-08, ENG-09, ENG-17, ENG-19 and ENG-29) · [[Demo - ENG-06|demo]]
+- [ ] [[ENG-07 - Nightly jobs]]: **built** (1 Oct, laptop: batches, run diary, 2 AM scheduler, M1; other jobs join with their tasks) · [[Demo - ENG-07|demo]]
 - [ ] ENG-08: Filters (blocked, hidden, out of stock…)
 - [ ] ENG-09: Fallback ladder for new users
 - [ ] ENG-10: Interest score on real data

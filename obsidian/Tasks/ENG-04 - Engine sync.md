@@ -99,6 +99,11 @@ The Build List splits ENG-04 into nine numbered parts (1–9). There are three e
 - **Why it matters:** the tests use made-up rows; this proves it works on SOCO's real ones, and starts the year-long copy before SOCO's 90 days run out.
 - **Status:** done. 146 + 8 + 12 rows; a second pass copied nothing and duplicated nothing.
 
+### D. Extra: every run written in the run diary ✅
+- **What we did:** each 5-minute pass, each daily audit and each lag check now gets a line in the engine's run diary (`ml_job_runs`): when it ran, what it covered, how many rows, and whether it worked. The daily audit also runs last in the 2 AM jobs.
+- **Why it matters:** the pack wants every job run recorded (SD-21). A run that quietly stopped shows up as failed instead of vanishing.
+- **Status:** done, 1 Oct. → [[Nightly batches]]
+
 ## Result (1 Oct 2026)
 - All nine parts are built. The pack's checks (a)–(g) each have a test, and all pass: **16 passed** in the sync's own tests (11 of them against a database).
 - The whole test suite passed at the time of the change: **541 passed, 1 skipped**.

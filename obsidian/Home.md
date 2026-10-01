@@ -29,6 +29,9 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[Activity events]]: what shoppers did, as the engine copies it from SOCO's activity log
 - [[Engine sync]]: how the engine copies SOCO's activity, orders and served lists every 5 minutes
 - [[Event source switch]]: retired in pack v1.3; kept to explain what the engine sync replaced
+- [[Two methods per slot]]: how each user is given one of two methods, the same way every time
+- [[Served list record]]: the receipt the engine keeps for every list it returns
+- [[Nightly batches]]: the 2 AM recompute, and why a half-written batch is never read
 
 ## Tasks
 - [[Task Board]]: every task and where it stands
@@ -36,6 +39,9 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[ENG-02 - Service skeleton and settings]]: built; realigned to v1.3 on 1 Oct
 - [[ENG-03 - Reading SOCO's data correctly]]: built; realigned to v1.3 on 1 Oct
 - [[ENG-04 - Engine sync]]: built on laptop; real backfill done 1 Oct; waits on APP-12 and the test server
+- [[ENG-05 - Same method for each user]]: built on laptop, 1 Oct
+- [[ENG-06 - Serve a recommendation list]]: in progress; serving and recording work, real ranking waits on later tasks
+- [[ENG-07 - Nightly jobs]]: built on laptop, 1 Oct; more jobs join as their tasks are built
 
 ## Demos
 - [[Checklist]]: one command that checks everything still works
@@ -44,3 +50,6 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[Demo - ENG-02]]: skeleton, health check, logs, live settings
 - [[Demo - ENG-03]]: reading SOCO's data correctly
 - [[Demo - ENG-04]]: the engine sync
+- [[Demo - ENG-05]]: the same method for each user
+- [[Demo - ENG-06]]: serving a list and its record
+- [[Demo - ENG-07]]: nightly jobs, and a job killed halfway
