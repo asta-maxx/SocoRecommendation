@@ -96,7 +96,7 @@ events before their oldest rows reach 90 days.
 | ENG-05 | Built: SHA-256 buckets, policy_id per DS-017 4.2 | 4ec8f30, 4db835f |
 | ENG-06 | In progress: endpoint, E1 record, modes, exploration, sample, errors; interim newest-first lists until ENG-08/09/17/19/29 | 4db835f |
 | ENG-07 | Built: batches marked current only when complete, ml_job_runs, 2 AM IST scheduler; M1 runs as batches | 008390a |
-| ENG-29 | Built on dev: tracking stages, status spellings, account lists, daily category check, rec_serve_log in the sync, constructed test data (`soco_engine_test`) | (this commit) |
+| ENG-29 | Built on dev: tracking stages, status spellings, account lists, daily category check, rec_serve_log in the sync, constructed test data (`soco_engine_test`) | f7c82f3 |
 
 > The dev engine copy stays current only while `python -m reco.jobs sync_loop` runs (on the laptop for now; on the servers once ENG-01's remainder is done).
 
