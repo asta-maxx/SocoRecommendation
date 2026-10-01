@@ -1,24 +1,37 @@
-"""Platform records, read correctly. ENG-03.
+"""Platform records, read correctly. ENG-03 (Build List v1.3), with ENG-29's adapters where noted.
 
 One parse function per record kind turns a raw platform document into a clean,
 typed record. Every rule ENG-03 sets is applied here, once, so no model ever
 reads a raw platform field:
 
-  - IDs: every id becomes its 24-character text form, whichever way it is stored
-    (follows and posts.userId hold text; users, postevents, orders and products
-    hold ObjectIds).
-  - Field names: the ENG-03 field map -- order value orders.total_price, order
-    time orders.created_at, post time posts.timestamp, product time
-    products.createdAt, event time postevents.created_at, price
-    productvariants.salePrice (originalPrice is the list price), stock
-    quantity - reservedStock, seller products.createdBy, and so on. A missing
-    time is read from the record's _id.
-  - Categories: a post's categories matched by name to the 23; a product's
-    through the categories tree (ProductCategoryIndex). Unmapped ones dropped.
+  - IDs: every id becomes its 24-character text form, whichever way it is stored.
+    Event, request, session and checkout ids are opaque strings, kept as written
+    (DS-017 v2.5 section 3). Actors are polymorphic: user_model (postevents) or
+    userModel (orders, carts) says whether an id is a user or a businessRegister.
+  - Field names (platform schema reference v4): order value orders.total_price,
+    order time created_at, change time updated_at, variant orders.variant_id,
+    basket orders.checkout_id, order outcome orders.order_status with its
+    history in orders.tracking_info (ENG-29: the platform has no statusLog or
+    return_info); post time posts.timestamp, compliance posts.compliance.status;
+    product time products.createdAt; event time postevents.created_at, change
+    time postevents.updated_at, on-screen time postevents.dwell_ms; price
+    productvariants.salePrice; stock quantity - reservedStock; seller
+    products.createdBy; follows userId -> followingId. A missing time is read
+    from the record's _id.
+  - Categories: a post's categories matched to the 23; a product's through
+    categoryPathIds (or basicInfo.categoryId) and the categories tree. Unmatched
+    ones are dropped, never guessed.
   - Status fields: compared ignoring case (status_is).
+  - Events: native event types mapped to E codes (reco.platform.native_events).
+  - Served item identity: item_id and item_type are the card shown; post_id and
+    product_id are kept alongside. On a feed list, item_type product with a post
+    id is a post card showing a product.
+  - Undo and own posts: undone_at, undo_of and is_self are kept; nothing is
+    filtered globally -- each model applies its own rule.
+  - Post-page impressions (surface post_detail) are page visits.
 
 Parsing is pure -- no database -- so every rule is testable on a dict. The async
-readers in reco.platform.fetch apply these to documents read from the platform.
+readers are in reco.platform.fetch.
 """
 
 from __future__ import annotations
@@ -28,6 +41,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from reco.config.tunables import OrderStatusValues
 from reco.platform.categories import (
     CategoryVocabulary,
     ProductCategoryIndex,
@@ -35,16 +49,24 @@ from reco.platform.categories import (
     post_categories,
 )
 from reco.platform.ids import as_utc, maybe_str, time_of, to_str
+from reco.platform.native_events import PAGE_VISIT_SURFACE, engine_surface, native
+
+Actor = Literal["user", "business", "unknown"]
 
 
 def status_is(value: Any, expected: str) -> bool:
     """ENG-03: status fields are compared ignoring case (and surrounding spaces).
 
     'Activate', 'activate ' and 'ACTIVATE' are one value. Different words stay
-    different: products.status 'Activate' and posts.Product_status 'Activated'
-    are each compared with their own expected value.
+    different unless the settings' status spellings map them (ENG-29 item 2).
     """
     return isinstance(value, str) and value.strip().lower() == expected.strip().lower()
+
+
+def actor_kind(value: Any) -> Actor:
+    """user_model / userModel: which collection an actor id belongs to (F79)."""
+    key = str(value or "").strip().lower()
+    return "user" if key == "user" else "business" if key == "businessregister" else "unknown"
 
 
 def _number(value: Any) -> float | None:
@@ -80,25 +102,32 @@ def _ids(values: Any) -> list[str]:
     return [text for text in (maybe_str(v) for v in values if not isinstance(v, dict)) if text]
 
 
+def _opaque(value: Any) -> str | None:
+    """An opaque platform string (event, request, session, checkout id): kept as written."""
+    if value is None or value == "":
+        return None
+    return str(value)
+
+
 class _Record(BaseModel):
     model_config = {"frozen": True}
 
 
-# --- people -----------------------------------------------------------------------
+# --- people ------------------------------------------------------------------------
 
 
 class UserRecord(_Record):
     user_id: str
     status: str | None
     is_active: bool  # users.status, ignoring case (E-08)
-    city: str | None  # users.city
+    city: str | None
     date_of_birth: date | None  # users.DOB (E-11)
     account_is_public: bool  # accountIsPublic (E-05)
     declared_interests: list[str]  # users.interest, matched to the 23
-    created_at: datetime | None  # users.timestamp, else _id
+    created_at: datetime | None
 
 
-def parse_user(doc: dict[str, Any], vocabulary: CategoryVocabulary) -> UserRecord:
+def parse_user(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None) -> UserRecord:
     return UserRecord(
         user_id=to_str(doc["_id"]),
         status=doc.get("status"),
@@ -106,7 +135,7 @@ def parse_user(doc: dict[str, Any], vocabulary: CategoryVocabulary) -> UserRecor
         city=doc.get("city") or None,
         date_of_birth=_date(doc.get("DOB")),
         account_is_public=doc.get("accountIsPublic") is not False,
-        declared_interests=post_categories(vocabulary, doc.get("interest")).resolved,
+        declared_interests=post_categories(vocabulary, doc.get("interest"), category_map).resolved,
         created_at=time_of(doc, "timestamp"),
     )
 
@@ -122,11 +151,11 @@ class BusinessRecord(_Record):
     created_at: datetime | None
 
 
-def parse_business(doc: dict[str, Any], vocabulary: CategoryVocabulary) -> BusinessRecord:
+def parse_business(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None) -> BusinessRecord:
     return BusinessRecord(
         business_id=to_str(doc["_id"]),
         owner_user_id=maybe_str(doc.get("user_id")),
-        category=canonical_name(vocabulary, doc.get("category")),
+        category=canonical_name(vocabulary, doc.get("category"), category_map),
         category_supplied=doc.get("category"),
         status=doc.get("status"),
         is_active=status_is(doc.get("status"), "active"),
@@ -139,7 +168,7 @@ class FollowRecord(_Record):
     follower_id: str  # follows.userId (text)
     followed_id: str  # follows.followingId (text)
     followed_kind: Literal["user", "business", "unknown"]  # followingReference
-    created_at: datetime | None  # follows.createdAt, else _id
+    created_at: datetime | None
 
 
 def parse_follow(doc: dict[str, Any]) -> FollowRecord:
@@ -153,30 +182,32 @@ def parse_follow(doc: dict[str, Any]) -> FollowRecord:
     )
 
 
-# --- content and activity ------------------------------------------------------------
+# --- content -----------------------------------------------------------------------
 
 
 class PostRecord(_Record):
     post_id: str
     author_id: str  # posts.userId (text or ObjectId)
     created_at: datetime | None  # posts.timestamp, else _id
-    categories: list[str]  # matched by name to the 23
+    categories: list[str]
     categories_dropped: list[str]
-    post_type: str | None  # posts.postType
-    post_type_detailed: str | None  # posts.postTypeDetailed, where it exists
+    post_type: str | None
+    post_type_detailed: str | None
     is_hidden: bool  # E-04
     visibility: str | None  # E-04: must be 'public'
+    compliance_status: str | None  # posts.compliance.status (E-12)
     product_status: str | None  # posts.Product_status (E-06)
-    age_group: str | None  # posts.ageGroup (E-11)
+    age_group: str | None  # E-11
     is_repost: bool
     product_ids: list[str]
 
 
-def parse_post(doc: dict[str, Any], vocabulary: CategoryVocabulary) -> PostRecord:
-    categories = post_categories(vocabulary, doc.get("categories"))
+def parse_post(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None) -> PostRecord:
+    categories = post_categories(vocabulary, doc.get("categories"), category_map)
     product_ids = _ids(doc.get("products"))
     if doc.get("productId") and maybe_str(doc.get("productId")) not in product_ids:
         product_ids.insert(0, maybe_str(doc.get("productId")))
+    compliance = doc.get("compliance") if isinstance(doc.get("compliance"), dict) else {}
     return PostRecord(
         post_id=to_str(doc["_id"]),
         author_id=to_str(doc["userId"]),
@@ -187,6 +218,7 @@ def parse_post(doc: dict[str, Any], vocabulary: CategoryVocabulary) -> PostRecor
         post_type_detailed=doc.get("postTypeDetailed"),
         is_hidden=bool(doc.get("isHidden")),
         visibility=doc.get("visibility"),
+        compliance_status=compliance.get("status"),
         product_status=doc.get("Product_status"),
         age_group=doc.get("ageGroup"),
         is_repost=bool(doc.get("isRepost")),
@@ -194,99 +226,260 @@ def parse_post(doc: dict[str, Any], vocabulary: CategoryVocabulary) -> PostRecor
     )
 
 
+# --- events ------------------------------------------------------------------------
+
+
 class PostEventRecord(_Record):
-    event_id: str
+    """One postevents row: the platform's event, with its E code (sheet 4)."""
+
+    source_id: str  # the platform row's _id
+    event_id: str | None  # opaque: the app's id, or <action key>:<event type>
+    event_type: str | None  # native, lower case
+    event_code: str | None  # E code from sheet 4, or None ("—")
+    scored: bool  # used by a Wave 1A model (sheet 4)
     user_id: str | None
-    post_id: str | None
-    event_type: str | None  # postevents.event_type, lower case
-    created_at: datetime | None  # postevents.created_at, else _id
-    view_duration_seconds: float | None
+    actor: Actor  # user_model
+    native_surface: str | None
+    surface: str | None  # engine surface: feed, product, or None
+    is_page_visit: bool  # a post_detail impression (X-05): never a card impression
+    request_id: str | None
+    position: int | None
+    item_id: str | None  # the card shown
+    item_type: str | None
+    post_id: str | None  # kept alongside (F75): never read as a product id
     product_id: str | None
+    is_exploration: bool
+    session_id: str | None
+    dwell_ms: float | None  # replaces view_duration_seconds (APP-02)
+    influencer_id: str | None  # on follow: the account followed
     order_id: str | None
+    checkout_id: str | None
+    variant_id: str | None
+    quantity: float | None
+    value: float | None
+    feedback_type: str | None
+    undone_at: datetime | None
+    undo_of: str | None
+    is_self: bool
+    created_at: datetime | None  # the original event time
+    updated_at: datetime | None  # the sync key only
+
+
+def card_identity(item_id: Any, item_type: Any, post_id: Any, product_id: Any, surface: str | None) -> tuple[str | None, str | None, str | None]:
+    """(card id, post_id, product_id), per ENG-03 / X-16 / F10.
+
+    The card shown is item_id; where a platform row carries no item_id, the card
+    is its post (or, failing that, its product). On a feed list, item_type
+    product with a post id is a post card showing a product: post_id = the card,
+    and product_id stays the product -- so a post id is never read as a product id.
+    """
+    item, post, product = maybe_str(item_id), maybe_str(post_id), maybe_str(product_id)
+    card = item or post or product
+    if item_type == "post":
+        post = post or card
+    elif item_type == "product":
+        if surface == "feed" and (post or item):
+            post = post or item  # a post card showing a product
+        else:
+            product = product or card
+    return card, post, product
 
 
 def parse_postevent(doc: dict[str, Any]) -> PostEventRecord:
     event_type = doc.get("event_type")
+    event_type = event_type.strip().lower() if isinstance(event_type, str) else None
+    entry = native(event_type)
+    native_surface = doc.get("surface")
+    surface = engine_surface(native_surface)
+    card, post, product = card_identity(
+        doc.get("item_id"), doc.get("item_type"), doc.get("post_id"), doc.get("product_id"), surface
+    )
+    position = doc.get("position")
+    feedback = doc.get("feedback_type")
     return PostEventRecord(
-        event_id=to_str(doc["_id"]),
+        source_id=to_str(doc["_id"]),
+        event_id=_opaque(doc.get("event_id")),
+        event_type=event_type,
+        event_code=entry.code if entry else None,
+        scored=bool(entry and entry.scored),
         user_id=maybe_str(doc.get("user_id")),
-        post_id=maybe_str(doc.get("post_id")),
-        event_type=event_type.strip().lower() if isinstance(event_type, str) else None,
-        created_at=time_of(doc, "created_at"),
-        view_duration_seconds=_number(doc.get("view_duration_seconds")),
-        product_id=maybe_str(doc.get("product_id")),
+        actor=actor_kind(doc.get("user_model")),
+        native_surface=native_surface,
+        surface=surface,
+        is_page_visit=event_type == "impression" and native_surface == PAGE_VISIT_SURFACE,
+        request_id=_opaque(doc.get("request_id")),
+        position=position if isinstance(position, int) and not isinstance(position, bool) else None,
+        item_id=card,
+        item_type=doc.get("item_type"),
+        post_id=post,
+        product_id=product,
+        is_exploration=bool(doc.get("is_exploration")),
+        session_id=_opaque(doc.get("session_id")),
+        dwell_ms=_number(doc.get("dwell_ms")),
+        influencer_id=maybe_str(doc.get("influencer_id")),
         order_id=maybe_str(doc.get("order_id")),
+        checkout_id=_opaque(doc.get("checkout_id")),
+        variant_id=maybe_str(doc.get("variant_id")),
+        quantity=_number(doc.get("quantity")),
+        value=_number(doc.get("value")),
+        feedback_type=feedback.strip().lower() if isinstance(feedback, str) else None,
+        undone_at=as_utc(doc.get("undone_at")),
+        undo_of=maybe_str(doc.get("undo_of")),
+        is_self=bool(doc.get("is_self")),
+        created_at=time_of(doc, "created_at"),
+        updated_at=as_utc(doc.get("updated_at")),
     )
 
 
-# --- commerce ---------------------------------------------------------------------
+# --- served lists --------------------------------------------------------------------
+
+
+class ServedListRecord(_Record):
+    """A recommendationrequests row (the platform's served-list record)."""
+
+    source_id: str
+    request_id: str | None  # opaque (req_... on fallback lists)
+    user_id: str | None
+    actor: Actor
+    native_surface: str | None
+    surface: str | None
+    policy_id: str | None
+    is_fallback: bool  # any policy_id not starting with cfg is a fallback list (F06)
+    candidate_ids: list[str]
+    session_id: str | None
+    page: int | None
+    created_at: datetime | None  # server_ts, else _id
+    updated_at: datetime | None
+
+
+def parse_served_list(doc: dict[str, Any]) -> ServedListRecord:
+    policy = doc.get("policy_id")
+    page = doc.get("page")
+    return ServedListRecord(
+        source_id=to_str(doc["_id"]),
+        request_id=_opaque(doc.get("request_id")),
+        user_id=maybe_str(doc.get("user_id")),
+        actor=actor_kind(doc.get("userModel") or doc.get("user_model")),
+        native_surface=doc.get("surface"),
+        surface=engine_surface(doc.get("surface")),
+        policy_id=policy,
+        is_fallback=not (isinstance(policy, str) and policy.startswith("cfg")),
+        candidate_ids=_ids(doc.get("candidate_ids")),
+        session_id=_opaque(doc.get("session_id")),
+        page=page if isinstance(page, int) else None,
+        created_at=time_of(doc, "server_ts", "created_at"),
+        updated_at=as_utc(doc.get("updated_at")),
+    )
+
+
+# --- commerce ----------------------------------------------------------------------
+
+
+class TrackingEntry(_Record):
+    status: str
+    at: datetime | None
 
 
 class OrderRecord(_Record):
     order_id: str
     buyer_id: str | None
+    buyer_actor: Actor  # userModel
     seller_id: str | None
     product_id: str | None
+    variant_id: str | None  # orders.variant_id: the order wins over the event
     post_id: str | None
     promoter_id: str | None
-    checkout_id: str | None
-    request_id: str | None
-    value: float | None  # orders.total_price (not totalAmount)
+    checkout_id: str | None  # opaque
+    request_id: str | None  # opaque
+    value: float | None  # orders.total_price
     quantity: float | None
-    status: str | None  # orders.order_status: the only status the engine reads
-    created_at: datetime | None  # orders.created_at, else _id
-    is_incognito: bool  # orders.isIncognitoMode
-    return_requested: bool
-    return_requested_at: datetime | None
-    return_type: str | None  # null when there is no return ('No Return' is not a return)
-    reason_code: str | None
-    cancelled_by: str | None
+    status: str | None  # orders.order_status
+    buyer_approval_status: str | None
+    tracking: list[TrackingEntry]  # orders.tracking_info: the order's history (ENG-29)
+    is_returned: bool  # reached Return Requested or Returned (X-18, AS-23)
+    cancelled_by: Literal["buyer", "seller"] | None  # worked out, not stored (DS-017 6.4)
+    cancel_reasons: dict[str, str]  # whatever exists; stored, never scored
+    is_incognito: bool  # purchase privacy only: counts for the buyer, never names them
+    created_at: datetime | None
+    updated_at: datetime | None
 
 
-def parse_order(doc: dict[str, Any]) -> OrderRecord:
-    return_type = doc.get("return_type")
-    if isinstance(return_type, str) and return_type.strip().lower() in {"no return", "no returns", ""}:
-        return_type = None
+def _cancelled_by(status: str | None, approval: str | None, statuses: OrderStatusValues) -> Literal["buyer", "seller"] | None:
+    """DS-017 v2.5 section 6.4: Cancelled is by the buyer; Rejected with
+    buyer_approval_status 'Rejected By Seller' is by the seller; Rejected with
+    'Rejected' is by the buyer."""
+    if status_is(status, statuses.cancelled):
+        return "buyer"
+    if status_is(status, statuses.rejected):
+        if status_is(approval, "Rejected By Seller"):
+            return "seller"
+        if status_is(approval, "Rejected"):
+            return "buyer"
+    return None
+
+
+def parse_order(doc: dict[str, Any], statuses: OrderStatusValues = OrderStatusValues()) -> OrderRecord:
+    tracking = [
+        TrackingEntry(status=str(entry.get("status")), at=as_utc(entry.get("timestamp")))
+        for entry in doc.get("tracking_info") or []
+        if isinstance(entry, dict) and entry.get("status")
+    ]
+    status = doc.get("order_status")
+    returned_values = (statuses.return_requested, statuses.returned)
+    is_returned = any(status_is(status, v) for v in returned_values) or any(
+        status_is(entry.status, v) for entry in tracking for v in returned_values
+    )
+    reasons = {
+        field: str(doc[field])
+        for field in ("reason_code", "cancel_reason", "cancel_reason_by_buyer", "reject_reason_by_buyer")
+        if doc.get(field)
+    }
     return OrderRecord(
         order_id=to_str(doc["_id"]),
         buyer_id=maybe_str(doc.get("user_id")),
+        buyer_actor=actor_kind(doc.get("userModel")),
         seller_id=maybe_str(doc.get("seller_id")),
         product_id=maybe_str(doc.get("product_id")),
+        variant_id=maybe_str(doc.get("variant_id")),
         post_id=maybe_str(doc.get("post_id")),
         promoter_id=maybe_str(doc.get("promoter_id")),
-        checkout_id=doc.get("checkout_id") or None,
-        request_id=doc.get("request_id") or None,
+        checkout_id=_opaque(doc.get("checkout_id")),
+        request_id=_opaque(doc.get("request_id")),
         value=_number(doc.get("total_price")),
         quantity=_number(doc.get("quantity")),
-        status=doc.get("order_status"),
-        created_at=time_of(doc, "created_at"),
+        status=status,
+        buyer_approval_status=doc.get("buyer_approval_status"),
+        tracking=tracking,
+        is_returned=is_returned,
+        cancelled_by=_cancelled_by(status, doc.get("buyer_approval_status"), statuses),
+        cancel_reasons=reasons,
         is_incognito=bool(doc.get("isIncognitoMode")),
-        return_requested=bool(doc.get("return_requested")),
-        return_requested_at=as_utc(doc.get("return_requested_at")),
-        return_type=return_type,
-        reason_code=doc.get("reason_code") or None,
-        cancelled_by=doc.get("cancelled_by") or None,
+        created_at=time_of(doc, "created_at"),
+        updated_at=as_utc(doc.get("updated_at")),
     )
 
 
 class CartLineRecord(_Record):
     user_id: str | None
+    actor: Actor  # userModel
     product_id: str | None
     variant_id: str | None
     post_id: str | None
     quantity: float | None
-    request_id: str | None  # DB-05: empty until built, and when not reached from a list
-    added_at: datetime | None  # carts.timestamp, else _id
+    request_id: str | None  # carts.ml.request_id: the list that first added the item (X-07)
+    added_at: datetime | None
 
 
 def parse_cart_line(doc: dict[str, Any]) -> CartLineRecord:
+    ml = doc.get("ml") if isinstance(doc.get("ml"), dict) else {}
     return CartLineRecord(
         user_id=maybe_str(doc.get("user_id")),
+        actor=actor_kind(doc.get("userModel")),
         product_id=maybe_str(doc.get("product_id")),
         variant_id=maybe_str(doc.get("variant_id")),
         post_id=maybe_str(doc.get("post_id")),
         quantity=_number(doc.get("quantity")),
-        request_id=doc.get("request_id") or None,
+        request_id=_opaque(ml.get("request_id") or doc.get("request_id")),
         added_at=time_of(doc, "timestamp"),
     )
 
@@ -294,19 +487,20 @@ def parse_cart_line(doc: dict[str, Any]) -> CartLineRecord:
 class ProductRecord(_Record):
     product_id: str
     seller_id: str | None  # products.createdBy
-    created_at: datetime | None  # products.createdAt, else _id
+    created_at: datetime | None
     status: str | None
     is_active: bool  # products.status 'Activate', ignoring case (E-07)
     in_stock: bool  # availability.inStock
-    category_id: str | None  # basicInfo.categoryId
-    category: str | None  # its top name, if one of the 23
+    category_id: str | None  # categoryPathIds[0], else basicInfo.categoryId
+    category: str | None  # one of the 23, or None
     cross_sell_ids: list[str]
 
 
 def parse_product(doc: dict[str, Any], categories: ProductCategoryIndex) -> ProductRecord:
     basic = doc.get("basicInfo") if isinstance(doc.get("basicInfo"), dict) else {}
     availability = doc.get("availability") if isinstance(doc.get("availability"), dict) else {}
-    category_id = maybe_str(basic.get("categoryId"))
+    path_ids = _ids(doc.get("categoryPathIds"))
+    category_id = path_ids[0] if path_ids else maybe_str(basic.get("categoryId"))
     return ProductRecord(
         product_id=to_str(doc["_id"]),
         seller_id=maybe_str(doc.get("createdBy")),
@@ -323,9 +517,9 @@ def parse_product(doc: dict[str, Any], categories: ProductCategoryIndex) -> Prod
 class VariantRecord(_Record):
     variant_id: str
     product_id: str | None
-    seller_id: str | None  # productvariants.sellerId
-    price: float | None  # productvariants.salePrice
-    list_price: float | None  # productvariants.originalPrice
+    seller_id: str | None
+    price: float | None  # salePrice
+    list_price: float | None  # originalPrice
     stock: float | None  # quantity - reservedStock
     status: str | None
     is_active: bool
@@ -352,10 +546,10 @@ class CategoryRecord(_Record):
     level: int | None
     path: list[str]
     parent_id: str | None
-    top_level: str | None  # the first name in its path, if one of the 23
+    top_level: str | None  # the first name in its path, if one of the 23 (or mapped)
 
 
-def parse_category(doc: dict[str, Any], vocabulary: CategoryVocabulary) -> CategoryRecord:
+def parse_category(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None) -> CategoryRecord:
     path = [p for p in doc.get("path") or [] if isinstance(p, str)]
     level = doc.get("level")
     return CategoryRecord(
@@ -364,105 +558,12 @@ def parse_category(doc: dict[str, Any], vocabulary: CategoryVocabulary) -> Categ
         level=level if isinstance(level, int) else None,
         path=path,
         parent_id=maybe_str(doc.get("parent")),
-        top_level=canonical_name(vocabulary, path[0] if path else doc.get("name")),
-    )
-
-
-# --- the old recommendation event collections (read before the switch date) ---------
-
-
-class LegacyRequestRecord(_Record):
-    request_id: str | None
-    user_id: str | None
-    surface: str | None
-    policy_id: str | None
-    candidate_ids: list[str]
-    at: datetime | None  # server_ts, else _id
-
-
-def parse_legacy_request(doc: dict[str, Any]) -> LegacyRequestRecord:
-    return LegacyRequestRecord(
-        request_id=doc.get("request_id") or None,
-        user_id=maybe_str(doc.get("user_id")),
-        surface=doc.get("surface"),
-        policy_id=doc.get("policy_id"),
-        candidate_ids=_ids(doc.get("candidate_ids")),
-        at=time_of(doc, "server_ts"),
-    )
-
-
-class LegacyImpressionRecord(_Record):
-    request_id: str | None
-    user_id: str | None
-    item_id: str | None
-    item_type: str | None
-    position: int | None
-    dwell_ms: float | None
-    is_exploration: bool
-    at: datetime | None  # server_ts, else _id
-
-
-def parse_legacy_impression(doc: dict[str, Any]) -> LegacyImpressionRecord:
-    position = doc.get("position")
-    return LegacyImpressionRecord(
-        request_id=doc.get("request_id") or None,
-        user_id=maybe_str(doc.get("user_id")),
-        item_id=maybe_str(doc.get("item_id")),
-        item_type=doc.get("item_type"),
-        position=position if isinstance(position, int) else None,
-        dwell_ms=_number(doc.get("dwell_ms")),
-        is_exploration=bool(doc.get("is_exploration")),
-        at=time_of(doc, "server_ts"),
-    )
-
-
-class LegacyClickRecord(_Record):
-    request_id: str | None
-    user_id: str | None
-    item_id: str | None
-    item_type: str | None
-    position: int | None
-    at: datetime | None  # server_ts, else _id
-
-
-def parse_legacy_click(doc: dict[str, Any]) -> LegacyClickRecord:
-    position = doc.get("position")
-    return LegacyClickRecord(
-        request_id=doc.get("request_id") or None,
-        user_id=maybe_str(doc.get("user_id")),
-        item_id=maybe_str(doc.get("item_id")),
-        item_type=doc.get("item_type"),
-        position=position if isinstance(position, int) else None,
-        at=time_of(doc, "server_ts"),
-    )
-
-
-class ContentFeedbackRecord(_Record):
-    """E13, fields F60 to F65 (Capture Register)."""
-
-    user_id: str | None
-    target_id: str | None
-    target_type: str | None  # post, product or author
-    feedback_type: str | None  # not_interested, hide, report or mute_author
-    request_id: str | None
-    at: datetime | None  # server_ts, else _id
-
-
-def parse_legacy_content_feedback(doc: dict[str, Any]) -> ContentFeedbackRecord:
-    feedback = doc.get("feedback_type")
-    return ContentFeedbackRecord(
-        user_id=maybe_str(doc.get("user_id")),
-        target_id=maybe_str(doc.get("target_id")),
-        target_type=doc.get("target_type"),
-        feedback_type=feedback.strip().lower() if isinstance(feedback, str) else None,
-        request_id=doc.get("request_id") or None,
-        at=time_of(doc, "server_ts"),
+        top_level=canonical_name(vocabulary, path[0] if path else doc.get("name"), category_map),
     )
 
 
 #: Every record kind, for the readers and the ENG-03 check.
 RECORD_KINDS: tuple[str, ...] = (
     "user", "business", "post", "postevent", "follow", "order", "cart_line",
-    "product", "variant", "category",
-    "legacy_request", "legacy_impression", "legacy_click", "legacy_content_feedback",
+    "product", "variant", "category", "served_list",
 )

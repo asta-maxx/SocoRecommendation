@@ -177,25 +177,35 @@ def resolve_all(
 # --- ENG-03: the 23, matched by name ----------------------------------------------
 
 
-def canonical_name(vocabulary: CategoryVocabulary, label: object) -> str | None:
+def canonical_name(
+    vocabulary: CategoryVocabulary, label: object, category_map: dict[str, str] | None = None
+) -> str | None:
     """ENG-03: the one of the 23 this label names, or None to drop it.
 
-    Matched by NAME only -- case and spacing ignored, nothing else. The legacy map
-    is deliberately not consulted here: ENG-03 says a category is matched by name
-    to the 23, and anything that does not map is dropped, not scored.
+    Matched by NAME first -- case and spacing ignored. Then, ENG-29 item 1, the
+    category map in the settings (platform category -> one of the 23), whose
+    target must itself be one of the 23. The legacy map is never consulted.
+    Anything still unmatched is dropped, not scored, and never guessed.
     """
     if not isinstance(label, str) or not label.strip():
         return None
-    return vocabulary._canonical_by_key().get(to_category_key(label))
+    by_name = vocabulary._canonical_by_key()
+    found = by_name.get(to_category_key(label))
+    if found is None and category_map:
+        mapped = {to_category_key(k): v for k, v in category_map.items()}.get(to_category_key(label))
+        found = by_name.get(to_category_key(mapped)) if mapped else None
+    return found
 
 
-def post_categories(vocabulary: CategoryVocabulary, supplied: object) -> CategoryResolution:
-    """A post's categories, each matched by name to the 23. Unmatched ones are dropped."""
+def post_categories(
+    vocabulary: CategoryVocabulary, supplied: object, category_map: dict[str, str] | None = None
+) -> CategoryResolution:
+    """A post's categories, each matched to the 23 (by name, then the category map). Unmatched ones are dropped."""
     labels = [supplied] if isinstance(supplied, str) else supplied if isinstance(supplied, list) else []
     resolved: list[str] = []
     dropped: list[str] = []
     for label in labels:
-        name = canonical_name(vocabulary, label)
+        name = canonical_name(vocabulary, label, category_map)
         if name is None:
             dropped.append(str(label))
         elif name not in resolved:
@@ -204,11 +214,12 @@ def post_categories(vocabulary: CategoryVocabulary, supplied: object) -> Categor
 
 
 class ProductCategoryIndex(BaseModel):
-    """ENG-03: products.basicInfo.categoryId -> one of the 23, via the categories tree.
+    """ENG-03: a product's category id -> one of the 23, via the categories tree.
 
-    "A product's basicInfo.categoryId is looked up in categories, and the first
-    name in its path must be one of the 23." Built once from the categories
-    collection; a product whose top name is not one of the 23 maps to None.
+    v1.3: "a product's categoryPathIds must start with one of the 23". The id
+    (categoryPathIds[0], or basicInfo.categoryId where the path is absent) is
+    looked up in categories, and the first name in its path must be one of the
+    23 -- by name, or through the category map (ENG-29). Unmapped -> None.
     """
 
     model_config = {"frozen": True}
@@ -216,7 +227,9 @@ class ProductCategoryIndex(BaseModel):
     by_id: dict[str, str | None] = Field(default_factory=dict)
 
     @classmethod
-    def build(cls, vocabulary: CategoryVocabulary, category_docs: list[dict]) -> ProductCategoryIndex:
+    def build(
+        cls, vocabulary: CategoryVocabulary, category_docs: list[dict], category_map: dict[str, str] | None = None
+    ) -> ProductCategoryIndex:
         from reco.platform.ids import maybe_str
 
         by_id: dict[str, str | None] = {}
@@ -226,7 +239,7 @@ class ProductCategoryIndex(BaseModel):
                 continue
             path = doc.get("path") if isinstance(doc.get("path"), list) else []
             top = path[0] if path else doc.get("name")
-            by_id[category_id] = canonical_name(vocabulary, top)
+            by_id[category_id] = canonical_name(vocabulary, top, category_map)
         return cls(by_id=by_id)
 
     def category_of(self, category_id: object) -> str | None:

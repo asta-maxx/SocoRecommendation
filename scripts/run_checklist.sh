@@ -104,9 +104,9 @@ pkill -f "uvicorn reco.main:app --port 8190" >/dev/null 2>&1
 
 echo "== 3. ENG-03: reading SOCO's data correctly"
 check "3.1 one of each record type (the ENG-03 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider" " passed"
-check "3.2 follows record with text ids" "$PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider -k test_follow_with_text_ids" "1 passed"
-check "3.3 one source per kind; the day-by-day switch" "$PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider -k 'source or switch or window'" " passed"
-check "3.4 ignored platform data is never read" "$PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider -k ignored" "4 passed"
+check "3.2 the four cases the ENG-03 check names" "$PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider -k 'follow_with_text_ids or businessregister_actor or product_post_on_a_platform_feed or history_and_a_return'" "4 passed"
+check "3.3 one source per kind; no event source switch" "$PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider -k 'source'" " passed"
+check "3.4 ignored platform data is never read" "$PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider -k ignored" "3 passed"
 check "3.5 every real platform document reads cleanly" "$PY scripts/check_platform_records.py" "PASS: 0 document(s) could not be read"
 
 echo "== 4. ENG-04: the engine sync"

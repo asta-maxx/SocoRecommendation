@@ -1,4 +1,4 @@
-"""Read every platform record through the ENG-03 rules. Read-only. ENG-03 check.
+"""Read every platform record through the ENG-03 rules (Build List v1.3). Read-only. ENG-03 check.
 
     .venv/bin/python scripts/check_platform_records.py
 
@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from reco.config import PLATFORM_COLLECTIONS, _hosts_of, get_settings  # noqa: E402
+from reco.config import PLATFORM_COLLECTIONS, _hosts_of, get_settings, live  # noqa: E402
 from reco.platform import connection as platform_conn  # noqa: E402
 from reco.platform import records  # noqa: E402
 from reco.platform.fetch import product_categories  # noqa: E402
@@ -28,8 +28,7 @@ from reco.store import connection as store_conn  # noqa: E402
 TIME_FIELD = {
     "user": "timestamp", "business": "timestamp", "post": "timestamp", "postevent": "created_at",
     "follow": "createdAt", "order": "created_at", "cart_line": "timestamp", "product": "createdAt",
-    "legacy_request": "server_ts", "legacy_impression": "server_ts", "legacy_click": "server_ts",
-    "legacy_content_feedback": "server_ts",
+    "served_list": "server_ts",
 }
 
 
@@ -38,6 +37,7 @@ async def main() -> int:
     store_conn.init_client(settings)
     platform_conn.init_client(settings)
     vocab = vocabulary(settings)
+    lists = live.current().lists
     failures = 0
     try:
         db = platform_conn.app_db(settings)
@@ -56,9 +56,11 @@ async def main() -> int:
                 read += 1
                 try:
                     if kind in {"user", "business", "post", "category"}:
-                        record = parse(doc, vocab)
+                        record = parse(doc, vocab, lists.category_map)
                     elif kind == "product":
                         record = parse(doc, index)
+                    elif kind == "order":
+                        record = parse(doc, lists.order_status)
                     else:
                         record = parse(doc)
                 except Exception as exc:  # report, don't stop: this is the check
@@ -79,6 +81,15 @@ async def main() -> int:
                     notes["active"] += record.is_active
                 elif kind == "order":
                     notes["with checkout_id"] += record.checkout_id is not None
+                    notes["with tracking_info"] += bool(record.tracking)
+                    notes["returned"] += record.is_returned
+                elif kind == "postevent":
+                    notes["with an E code"] += record.event_code is not None
+                    notes["business actor"] += record.actor == "business"
+                    notes["with updated_at"] += record.updated_at is not None
+                    notes["page visits"] += record.is_page_visit
+                elif kind == "served_list":
+                    notes["fallback lists"] += record.is_fallback
                 elif kind == "variant":
                     notes["in stock"] += (record.stock or 0) > 0
             failures += sum(errors.values())

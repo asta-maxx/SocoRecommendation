@@ -52,33 +52,30 @@ ENGINE_COLLECTIONS: tuple[str, ...] = (
 )
 
 #: ENG-03: the platform collections the engine reads, by record kind. Read-only,
-#: through reco.platform. The names are SOCO's; ENG-03 fixes which field means what.
+#: through reco.platform. These are exactly DB-02's read-access list (Build List
+#: v1.3, Waits sheet; DS-017 v2.5 section 7). There is no event source switch.
 PLATFORM_COLLECTIONS: dict[str, str] = {
     "user": "users",
     "business": "businessregisters",
     "post": "posts",
     "postevent": "postevents",
     "follow": "follows",
+    "follower": "followers",  # blocks: status blocked, either direction (X-19, ENG-08)
     "order": "orders",
     "cart_line": "carts",
     "product": "products",
     "variant": "productvariants",
     "category": "categories",
-    # The old recommendation event collections: read for any day before the
-    # ENG-04 switch date, never after it (ENG-03 source switch).
-    "legacy_request": "recommendationrequests",
-    "legacy_impression": "recommendationimpressions",
-    "legacy_click": "recommendationclicks",
-    "legacy_content_feedback": "contentfeedbacks",
+    "served_list": "recommendationrequests",
+    "serve_log": "rec_serve_log",  # SOCO_BE's serve log (APP-15, ENG-29)
 }
 
-#: ENG-03 "Ignored": platform data the engine must not read, and the only place
-#: each exception is allowed. users.addNew_Interest and userevents: never.
-#: users.interestScores (the delivered score): only as the old score in the
-#: fallback ladder. feedScore: only SOCO_BE's own fallback ordering, never the engine.
+#: ENG-03 "Ignored" (v1.3): platform data the engine must not read, and the only
+#: place each exception is allowed. users.addNew_Interest: never. users.interestScores
+#: (the delivered score): only as the old score in the fallback ladder.
+#: feedScore: only SOCO_BE's own fallback ordering, never the engine.
 IGNORED_PLATFORM_DATA: dict[str, str] = {
     "addNew_Interest": "never",
-    "userevents": "never",
     "interestScores": "reco/fallback only",
     "feedScore": "never (SOCO_BE's fallback ordering only)",
 }
