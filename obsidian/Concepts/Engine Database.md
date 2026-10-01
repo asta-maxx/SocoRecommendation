@@ -3,7 +3,7 @@ tags: [concept, database]
 ---
 # Engine Database
 
-**My engine's own database**: its private notebook. It holds everything the engine works out or receives: scores, activity events, fraud cases, job logs and so on.
+**My engine's own database**: its private notebook. It holds everything the engine works out or copies: scores, its copies of SOCO's activity and orders, fraud cases, job logs and so on.
 
 - Only my engine writes here.
 - Everything in it starts with `ml_` → see [[Collections]].
@@ -21,5 +21,5 @@ In the old demo, the plan was to keep my data *inside* SOCO's database (→ [[Be
 
 ## How this connects
 - Its opposite is → [[Platform Database]].
-- Its 12 collections were created in → [[ENG-01 - Engine home and databases]].
-- Its first real contents will be the activity events from task ENG-04.
+- Its 16 collections were created in → [[ENG-01 - Engine home and databases]].
+- Its first real contents are SOCO's activity and orders, copied in by the → [[Engine sync]] ([[ENG-04 - Engine sync]]).

@@ -41,7 +41,7 @@ A demo proves one thing: **the task's check in the Build List passes**. Every ta
 - [[Demo - ENG-01]]: the engine's home and databases (about 5 minutes)
 - [[Demo - ENG-02]]: the skeleton, health check, logs and live settings (about 10 minutes)
 - [[Demo - ENG-03]]: reading SOCO's data correctly (about 5 minutes, read-only)
-- [[Demo - ENG-04]]: receiving activity events (about 7 minutes)
+- [[Demo - ENG-04]]: the engine sync, copying SOCO's activity, orders and served lists (idea explained in → [[Engine sync]])
 
 ## How this connects
 - Every demo acts out a task's check from → [[Task Board]].

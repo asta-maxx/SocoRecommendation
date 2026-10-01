@@ -6,10 +6,10 @@ tags: [task, board]
 My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 
 ## Step 1: foundations
-- [ ] [[ENG-01 - Engine home and databases]]: **waiting** (laptop part done; needs the test and production servers from Aravinth) · [[Demo - ENG-01|demo]]
-- [ ] [[ENG-02 - Service skeleton and settings]]: **built** (check passed on laptop; re-run on the test server later) · [[Demo - ENG-02|demo]]
-- [ ] [[ENG-03 - Reading SOCO's data correctly]]: **built** (check passed on laptop; re-run on the test server later) · [[Demo - ENG-03|demo]]
-- [ ] [[ENG-04 - Receiving activity events]]: **built** (check passed on laptop; real token and APP-12 to come) · [[Demo - ENG-04|demo]]
+- [ ] [[ENG-01 - Engine home and databases]]: **waiting** (realigned to v1.3 on 1 Oct: 16 of 16 drawers on laptop; needs the test and production servers from Aravinth) · [[Demo - ENG-01|demo]]
+- [ ] [[ENG-02 - Service skeleton and settings]]: **built** (realigned to v1.3 on 1 Oct: sync replaces events, v1.3 settings; check passed on laptop; re-run on the test server later) · [[Demo - ENG-02|demo]]
+- [ ] [[ENG-03 - Reading SOCO's data correctly]]: **built** (realigned to v1.3 on 1 Oct: no event source switch; check passed on laptop; re-run on the test server later) · [[Demo - ENG-03|demo]]
+- [ ] [[ENG-04 - Engine sync]]: **built** (laptop/dev; real backfill done 1 Oct; waits on APP-12 updated_at and the test server) · [[Demo - ENG-04|demo]]
 - [ ] [[ENG-05 - Same method for each user]]
 - [ ] ENG-20 (part 1): Time today's feed (due this week)
 

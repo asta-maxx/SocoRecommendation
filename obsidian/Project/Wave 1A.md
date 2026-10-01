@@ -21,7 +21,7 @@ Great recommendations from day one. There's no real user activity yet, so at fir
 - My engine never changes SOCO's own data. See [[Platform Database]].
 - Commission (how much a seller pays) never affects what a shopper sees.
 - A person always makes the final call on fraud.
-- Nothing is recorded while a user is in incognito mode.
+- Incognito is **purchase privacy**: a buyer's identity from an incognito order is never shown to anyone else. (Changed in pack v1.3: activity is still recorded, and incognito orders still count for the buyer.)
 - The app shows my list exactly as I send it.
 
 ## How this connects

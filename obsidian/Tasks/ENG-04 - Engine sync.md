@@ -4,91 +4,130 @@ task: ENG-04
 status: Built
 owner: Allen
 ---
-# ENG-04: Receiving activity events
+# ENG-04: Engine sync
 
-> [!note] Status: **Built** (29 Sep 2026)
-> The engine can now receive what shoppers do, and the task's check **passed on my laptop**. Two things are left before it's really in use: I generate the real password (token) and give it to Aravinth, and Aravinth connects SOCO's backend to it (APP-12).
+> [!note] Status: **Built** (rebuilt 1 Oct 2026)
+> On 29 Sep this task was a front door that SOCO would send events to. Pack v1.3 retired that door and rewrote the task: the engine now **goes and copies** SOCO's activity itself. All 9 parts are built, the checks pass on my laptop, and the first real copy of SOCO's data is done. It becomes **Passed** once the checks run on the test server.
 
-**In one line:** give the engine its own **event log**. It accepts what shoppers did (saw, tapped, added to cart, ordered), checks each entry, never stores anything twice, and tells SOCO's backend what happened to every entry.
+**In one line:** every few minutes, the engine copies what shoppers did, their orders, and the lists SOCO showed them, from SOCO's database into its own, and keeps those copies for a year.
 
 ## Why this task
-Every model learns from what people do. Until now, that record lived only in SOCO's old logs. This task builds the engine's own log, the one every later model reads. Aravinth's side (APP-12) can't start until it exists, which is why it comes first. → [[Build Steps]]
+Every model learns from what people do. That record lives in SOCO's database, which deletes most of it after 90 days and which the engine may only read. This task gives the engine its **own copy**, kept up to date and kept for a year. Serving lists (ENG-06), the interest score (ENG-10), the weekly measurements (ENG-25) and SOCO's own migration (DB-16) all wait on it. → [[Build Steps]]
 
 ## What came before
-- [[ENG-01 - Engine home and databases]] created the empty `ml_events` drawer, with a lock that stops the same entry being saved twice.
-- [[ENG-03 - Reading SOCO's data correctly]] wrote the rule for switching from SOCO's old logs to this new one, day by day. It needed a **switch date**, and this task is what sets it. → [[Event source switch]]
+- [[ENG-01 - Engine home and databases]] made the engine's drawers. Two of them hold these copies: `ml_events` (activity and served lists) and `ml_orders`. A third, `ml_sync_state`, holds the sync's bookmarks. ENG-01 also set the one-year expiry on the copies. → [[Collections]], [[Indexes]]
+- [[ENG-02 - Service skeleton and settings]] gave the engine its *jobs* mode, where this sync runs, and the settings file where its timings live. → [[Settings file]]
+- [[ENG-03 - Reading SOCO's data correctly]] taught the engine how to read each kind of SOCO row. Every copy is made through those readers.
+- **The old version of this task** was a front door, `POST /v1/events`, that SOCO's backend would send events to, plus a daily comparison to pick a switch date. Pack v1.3 retired both (API Contract v2.5, section 7): SOCO just writes to its own activity log, and the engine reads it. → [[Activity events]], [[Event source switch]]
+
+> [!example] The idea in one picture
+> A clerk keeps an archive copy of a busy office's in-tray. First they photocopy the whole filing cabinet once. After that, every 5 minutes, they copy only what's new or changed, and once a day they audit the archive against the originals. → [[Engine sync]]
 
 ## Subtasks, one by one
-The Build List splits ENG-04 into seven numbered parts (1–7). There are two extras (A and B).
+The Build List splits ENG-04 into nine numbered parts (1–9). There are three extras (A–C).
 
-### 1. A front door for events, with a password ✅
-- **What it asks:** SOCO's backend sends events in batches of up to 100, with a secret password (a "token") in the request.
-- **What we did:** built the door, `POST /v1/events`. Without the right password, it answers "unauthorized" and stores nothing. A batch of more than 100, or one that isn't in the right shape, is turned away with a clear reason.
-- **Why it matters:** only SOCO's backend should ever be able to write into the engine's log.
-- **Status:** done. Checked live: no password gets **401 (unauthorized)**. → [[Activity events]]
+### 1. The first full copy (backfill) ✅
+- **What it asks:** copy everything SOCO holds in three collections (its activity log `postevents`, `orders`, and its record of served lists `recommendationrequests`) into the engine. Each copy is filed under SOCO's own ID for the row. If the copy stops halfway, restarting it must not create duplicates.
+- **What we did:** the sync reads each collection in ID order, 500 rows at a time, and after every page it writes down the last ID it copied. If it stops, it carries on from there. When it finishes, the regular 5-minute reads start from the moment the backfill **began**, so anything that changed while it ran is read again. (The pack doesn't set a page size or this hand-over point; I chose them so nothing can fall between the two.)
+- **Why it matters:** SOCO deletes most activity and served lists after **90 days**. Anything not copied before then is gone for good, so this part is urgent on every new server.
+- **Status:** done. **Real run on 1 Oct:** 146 activity rows, 8 orders and 12 served lists copied into my dev engine database in about 3 seconds. The oldest copy is from 23 June.
+- → [[Engine sync]]
 
-### 2. The password itself ⏳
-- **What it asks:** generate the token and give it to Aravinth **privately**.
-- **What we did:** a small script makes a new random token and saves it nowhere, so it can't leak into a file.
-- **Why it matters:** the token is what lets SOCO's backend in and keeps everyone else out.
-- **Status:** the script is ready. **I still need to generate the real one**, put it in my `.env`, and give it to Aravinth one to one. → [[Secrets and passwords]]
+### 2. Every 5 minutes, only what's new or changed ✅ built / ⏳ needs SOCO's change times
+- **What it asks:** every 5 minutes (a setting), ask SOCO for rows changed since the last bookmark, using each row's *last changed* time (`updated_at`). Read in time order, and start 2 minutes before the bookmark, so nothing stamped at nearly the same moment is missed.
+- **What we did:** exactly that. Rows are read in order of change time, then ID, so two rows with exactly the same time either side of a page break are both copied. The 5 minutes is re-read from the settings before every pass, so changing it needs no restart.
+- **Why it matters:** the engine sees a new like, an undo or an order update within minutes, not the next day.
+- **Status:** built and tested. But SOCO's rows **don't carry `updated_at` yet**: 0 of 146 activity rows, 3 of 8 orders, 0 of 12 served lists. Aravinth's task APP-12 adds it ("reported built", not in this database yet). Until then this read finds nothing new, and part 8 catches new rows the next day instead. → [[Platform Database]]
 
-### 3. Turning away bad entries, with a reason ✅
-- **What it asks:** refuse an entry if its position is 0, its screen isn't the feed or a product page, its item isn't a post or product, or a request/view/tap is missing the list it came from. Every entry must say who, what and which event.
-- **What we did:** exactly those rules, and nothing more. Each refused entry is listed back with its reason. The good entries in the same batch are still stored, so one bad entry never loses the rest.
-- **Why it matters:** bad entries would confuse every model that reads the log. Saying *why* lets SOCO fix the sender.
-- **Status:** done. Checked live: a position-0 entry came back with *"position 0 is not allowed: positions count from 1"*.
+> [!warning] What APP-12 changes
+> Without change times, a row **created** yesterday is still caught by the daily audit (part 8), about a day late. But a change to an **older** row (an undo of last week's like, a new step in an old order) can't be seen by either until APP-12 lands.
 
-### 4. Never storing the same thing twice ✅
-- **What it asks:** remove duplicates by each entry's ID.
-- **What we did:** if the same entry arrives twice, whether in one batch or because SOCO's backend retried after a network blip, the second copy is counted as a duplicate and not stored.
-- **Why it matters:** retries are normal. Without this, every retry would count a view or tap twice.
-- **Status:** done. **This is the task's official check:** the same batch sent twice came back the second time as **all duplicates**.
+### 3. Update, never skip ✅
+- **What it asks:** if the engine already holds a row, update it. Never skip it, so an undo, an order status change, a return request or new "seen" items all arrive.
+- **What we did:** every copy is an **upsert**: update if held, insert if new. The time it was first copied is set once and never changes.
+- **Why it matters:** SOCO's rows change after they're written. A sync that only added new rows would keep a like that was undone, or an order that was later returned.
+- **Status:** done. Tested: a like undone after it was copied updates the one copy, and its original time doesn't move.
 
-### 5. Kept for at least a year ✅
-- **What it asks:** store entries in `ml_events`, findable by person, time and list, never deleted in under 365 days.
-- **What we did:** entries are stored exactly as sent, plus the time they arrived. The drawer and its indexes were already set up in ENG-01. → [[Collections]], [[Indexes]]
-- **Why it matters:** the models learn from months of history.
-- **Status:** done.
+### 4. Move the bookmark only after the copy is saved ✅
+- **What it asks:** save the bookmark (checkpoint) in `ml_sync_state` only after the batch it covers is written.
+- **What we did:** for each collection, the engine keeps a small record: the bookmark, how far the backfill got, when the last good pass started, and how the last run went. The bookmark moves only after the page is written.
+- **Why it matters:** if the engine crashes between writing and bookmarking, the next run simply reads that page again. Because of part 3, reading it twice does no harm.
+- **Status:** done. Tested by making the bookmark save fail on purpose: the batch was read again and not duplicated.
 
-### 6. A clear answer every time ✅
-- **What it asks:** reply with how many entries were accepted, how many were duplicates, and which were refused and why.
-- **What we did:** exactly that reply, plus a line in the engine's log for every batch. → [[Logs]]
-- **Status:** done.
+### 5. What every copy keeps, and its event code ✅
+- **What it asks:** each copy keeps where it came from (collection and ID), its event ID, the undo fields, the **original** event time and the last-changed time. Each kind of activity is mapped to the pack's event codes (E1, E2…).
+- **What we did:** each copy holds the clean record from [[ENG-03 - Reading SOCO's data correctly]], those fields, and its E code. It also keeps the **whole SOCO row as read**, so the daily audit can compare values exactly. (My choice, since the clean record tidies some values.) A served list becomes an E1 record.
+- **Why it matters:** the original time decides which day an event counts for and when the copy expires. The E code is how every model asks for "impressions" or "clicks".
+- **Status:** done. On the real copy: 5 items seen (E2), 3 taps (E3), 6 add-to-carts (E4), 63 orders placed (E5), 50 likes, saves, follows and their undos (E9), 19 of a kind the pack gives no code, and 12 served lists (E1). → [[Activity events]]
 
-### 7. A daily comparison that sets the switch date ✅
-- **What it asks:** every day, compare the new log with SOCO's old logs for requests, views, taps and feedback. The counts must be within 1%, and a sample of 100 entries must match one to one. After **7 days in a row** of agreement, fix the switch date and tell Aravinth to stop writing the old logs.
-- **What we did:** built that comparison as a job. Each day's result is saved. On the 7th good day in a row, the switch date is fixed once and never moved, and the log tells me to tell Aravinth.
-- **Why it matters:** it proves the new log is complete **before** the old one is switched off, so no history is lost. → [[Event source switch]]
-- **Status:** done and tested. It starts counting once Aravinth's backend is writing to both logs.
+### 6. Kept for a year from when it happened ✅
+- **What it asks:** keep copies at least 365 days from the original event time, under the engine's own expiry. SOCO's 90-day expiry must never delete an engine copy, and an update must never restart the clock.
+- **What we did:** the expiry set up in ENG-01 counts from the original event time, which comes from SOCO's row and never changes on an update. SOCO's expiry only touches SOCO's database.
+- **Why it matters:** the models learn from months of history, and seasonal patterns need the whole year.
+- **Status:** done. The setting reads 365 days, and a test checks the expiry itself. → [[Indexes]]
 
-### A. Extra: a window onto the log ✅
-- **What we did:** a small script shows what's in the event log (counts by kind, the newest entries) and whether the switch date is fixed. It only reads.
+### 7. An alert when it falls behind or fails ✅
+- **What it asks:** if any collection is more than 15 minutes behind, or a run fails, alert the service owner (me), who restarts from the last bookmark.
+- **What we did:** after every pass, and on its own as a job, the engine works out how far behind each collection is: the time since its last good pass **started**. Over 15 minutes, or a failed run, writes an **alert** line in the log, marked as an alert and addressed to me. Restarting is just running the next pass; it carries on from the bookmark.
+- **Why it matters:** a stuck sync means the engine is learning from stale data. Without an alert, no one would notice.
+- **Status:** done. The pack says *who* gets the alert but not *how*, so for now it's a log line until we choose a channel. Tested: 16 minutes behind fires it, and so does a pretend outage. → [[Logs]]
 
-### B. Extra: added to the checklist ✅
-- **What we did:** the one-command checklist now also checks this task, live. → [[Checklist]]
+### 8. A daily audit against SOCO ✅
+- **What it asks:** once a day, for the day before, check each collection: the same set of IDs on both sides, and for changed rows, the same values in the fields that change. Equal counts alone don't pass. Every mismatch is logged and read again.
+- **What we did:** the audit takes yesterday by **India time** (the nightly jobs run at 2 AM India time; the pack doesn't name the day boundary, so I matched it). It finds every SOCO row created or changed that day, and checks each against the engine's copy: undo fields for activity, status and delivery steps (`tracking_info`) for orders, and "seen" items for served lists. Anything missing or different is copied again straight away, and the result is saved.
+- **Why it matters:** it proves the copy is complete and correct, not just the right size. 100 rows on each side could still be the wrong 100. It's also how APP-12 is verified, and SOCO's migration (DB-16) drops its old logs only after **7 passing days in a row**, which I have to confirm in writing.
+- **Status:** done. **Real run on 1 Oct:** yesterday (30 Sep) passed on all three (no rows that day). On 24 Sep (96 activity rows, 2 served lists) it passed too, and when I damaged two copies on purpose it found both, re-copied them, and passed the next time.
 
-## Result (29 Sep 2026)
-- The task's check **passes**: the same batch twice gives all duplicates, and position 0 is refused with a reason.
-- All automatic checks pass: **529** on the laptop and **37** against the database.
-- The record is in `Tracing/checks/ENG-04_2026-09-29.md`.
+> [!note] The pack's row names two order fields SOCO doesn't have (`statusLog`, `return_info`). ENG-29 says to compare `tracking_info` instead, which SOCO does have, and that's what the audit compares.
 
-## Two things Aravinth needs to know
-> [!warning] Before the switch date can ever be fixed
-> 1. **SOCO's feedback log (`contentfeedbacks`) doesn't exist.** The daily comparison needs it for "not interested / hide / report / mute".
-> 2. **SOCO's backend must stamp each event with one time, and write that same time to both logs.** The comparison matches entries to the second.
+### 9. Each order's status history ✅ (a cross-check now)
+- **What it asks:** whenever the sync sees a new order status, store it with its time, so the engine knows an order reached Delivered or Return Requested even if it changes later.
+- **What we did:** each order copy carries a short history. A status is added only when it differs from the last one held.
+- **Why it matters:** an order that was delivered and then returned must still count as returned.
+- **Status:** done. Tested: Placed → Delivered → Return Requested gives three entries. ENG-29 makes SOCO's own `tracking_info` the order's history, so this list stays **as a cross-check only**. Before APP-12 it holds one entry per order.
+
+### A. Extra: an alert helper ✅
+- **What we did:** one small piece of code that every alert goes through, always marked the same way and addressed to me.
+- **Why it matters:** when we pick a real alert channel (a message, an email), it plugs in at one place.
+
+### B. Extra: a window onto the sync ✅
+- **What we did:** a script that shows how many copies there are by collection and code, each collection's bookmark and last run, and the latest audits. It only reads, and shows no user IDs.
+- **Why it matters:** one command answers "is the sync healthy?".
+
+### C. Extra: the real backfill into my dev database ✅
+- **What we did:** ran the sync for real against SOCO's dev data, with the read-only login, on 1 Oct.
+- **Why it matters:** the tests use made-up rows; this proves it works on SOCO's real ones, and starts the year-long copy before SOCO's 90 days run out.
+- **Status:** done. 146 + 8 + 12 rows; a second pass copied nothing and duplicated nothing.
+
+## Result (1 Oct 2026)
+- All nine parts are built. The pack's checks (a)–(g) each have a test, and all pass: **16 passed** in the sync's own tests (11 of them against a database).
+- The whole test suite passed at the time of the change: **541 passed, 1 skipped**.
+- The first real copy of SOCO's data is in my dev engine database, and yesterday's audit passed.
+
+## Decided
+| Date | Decision | Why |
+|---|---|---|
+| 1 Oct 2026 | Read 500 rows per page | The pack sets no size; one page is written and re-read as a whole |
+| 1 Oct 2026 | After the backfill, the 5-minute reads start from when it began | Nothing changed during the backfill can be missed |
+| 1 Oct 2026 | "Behind" = time since the last good pass started | A quiet collection with no new rows isn't "behind" |
+| 1 Oct 2026 | The alert is a marked log line to me, until a channel is chosen | The pack names the person, not the channel |
+| 1 Oct 2026 | The audit's day is the India-time day | The nightly jobs run on India time (ENG-07) |
+| 1 Oct 2026 | Each copy keeps the whole SOCO row | The audit must compare values exactly |
 
 ## Still to do
 | What | Waiting on |
 |---|---|
-| Generate the real token; give it to Aravinth privately | Me |
-| Connect SOCO's backend to this door (APP-12) | Aravinth → [[People]] |
-| Run the daily comparison automatically every night | ENG-07 |
-| Re-run the check on the **test** server, then mark it Passed | The test server |
+| Change times on SOCO's rows, so the 5-minute read sees changes | Aravinth's APP-12 → [[People]] |
+| Run the checks on the **test** server, then mark it Passed | The test server and its made-up data (ENG-01, ENG-29) |
+| Run the backfill on test and production before SOCO's 90 days run out | Those servers → [[Environments]] |
+| Copy SOCO's serve log (`rec_serve_log`) too | ENG-29, and Aravinth creating the collection |
+| Use SOCO's `tracking_info` as the order history | ENG-29 |
+| Run the sync and audit on a timer on the servers | ENG-07 and the servers |
+| Confirm in writing: the audit passed 7 days in a row (for DB-16) | Me, after APP-12 |
 
 ## How this connects
 - **Before it:** [[ENG-03 - Reading SOCO's data correctly]]
-- **Built on:** [[Activity events]], [[Event source switch]], [[Engine Database]], [[Secrets and passwords]]
+- **Built on:** [[Engine sync]], [[Activity events]], [[Collections]], [[Indexes]], [[Platform Database]], [[Engine Database]], [[Settings file]], [[Logs]]
 - **Next:** [[ENG-05 - Same method for each user]]. It gives each user the same one of two methods every time, fairly and permanently.
 - **Demo:** [[Demo - ENG-04]]. How to show this task working, step by step.
 - **Technical version:** `docs/engineering/ENG-04.md` in the repo.

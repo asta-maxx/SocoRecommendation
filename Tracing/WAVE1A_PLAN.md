@@ -52,11 +52,19 @@ Within each step, items are ordered by their *Waits on* column.
 
 | Item | Summary | Waits on | Check (from the row) |
 |---|---|---|---|
-| ENG-01 | Environments dev/test/prod, each with its own engine DB. All 12 `ml_` collections. Same private network as SOCO_BE; give Aravinth the address. Secrets in server env only | DB-02 | Runs in all three environments; prod reaches the platform DB read-only |
-| ENG-02 | One Python service, API + scheduled jobs. The 12 modules. One versioned settings file, reloaded at least once a minute, last-good on a broken file, defaults otherwise. Changes logged in `ml_config_changes`. `/health` 200/503. Structured logs | ENG-01 | Setting change applies in a minute and is logged; broken file keeps running; stopped DB → 503 |
-| ENG-03 | Platform reader: IDs as 24-character strings, the field-name map, 23-category mapping, case-insensitive status, one source per action, day-based event source switch, ignored fields | ENG-02 | Unit tests read one of each record type, including text-id follows |
-| ENG-04 | `POST /v1/events`: ≤100 per call, `INGEST_TOKEN`, per-field rejects, dedupe on `event_id`, `ml_events` + indexes, ≥365 days, reply shape, daily reconciliation → switch date | ENG-02 | Same batch twice → all duplicates; position 0 rejected with a reason |
+| ENG-01 | Environments dev/test/prod, each with its own engine DB. All 16 `ml_` collections (v1.3 adds `ml_orders`, `ml_sync_state`, `ml_item_state`, `ml_deletions`); copies kept ≥365 days from the original event time (SD-29). Same private network as SOCO_BE; give Aravinth the address. Secrets in server env only | DB-02 | Runs in all three environments; prod reaches the platform DB read-only |
+| ENG-02 | One Python service, API + scheduled jobs (incl. the engine sync). The 12 modules (`sync` replaces `events`). One versioned settings file (the v1.3 Settings sheet: surface modes off/internal/live, sync timings, lists), reloaded at least once a minute, last-good on a broken file, defaults otherwise. Changes logged in `ml_config_changes`. `/health` 200/503. Structured logs | ENG-01 | Setting change applies in a minute and is logged; broken file keeps running; stopped DB → 503 |
+| ENG-03 | Platform reader: IDs as 24-character strings, polymorphic actors, the field-name map, 23-category mapping, case-insensitive status, events from the engine's copy of `postevents` only (no event source switch; DB-16 migrates the older collections), native types → E codes (Capture Register sheet 4), served-item identity, undo fields kept, post-page impressions = page visits, ignored fields | ENG-02 | Unit tests read one of each record type, including text-id follows, a businessRegister actor, a product post on a platform feed list, and an order with a status log and a return request |
+| ENG-04 | Engine sync (replaces the retired `POST /v1/events`, DS-017 v2.5 §7): backfill of `postevents`, `orders`, `recommendationrequests` into `ml_events`/`ml_orders` keyed on the platform `_id`; incremental read every 5 min by `updated_at` with a 2-min overlap; upsert; checkpoint in `ml_sync_state` after the write; E codes; ≥365 days; lag alert >15 min; daily reconciliation of ids and field values; order status history | ENG-02, DB-02, APP-12 | On test: (a)–(g): reconciliation matches; undo updates the copy; an hour stopped loses/duplicates nothing; same `updated_at` across a page; failure before the checkpoint re-reads; alert fires; retention shown |
 | ENG-05 | SHA-256 of `<slot>:<user_id>`, first 8 hex mod 100, split/default from settings, `policy_id` = `cfg<version>.<slot>-<method>` | ENG-02 | Stable across two restarts; split change without deploy; 10,000 ids within 2 points |
+
+**Status of ENG-01 to ENG-04 (realigned to pack v1.3 on 1 Oct 2026;** see
+`Tracing/REALIGNMENT_v1.3.md`**):**
+
+- **ENG-01:** Waiting. Dev part done: 16 of 16 collections, retention on the original event time. Test and production servers and clusters wait on Aravinth (DB-02, DB-12, DB-13).
+- **ENG-02:** Built. Module `sync` replaces `events`; `/v1/events` removed; settings to the v1.3 sheet. Re-run on test later.
+- **ENG-03:** Built. No event source switch; native fields, actors, item identity; the four named cases pass; every real platform document reads (8,750; 0 failed).
+- **ENG-04:** Built on dev as the engine sync. Real backfill done 1 Oct: `postevents` 146, `orders` 8, `recommendationrequests` 12. The incremental read waits on `updated_at` (APP-12; 0 of 146 events had it on 1 Oct); the check (a)–(g) is to be run on test.
 
 **ENG-20 part 1** is in Step 4, but its row says it "needs nothing and should be done this week":
 - Measure today's `/dashboard-feed` over ≥1,000 requests (p50/p95/p99), and save the numbers.
@@ -129,7 +137,7 @@ Also from the documents:
 Allen owes Aravinth:
 
 - **ENG-01:** the private address, for DB-12.
-- **ENG-04:** `POST /v1/events` and the `INGEST_TOKEN`, handed over privately, for APP-12.
+- **ENG-04:** nothing to hand over since v1.3 (`POST /v1/events` is retired; APP-12 is the platform side of the engine read). `INGEST_TOKEN` is now the serving token for `POST /v1/recommendations`, handed over with ENG-06.
 - **ENG-06:** `/v1/recommendations` on test, for APP-15.
 - **ENG-21:** the case API, for APP-17.
 

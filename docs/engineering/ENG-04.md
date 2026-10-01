@@ -1,233 +1,306 @@
-# ENG-04: POST /v1/events, receive and store events
+# ENG-04: Engine sync, copy platform events, orders and served lists
 
 | | |
 |---|---|
 | **Owner** | Allen |
-| **Step** | Step 1 (within 7 working days) |
-| **Waits on** | ENG-02 (built) |
-| **Needed by** | **APP-12** (Aravinth's event route), ENG-06, ENG-10, ENG-25 |
-| **Status** | **Built** (29 Sep 2026). The check passed on dev (`Tracing/checks/ENG-04_2026-09-29.md`). Becomes Passed when re-run on test. `INGEST_TOKEN` still to be generated for real and handed to Aravinth |
-| **Spec** | Build List ENG-04; DS-017 §3, §4.6, §6.1, §7; X-02, X-08; Capture Register F66–F68 |
+| **Step** | Step 1 (within 7 working days of starting) |
+| **Waits on** | ENG-02 (built), DB-02 (read-only login), APP-12 (`updated_at` on the platform side: reported built, not yet in the dev data) |
+| **Needed by** | ENG-06, ENG-10, ENG-25, DB-16, ENG-27, ENG-28, ENG-29 |
+| **Status** | **Built** (1 Oct 2026, on dev). All nine parts built and the checks (a)–(g) pass on constructed data; the real backfill ran into the dev engine database. Becomes Passed when re-run on **test** (Definitions: every check runs on test). Waits on APP-12, the test environment and ENG-29 (`rec_serve_log`, `tracking_info`) |
+| **Spec** | Build List v1.3 ENG-04 (and ENG-29 items 4, 7; DB-16 step 4; Settings sheet "Engine sync", "Keep event data"); DS-017 v2.5 §7; SDA v1.6 SD-29, SD-30, SD-27; Capture Register X-02, X-08, D8, F74, E1 |
+
+> **Replaces** the 22 Sep design of this item (`POST /v1/events`, `INGEST_TOKEN`, the four-pair reconciliation and the event source switch, built 29 Sep). DS-017 v2.5 §7: *"POST /v1/events, INGEST_TOKEN on events and the queued forwarding in v2.2 are retired."* The endpoint, the token and the switch were removed in the ENG-02 and ENG-03 realignments (see `Tracing/REALIGNMENT_v1.3.md`). The old check record `Tracing/checks/ENG-04_2026-09-29.md` is kept as history only.
 
 ---
 
 ## 1. What the item requires
 
-From the Build List row:
+The Build List v1.3 row, verbatim:
 
-1. Accept `{"events": [...]}`, at most 100 per call, with `Authorization: Bearer <INGEST_TOKEN>`.
-2. Generate `INGEST_TOKEN` and give it to Aravinth privately.
-3. Reject an event (each check applies only to events that carry the field) if it has:
-   - a position of 0 (impressions and clicks);
-   - a surface other than feed or product (requests);
-   - an item_type other than post or product (impressions and clicks);
-   - no `request_id` on `recommendation_request`, `_impression` or `_click`. It may be empty on add_to_cart, order_placed, social_interaction and content_feedback; order_state_changed has none.
-4. Remove duplicates by `event_id`.
-5. Store in `ml_events`: unique `event_id`, indexes on (user_id, time) and `request_id`, no expiry shorter than 365 days.
-6. Reply 200 with `{"accepted": n, "duplicates": n, "rejected": [{"event_id", "reason"}]}`.
-7. A daily reconciliation job for the four pairs:
-   - counts within 1%;
-   - share of rows carrying request_id, item_id and time within 1%;
-   - a 100-event sample matched one to one on user, item and time to the second, agreeing on request_id, position and item_type.
+> Replaces POST /v1/events, which is retired (API contract v2.4, section 7).
+>
+> 1. Backfill: copy everything the platform holds in postevents, orders and recommendationrequests into ml_events and ml_orders, keyed on the platform _id. It can be restarted without creating duplicates.
+> 2. Incremental read every 5 minutes (a setting), per collection: the rows with updated_at later than the checkpoint, ordered by updated_at then _id, re-reading a 2-minute overlap.
+> 3. Upsert: a row already held is updated, never skipped, so an undo (undone_at), an order status change, a return request or new seen_ids arrive.
+> 4. Save the checkpoint in ml_sync_state only after the batch is written.
+> 5. Keep on every copy: the source collection, source _id, event_id, undo_of, undone_at, created_at (the original event time) and updated_at. Map native event types to the E codes (capture register, sheet 4).
+> 6. Retention: at least 365 days from the original event time, under the engine's own expiry. The platform's 90-day expiry never deletes an engine copy. An update never resets the original time.
+> 7. Alerts: a lag of more than 15 minutes on any collection, or a failed run, alerts the service owner (Allen), who restarts from the last checkpoint.
+> 8. Daily reconciliation per collection, for the previous day: the set of ids matches, and for changed rows the field values match (undone_at, order_status, statusLog, return_info, seen_ids). Equal counts alone do not pass. Mismatches are logged and re-read.
+> 9. Keep each order's status history: whenever the sync sees a new order_status, store it with its time (updated_at), so the engine knows an order reached Delivered or Return Requested even if it changes later.
 
-   After 7 days in a row, record the switch date, tell Aravinth to stop writing the old collections, and use the date in the ENG-03 rule.
+**How to check it is done:**
 
-The Wave 1A event names: `recommendation_request`, `recommendation_impression`,
-`recommendation_click`, `add_to_cart`, `order_placed`, `order_state_changed`,
-`social_interaction`, `content_feedback`. Every event carries `event_id`,
-`event_name` and `user_id`.
+> On test: (a) the reconciliation report shows matching ids and field values; (b) a like undone after it was copied updates the existing copy; (c) stopping the sync for an hour and restarting loses nothing and duplicates nothing; (d) two rows with the same updated_at across a page boundary are both copied; (e) a failure before the checkpoint re-reads that batch; (f) the alert fires in a test outage; (g) the retention setting is shown.
 
-**Check:** "Send the same batch twice: the second reply shows all duplicates. An
-event with position 0 is rejected with a reason."
+**ENG-29 changes two parts on top of this row** (Build List v1.3, ENG-29):
+
+- **Item 4:** *"tracking_info (APP-08) is the history of each order … Status changes the sync observes itself (ENG-04 point 9, if built) are kept as a cross-check only. The daily reconciliation compares tracking_info in place of statusLog and return_info."* The platform has no `statusLog` or `return_info`. This item already compares `tracking_info` (§2.8); part 9 is built and kept as the cross-check.
+- **Item 7:** *"Add rec_serve_log (APP-15) to the sync, read the same way as recommendationrequests."* Not in this item: `rec_serve_log` doesn't exist on the platform yet, and ENG-29 adds it to `SYNC_SOURCES`.
+
+**Settings sheet (fixed for Wave 1A):** Engine sync *"every 5 minutes, re-reading a 2-minute overlap; alert when more than 15 minutes behind"* (range 1 to 15 minutes); Keep event data *"engine copies: at least 365 days from the event time"*.
 
 ---
 
 ## 2. What was built, subtask by subtask
 
-Numbered as in the Obsidian note: 1–7 are the Build List's parts, and A–B are extras.
+Numbered as in the Obsidian note: 1–9 are the Build List's parts, A–C are extras.
 
-### 1. The endpoint, the batch and the token: done
+Layout: `reco/sync/copies.py` (what is copied and the shape of a copy), `reco/sync/run.py` (backfill, incremental, checkpoints, lag alert), `reco/sync/reconcile.py` (daily reconciliation). Reads go only through `reco/platform/fetch.py` and writes only through `reco/store/writers.py` (ENG-02's module rule). Jobs in `reco/jobs/__main__.py`:
 
-`reco/api/events.py`, `POST /v1/events`:
+```
+python -m reco.jobs sync             # one pass over every source (backfill first if unfinished)
+python -m reco.jobs sync_loop        # a pass every sync_interval_minutes, settings re-read each pass
+python -m reco.jobs sync_check       # the lag alert on its own
+python -m reco.jobs reconcile_sync   # yesterday's reconciliation (IST day)
+```
 
-| Response | When |
+### 1. Backfill, keyed on the platform `_id`, restartable: done
+
+`run.backfill(settings, source)`, reading with `fetch.read_page_by_id` (rows in `_id` order, after the last `_id`, `PAGE_SIZE` = 500 per page).
+
+- **Sources** (`copies.SYNC_SOURCES`): `postevents` → `ml_events`, `orders` → `ml_orders`, `recommendationrequests` → `ml_events` (as the E1 served-list record, Capture Register E1).
+- **Keyed on the platform `_id`:** the copy's `_id` *is* the platform `_id` (DS-017 §7: "unique on the platform _id").
+- **Restartable:** `ml_sync_state.backfill = {done, started_at, finished_at, after_id, copied}`. `after_id` is saved after each page is written, so a stopped backfill carries on after the last written page, and any re-read is an upsert, never a duplicate.
+- **Hand-off to the incremental read:** when the backfill finishes, the checkpoint is set to the time the backfill **started**, so a row changed while the backfill ran is read again by the first incremental pass. *Choice (the pack is silent); rule it must satisfy: DS-017 §7 "before the first incremental read, the service copies everything the platform still holds", with nothing lost between the two.*
+- **Page size 500.** *Choice (the pack sets none); rule: one page must fit in one bulk write and be re-read whole after a failure (item 4).*
+
+**Real run, 1 Oct 2026, into the dev engine database `SoCo`:** postevents **146**, orders **8**, recommendationrequests **12**, in about 3 s.
+
+> **Time-critical.** DB-01 / X-08 keep the platform's 90-day expiry on short-lived `postevents` types and on `recommendationrequests`. Whatever is not copied before it reaches 90 days is gone. The backfill must be run on every environment (test, then production) as soon as it exists. The oldest dev copy is from 23 Jun 2026.
+
+### 2. Incremental read every 5 minutes, by `updated_at`, with a 2-minute overlap: built; waits on APP-12 for real data
+
+`run.incremental(settings, source)`, reading with `fetch.read_page_by_updated_at`:
+
+- Rows with `updated_at >= checkpoint − sync_overlap_minutes` (2), sorted by `(updated_at, _id)`.
+- **Keyset paging:** after the first page the query is `updated_at > at OR (updated_at = at AND _id > last_id)`, so two rows with the same `updated_at` either side of a page boundary are both read (check d).
+- **Every 5 minutes:** `run.sync_forever` (job `sync_loop`) runs a pass, then sleeps `events.sync_interval_minutes` (5, range 1–15). It re-reads the settings before each pass (`config_sync.reload`), so a changed interval takes effect with no restart (ENG-02).
+- One source failing doesn't stop the others; the pass still ends in failure, so the job exits non-zero.
+
+**Data reality (dev platform, 1 Oct 2026):** `postevents.updated_at` on **0 of 146** rows, `orders.updated_at` on **3 of 8**, `recommendationrequests.updated_at` on **0 of 12**. F74 / APP-12 are "reported built, verification pending" but the field isn't in this database yet. **Until APP-12 lands, the incremental read sees no changes.** Meanwhile:
+
+- the backfill has copied everything there is;
+- the daily reconciliation (part 8) reads the day by `created_at` (or `server_ts`) **and** by the `_id` time, so a row **created** yesterday is found and copied, about a day late;
+- a change to an **older** row that doesn't move `updated_at` (an undo of last week's like, a `tracking_info` entry on an old order) is visible to neither. That is exactly what APP-12 fixes; the reconciliation is how APP-12 is verified (APP-12 row: "Verification pending: the ENG-04 reconciliation").
+
+### 3. Upsert: a row already held is updated, never skipped: done
+
+`writers.upsert_copies(settings, target, copies, copied_at)`: one `UpdateOne({_id}, {$set: copy + last_copied_at, $setOnInsert: first_copied_at}, upsert=True)` per row, in one ordered `bulk_write`. A re-read row replaces the held fields (so `undone_at`, a new `order_status`, a return request or new `seen_ids` arrive), `first_copied_at` is set once, and nothing is ever inserted twice. Check (b) is a like undone after it was copied: one copy, `undone_at` set, `created_at` and `first_copied_at` unchanged.
+
+### 4. Checkpoint saved only after the batch is written: done
+
+`ml_sync_state`, one document per source collection (`_id` = the collection name):
+
+| Field | Meaning |
 |---|---|
-| **200** | `{"accepted", "duplicates", "rejected"}`. A bad event never fails the call; it's listed under `rejected` and the rest are stored |
-| **400** | `{"error": "invalid_body" \| "too_many_events", "detail"}` when the body isn't `{"events": [...]}`, isn't JSON, or has more than **100** events (DS-017 §7, AS-05) |
-| **401** | `{"error": "unauthorized", "detail"}` for a missing or wrong bearer token |
-| **503** | `{"error": "engine_database_unavailable", "detail"}` if `ml_events` can't be written. SOCO_BE retries with the same event_ids, so nothing is lost or doubled |
+| `backfill` | `{done, started_at, finished_at, after_id, copied}` |
+| `checkpoint` | the latest `updated_at` written; the next read starts 2 minutes before it |
+| `current_as_of` | when the last **successful** pass started: every row changed before then has been copied |
+| `last_run` | `{started_at, finished_at, outcome, copied, error}` |
 
-Error bodies follow DS-017 §4.6. The token is `Settings.ingest_token`, read from
-`INGEST_TOKEN`, `repr=False`, compared in constant time (`hmac.compare_digest`).
-With no token configured, every call is refused and an error is logged.
+In both `backfill` and `incremental`, the position (`after_id` / `checkpoint`) is written **after** `write_page` returns. A failure in between leaves the old position, so the next pass re-reads that page; the upsert (part 3) makes the re-read harmless (check e).
 
-### 2. `INGEST_TOKEN`: built; handover still to do
+### 5. What every copy keeps; E codes: done
 
-`scripts/generate_ingest_token.py` prints a new 32-byte URL-safe random token and
-writes it nowhere. To put it into use:
-- **dev:** add `INGEST_TOKEN=<token>` to `.env`, which is gitignored;
-- **test and production:** set it in the server environment (SD-08);
-- **Aravinth:** hand it over **privately**, never in a file, email or group chat.
+`copies.make_copy(source, doc, statuses)` builds a copy from the ENG-03 record for its kind (`records.parse_postevent`, `parse_order`, `parse_served_list`) plus:
 
-**Not done yet:** the real token hasn't been generated or handed over. That's
-Allen's action.
+| Field | From |
+|---|---|
+| `_id`, `source_id` | the platform `_id` (and as text) |
+| `source` | the platform collection |
+| `kind` | `postevent`, `order` or `served_list` |
+| `event_id`, `undo_of`, `undone_at` | the platform row (ENG-03 record) |
+| `created_at` | the **original** event time from the platform row (or the `_id` time when missing, ENG-03) |
+| `updated_at` | the platform row's |
+| `event_code` | the E code from Capture Register sheet 4 (`reco.platform.native_events`, via ENG-03); `None` for a type sheet 4 maps to "—" |
+| `platform` | the whole platform row as read (without `_id`) |
+| `first_copied_at`, `last_copied_at` | set by the writer |
 
-### 3. The rejection rules, exactly as written: done
+A served list (`recommendationrequests`) is copied as `event_type: served_list`, `event_code: E1`, `scored: False`, with `seen_ids` as text: a platform list is a fallback list unless its `policy_id` says otherwise (F06).
 
-`reco/events/ingest.py`, `reason_to_reject(event)`. Each event is rejected, with
-its reason in the reply, only for:
-- a missing `event_id`, `event_name` or `user_id`, or a non-string `event_id`;
-- an `event_name` that isn't one of the 8;
-- `position == 0`;
-- a `surface` not in {feed, product};
-- an `item_type` not in {post, product};
-- `request_id` missing, null or blank on the three request/impression/click events.
+**Keeping the whole platform row** under `platform` is a *choice (the pack is silent); rule: the reconciliation must compare field values exactly (item 8, SD-30)*, and a parsed field may be normalised (ids to text, statuses mapped), so the comparison is made against the row as read.
 
-Each check runs only if the event carries that field. Nothing else is rejected:
-the pack lists no other rule. Formats such as UUID v4 and 24-hex ids are the
-sender's contract (DS-017 §3); the acceptance queries in ENG-23 (e.g. A3, "no
-position below 1") measure them.
+Real dev copies, 1 Oct 2026 (`scripts/show_events.py`): `postevents` E2 5, E3 3, E4 6, E5 63, E9 50, no code 19; `recommendationrequests` E1 12.
 
-### 4. Duplicates removed by `event_id`: done
+### 6. Retention: 365 days from the original event time: done (index from ENG-01)
 
-- **Within a batch:** a repeated `event_id` counts as a duplicate and is stored once.
-- **Across batches:** the unique `event_id` index on `ml_events` (ENG-01) makes the database refuse a repeat. `writers.insert_events` uses `insert_many(ordered=False)` and counts duplicate-key errors (code 11000) as duplicates. Any other write error is raised, giving a 503.
+`writers.ensure_engine_collections` (ENG-01) creates a `retention` expiry index on `created_at` on both `ml_events` and `ml_orders`, `expireAfterSeconds = events.retention_days × 86400` (365, fixed). The copy's `created_at` is the platform's original time, and `upsert_copies` never moves it, so an update never resets the clock (SD-29). The platform's 90-day expiry deletes platform rows only; nothing deletes an engine copy except this index (X-08, D8). Routine expiry is not account deletion (ENG-28).
 
-### 5. Stored in `ml_events`: done
+### 7. Lag and failure alerts to the service owner: done
 
-- **As sent:** each event is stored exactly as sent, plus `received_at`.
-- **`server_ts`:** stored as a date when it's a readable time, so the (user_id, server_ts) index and the ENG-03 day windows work.
-- **`client_ts`:** kept exactly as sent (DS-017 §3).
-- **Indexes:** the three, with no expiry, created in ENG-01 (`ensure_engine_collections`).
+`run.check_lag(settings)`, called at the end of every pass and on its own by the `sync_check` job:
 
-### 6. The reply: done
+- **lag = now − `current_as_of`** (the start of the last successful pass). *Choice (the pack defines "behind" but not how it is measured); rule: SD-30 "a sync more than 15 minutes behind".* Measured from the pass start, not from the newest `updated_at`, so a quiet collection with no new rows isn't reported as behind.
+- Alerts when lag > `events.sync_lag_alert_minutes` (15, fixed), when the last run failed, or when a source has state but no successful pass yet.
+- `run.sync_source` also alerts the moment a source fails (`reason: sync_failed`), records `last_run.outcome = failed` and the error, and re-raises.
 
-`{"accepted": n, "duplicates": n, "rejected": [{"event_id": ..., "reason": ...}]}`.
-Each call is also logged as a `reco.events` line: `events received`, with the three counts.
+`reco/monitoring/alerts.py`, `alert(reason, message, **fields)`: a **CRITICAL** structured log line on logger `reco.alert` with `"alert": true`, `"reason"` and `"owner": "Allen"`. *Choice: the pack names who is alerted (the service owner, Allen) but not the channel. Until one is chosen the log line is the alert, and a log collector can route on the one field.* Restart is "from the last checkpoint": simply run the next pass.
 
-### 7. Daily reconciliation, and the switch date: done
+### 8. Daily reconciliation: ids and field values: done
 
-`reco/events/reconcile.py`, run by the job `python -m reco.jobs reconcile_events`,
-which reconciles **yesterday (UTC)**. ENG-07 schedules it nightly.
+`reconcile.reconcile_day(settings, day=None)` (job `reconcile_sync`), per source:
 
-For each pair (new `ml_events` name vs old collection, read through the ENG-03
-parsers, which serve both):
-1. **Counts:** `|new − old| ≤ 1%` of the larger.
-2. **Complete-row share:** the share of rows with `request_id`, an item and a time, compared within 1 percentage point. The item is `item_id` for impressions and clicks, `target_id` for feedback, and none for requests, which carry no item.
-3. **Sample:** up to 100 new rows, in a shuffle seeded by the day, so a re-run draws the same sample. Each is matched **one to one** to an unused old row on user, item and time truncated to the second. Every matched pair must agree on `request_id`, `position` and `item_type` wherever the records have those fields.
+1. **The day:** the previous **IST** day by default. *Choice (the pack names no day boundary); rule: the jobs run on IST (2 AM IST, ENG-07; SDA "the daily reconciliation runs after the 2 AM refreshes").*
+2. **Platform side** (`fetch.read_touched`): rows whose own time (`created_at`; for served lists `server_ts` or `created_at`), `updated_at` or `_id` time falls in the day.
+3. **Engine side** (`writers.read_copies_touched`): copies of that source whose `created_at` or `updated_at` falls in the day, plus the copies of every platform id found.
+4. **Ids:** `missing` (on the platform, not held), `extra` (held, not among the day's platform rows).
+5. **Field values:** for every row on both sides, the compared fields must equal the platform row exactly (`copy.platform[field] == platform[field]`):
 
-**Storing results and fixing the date:**
-- The day's result goes to `ml_measurements`, with `measure: "event_reconciliation"`, one document per day, and a re-run replaces it.
-- **7 days in a row** that each hold, meaning **all four pairs** pass and the day had events, fix **that 7th day** as the switch date. It's stored once in `ml_measurements` (`measure: "event_source_switch"`, with the evidence days) and never moved afterwards.
-- A WARNING log line says: *"tell Aravinth to stop writing the old collections"* (recommendationrequests, recommendationimpressions, recommendationclicks, recommendationengagements, contentfeedbacks).
-- `reconcile.switch_date(settings)` returns the date for the ENG-03 rule (`fetch.read_switched`).
+   | Source | Compared |
+   |---|---|
+   | postevents | `undone_at`, `undo_of`, `updated_at` |
+   | orders | `order_status`, `tracking_info`, `updated_at` (ENG-29 item 4: `tracking_info` in place of `statusLog` and `return_info`) |
+   | recommendationrequests | `seen_ids`, `updated_at` |
 
-**Choices where the pack is silent:**
-- UTC days.
-- A pair with no rows on either side passes, but a day with no rows in any pair isn't evidence: it doesn't count, and it breaks the run.
-- Counts are compared within 1% of the larger.
-- Requests are matched on user and time.
-- The results and the date are stored in `ml_measurements`.
+6. **Equal counts alone don't pass:** `passed` only if there are no missing, mismatched or extra ids.
+7. **Logged and re-read:** every missing and mismatched row, and every extra id the platform still holds, is copied again through `run.write_page`. An extra id the platform no longer holds is reported (`extra_not_on_platform`) and left for ENG-28.
+8. **Saved:** one document per source per day in `ml_measurements` (`measure: sync_reconciliation`, `source`, `day`; replaced on a re-run), with counts and up to 50 listed ids per kind. Logged at INFO when passed, WARNING when not. SD-27 tracks "the daily reconciliation result".
 
-### A. Extra: `scripts/show_events.py`: done
+**DB-16 step 4** needs Allen to "confirm in writing that the reconciliation has passed on 7 days in a row" on each environment before the old collections are dropped. The 7 daily results are in `ml_measurements`; the written confirmation is Allen's.
 
-A read-only view of `ml_events`: counts by event name, the newest events (name,
-time, `event_id` only), and the switch date. It works with `ML_MONGO_DB=` for
-throwaway databases.
+**Real run, 1 Oct 2026:** yesterday's reconciliation (2026-09-30) passed on all three sources (0 rows that day). Re-run for 2026-09-24 (96 postevents, 2 served lists) in a throwaway database: passed; after one copy was deleted and another's `undone_at` changed, it reported `missing 1, mismatched 1 ['undone_at'], re-read 2, NOT PASSED`, and passed on the next run.
 
-### B. Extra: checklist section 5: done
+### 9. Each order's status history: done (a cross-check under ENG-29)
 
-`scripts/run_checklist.sh` now runs ENG-04's tests and the live check: first send,
-same batch again, position 0, and no token. It uses port 8192, a throwaway token
-and `reco_demo`.
+`copies.with_history(copy, held)`: for orders, `run.write_page` reads the held copies first and carries `status_history` forward, appending `{status, at: updated_at}` whenever the status now seen differs from the last one held (falls back to `created_at` when `updated_at` is missing). Tested: Placed → Delivered → Return Requested gives three entries and `is_returned`.
+
+ENG-29 item 4 makes `tracking_info` the order's history; this list is kept **as a cross-check only**. It sees only the statuses the sync happened to observe, so before APP-12 it holds one entry per order.
+
+### A. Extra: the alert module: done
+
+`reco/monitoring/alerts.py` (part 7). One function, one logger, one owner constant, so ENG-24's monitoring and any later channel plug in at one place.
+
+### B. Extra: `scripts/show_events.py`: done
+
+Read-only view of the sync: `ml_events` copies by source and E code, the `ml_orders` count, each source's backfill / checkpoint / `current_as_of` / last run, and the latest reconciliation results. Prints counts, codes and times only, no user ids.
+
+### C. Extra: the real backfill into dev: done
+
+Run on 1 Oct 2026 against the dev platform with the read-only login, into `SoCo` (§1). Re-run on the same day into a throwaway database for the demo: same counts, a second pass copied 0 and duplicated nothing.
 
 ---
 
 ## 3. Configuration reference
 
-| Variable | Meaning | Default |
+No new environment variables. Settings (`settings/engine.toml`, `[events]`, validated in `reco/config/tunables.py`; from the Settings sheet):
+
+| Setting | Value | Rule |
 |---|---|---|
-| `INGEST_TOKEN` | Bearer token for `POST /v1/events` (and, AS-04, `/v1/recommendations`) | empty: every call refused |
+| `sync_interval_minutes` | 5 | 1–15 (Settings sheet "Engine sync") |
+| `sync_overlap_minutes` | 2 | fixed |
+| `sync_lag_alert_minutes` | 15 | fixed |
+| `retention_days` | 365 | fixed (at least 365, SD-29) |
 
-No new settings-file values. The batch limit (100) and forward timeout (2 s) are
-already in `settings/engine.toml` (`events.forward_batch_max`,
-`events.forward_timeout_seconds`), as values SOCO_BE follows.
-
----
-
-## 4. Tests
-
-- **`tests/test_events_ingest.py` (44 tests):**
-  - the 8 names;
-  - every rejection rule and its reason;
-  - checks applying only to events that carry the field;
-  - batch shape and the 100 limit;
-  - stored as sent, with `server_ts` as a date and `client_ts` untouched;
-  - the token: right, wrong, missing, none configured;
-  - the reply counting within-batch duplicates;
-  - **the Build List check** with the store faked, **and against a real `ml_events` with its unique index**.
-- **`tests/test_events_reconcile.py` (14 tests):**
-  - each of the three tests, passing and failing;
-  - time to the second;
-  - one-to-one matching;
-  - a repeatable 100-sample;
-  - requests without an item;
-  - empty pairs;
-  - against a database: **7 matching days fix the switch date on the 7th and never move it**, a failing day breaks the run, and days with no events don't count.
-
-**Result on 29 Sep 2026:** 529 unit tests passed (1 skipped) and 37 database tests passed.
-
-**Live check (dev, `reco_demo`, throwaway token):**
-- first send `{"accepted":3,"duplicates":0,"rejected":[{…"reason":"position 0 is not allowed: positions count from 1"}]}`;
-- same batch again `{"accepted":0,"duplicates":3,…}`;
-- no token **401**;
-- `ml_events` held exactly 3 events.
+Code constants (choices, §2): `run.PAGE_SIZE = 500`; `reconcile.IST`; `reconcile.LISTED = 50`; `alerts.SERVICE_OWNER = "Allen"`.
 
 ---
 
-## 5. Runbook
+## 4. Environments
+
+| Environment | State (1 Oct 2026) |
+|---|---|
+| dev (laptop, engine DB `SoCo`) | Backfill done on all three sources; reconciliation of 2026-09-30 passed |
+| test | Not yet: the server and its constructed data come with ENG-01 / ENG-29 item 8. The official check runs here |
+| production | Not yet. The backfill must run before the oldest rows reach the platform's 90 days |
+
+`sync_loop` is not yet scheduled anywhere; on a server it runs as its own long-lived job process (SDA: "the engine sync (every 5 minutes)"). `reconcile_sync` belongs after the 2 AM refreshes (ENG-07).
+
+---
+
+## 5. Tests
+
+`tests/test_sync.py`, on constructed platform-shaped data (the platform side is the throwaway `<TEST_MONGO_DB>_platform` database, written as the platform would):
+
+| Check | Test |
+|---|---|
+| copies (no DB) | source fields and E code kept; served list as E1 with `seen_ids`; status history adds only a new status; the three sources |
+| (g) retention | `test_retention_is_the_setting` (≥ 365); the index itself: `tests/test_engine_environment.py::test_copies_expire_365_days_after_the_original_event_time` |
+| part 1 | backfill copies everything keyed on `_id`, a second pass adds nothing; a stopped backfill restarts after its last page |
+| (b) | `test_an_undo_updates_the_existing_copy` |
+| part 9 | `test_an_order_keeps_its_status_history` |
+| (c) | `test_an_hour_stopped_loses_and_duplicates_nothing`: checkpoint set an hour back, 10 rows changed in that hour, all copied once |
+| (d) | `test_same_updated_at_across_a_page_boundary`: 5 rows, one `updated_at`, page size 2 |
+| (e) | `test_a_failure_before_the_checkpoint_rereads_the_batch` |
+| (f) | `test_the_alert_fires_when_the_sync_is_behind` (16 minutes); `test_the_alert_fires_when_a_run_fails` (a test outage of the platform read: `sync_failed` and `sync_lag`) |
+| (a) | `test_reconciliation_passes_when_ids_and_fields_match`; `test_reconciliation_finds_and_rereads_what_the_sync_missed` (a changed `undone_at` and a new `tracking_info` entry without `updated_at`, and a new row with no `updated_at`: found, re-read, then passes) |
 
 ```bash
-.venv/bin/python scripts/generate_ingest_token.py        # a new token; put it in .env (dev) / server env
-.venv/bin/python -m reco.jobs reconcile_events           # reconcile yesterday (UTC)
-.venv/bin/python scripts/show_events.py                  # what's in ml_events; the switch date
-curl -X POST http://127.0.0.1:8100/v1/events -H "Authorization: Bearer $INGEST_TOKEN" \
-     -H "Content-Type: application/json" --data @batch.json
+TEST_MONGO_TIMEOUT_MS=15000 .venv/bin/python -m pytest -q tests/test_sync.py
 ```
 
+**Results, 1 Oct 2026:**
+- `tests/test_sync.py`: **16 passed** (11 database tests marked `mongo`, 5 without). Re-run the same day with `TEST_MONGO_DB=reco_test_eng04doc`: 16 passed.
+- Full suite at commit `6c4299c`: **541 passed, 1 skipped**.
+
+> Run the suite with its own `TEST_MONGO_DB` when another suite may be running: two runs sharing `reco_test` race on collection creation (`CollectionInvalid: … already exists`).
+
+`scripts/run_checklist.sh` section 4 runs these per check (4.1–4.9), then a real backfill from the platform into `reco_demo` (4.10, expects 3 sources with `backfill done`) and yesterday's real reconciliation (4.11, expects `"passed": true`).
+
 ---
 
-## 6. Open
+## 6. Runbook
 
-| Open item | Needs |
+```bash
+# One pass (backfill first if unfinished). Exit code non-zero if any source failed.
+.venv/bin/python -m reco.jobs sync
+
+# Every 5 minutes, until stopped.
+.venv/bin/python -m reco.jobs sync_loop
+
+# What has been copied, how far behind each source is, and the latest reconciliations (read-only).
+.venv/bin/python scripts/show_events.py
+
+# The lag alert on its own.
+.venv/bin/python -m reco.jobs sync_check
+
+# Yesterday's reconciliation (IST day).
+.venv/bin/python -m reco.jobs reconcile_sync
+```
+
+**When the alert fires** (`"alert": true`, `"owner": "Allen"` in the logs): read `reason` and `source`, check `scripts/show_events.py` for `last run failed` and the error in `ml_sync_state.last_run.error`, fix the cause (usually the platform connection), then run `python -m reco.jobs sync`. It restarts from the saved checkpoint (or the backfill's `after_id`); re-reads are upserts.
+
+**A reconciliation for a given day:** `reconcile.reconcile_day(settings, "YYYY-MM-DD")` (no CLI argument yet).
+
+**Starting over on an environment** (never needed in normal running): delete that source's `ml_sync_state` document; the next pass re-runs the backfill, as upserts.
+
+---
+
+## 7. Open
+
+| Open item | Waits on |
 |---|---|
-| Generate the real `INGEST_TOKEN`, put it in dev `.env`, hand it to Aravinth privately | Allen |
-| APP-12: SOCO_BE forwards events here, still writing the old collections too | Aravinth |
-| Schedule `reconcile_events` nightly | ENG-07 |
-| **`contentfeedbacks` doesn't exist.** The content-feedback pair then has old = 0; once feedback flows into `ml_events`, its counts differ and no day holds, so **the switch date can't be fixed** until feedback is written to both | Aravinth to confirm where E13 is written |
-| **Time to the second:** the old `/feed/*` rows and the new events must carry the **same** `server_ts` to the second, or the sample test fails. SOCO_BE should stamp once and write the same value to both | Aravinth, for APP-12 |
-| Re-run the check on **test**; then mark Passed | The test server |
+| `updated_at` on every platform row, so the incremental read sees changes (0/146 postevents, 3/8 orders, 0/12 served lists on 1 Oct) | **APP-12** (Aravinth); verified by this reconciliation |
+| Run the checks (a)–(g) on test, then mark Passed | The test environment (ENG-01) and its constructed data (ENG-29 item 8) |
+| Run the backfill on test and production before rows reach 90 days | Those environments |
+| `rec_serve_log` added to the sync | **ENG-29** item 7, and APP-15 (the collection doesn't exist yet). Question to Kala: it has no `updated_at` (`Tracing/REALIGNMENT_v1.3.md`, Q3) |
+| `tracking_info` as the order history; part 9 as the cross-check | **ENG-29** item 4 (the reconciliation already compares `tracking_info`) |
+| Schedule `sync_loop` and `reconcile_sync` | ENG-07 and the servers |
+| An alert channel beyond the log line | A decision (ENG-24 monitoring) |
+| DB-16 step 4: written confirmation that the reconciliation passed 7 days in a row | Allen, per environment, after APP-12 |
+| Do migrated `postevents` rows keep their `_id` and get an `updated_at`? | Kala / DB-16 (`Tracing/REALIGNMENT_v1.3.md`, Q10) |
 
 ---
 
-## 7. Files changed
+## 8. Files changed
+
+Commit `6c4299c` (1 Oct 2026):
 
 | File | Change |
 |---|---|
-| `reco/api/events.py` | New: the route, token check, error bodies |
-| `reco/events/ingest.py` | New: rules, duplicates, storing, reply |
-| `reco/events/reconcile.py` | New: daily reconciliation, switch date |
-| `reco/store/writers.py` | `insert_events`, `read_events`, `record_reconciliation`, `read_reconciliations`, `record_switch_date`, `read_switch_date` |
-| `reco/config/__init__.py` | `ingest_token` (`INGEST_TOKEN`) |
-| `reco/jobs/__main__.py` | Job `reconcile_events` |
-| `reco/main.py` | Registers the route |
-| `scripts/generate_ingest_token.py`, `scripts/show_events.py` | New |
-| `scripts/run_checklist.sh` | Section 5 (ENG-04) |
-| `.env.example` | `INGEST_TOKEN` |
-| `tests/test_events_ingest.py`, `tests/test_events_reconcile.py` | New |
+| `reco/sync/copies.py` | New: `SYNC_SOURCES`, `make_copy`, `with_history` |
+| `reco/sync/run.py` | New: `backfill`, `incremental`, `write_page`, `sync_source`, `sync_once`, `check_lag`, `sync_forever` |
+| `reco/sync/reconcile.py` | New: `reconcile_day`, `reconcile_source`, `day_bounds` |
+| `reco/monitoring/alerts.py` | New: `alert` |
+| `reco/platform/fetch.py` | `read_page_by_id`, `read_page_by_updated_at`, `read_by_ids`, `read_touched` |
+| `reco/store/writers.py` | `upsert_copies`, `read_copies`, `read_copies_touched`, `read/write_sync_state`, `read_all_sync_state`, `record_sync_reconciliation` |
+| `reco/jobs/__main__.py` | Jobs `sync`, `sync_loop`, `sync_check`, `reconcile_sync` |
+| `scripts/show_events.py` | Shows sync state and reconciliation results |
+| `scripts/run_checklist.sh` | Section 4 (4.1–4.11) |
+| `tests/test_sync.py` | New: 16 tests |
 
-## 8. Demo
+## 9. Demo
 
-`obsidian/Demos/Demo - ENG-04.md`.
+The live demo script, in plain language, is `obsidian/Demos/Demo - ENG-04.md`.
 
-**Whole checklist:** `bash scripts/run_checklist.sh`.
+**Whole checklist:** `bash scripts/run_checklist.sh` re-runs this item's checks with those of every other finished item, prints PASS/FAIL per line and drops `reco_demo` at the end.

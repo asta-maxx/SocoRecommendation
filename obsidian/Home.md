@@ -26,15 +26,16 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[Secrets and passwords]]: keeping logins safe
 - [[Settings file]]: every tunable number, in one place
 - [[Logs]]: the engine's diary
-- [[Activity events]]: what shoppers did, as the engine receives it
-- [[Event source switch]]: moving from SOCO's old logs to the new one, day by day
+- [[Activity events]]: what shoppers did, as the engine copies it from SOCO's activity log
+- [[Engine sync]]: how the engine copies SOCO's activity, orders and served lists every 5 minutes
+- [[Event source switch]]: retired in pack v1.3; kept to explain what the engine sync replaced
 
 ## Tasks
 - [[Task Board]]: every task and where it stands
-- [[ENG-01 - Engine home and databases]]: laptop part done; waiting on servers
-- [[ENG-02 - Service skeleton and settings]]: built; check passed on laptop
-- [[ENG-03 - Reading SOCO's data correctly]]: built; check passed on laptop
-- [[ENG-04 - Receiving activity events]]: built; check passed on laptop
+- [[ENG-01 - Engine home and databases]]: laptop part done (16 drawers); waiting on servers
+- [[ENG-02 - Service skeleton and settings]]: built; realigned to v1.3 on 1 Oct
+- [[ENG-03 - Reading SOCO's data correctly]]: built; realigned to v1.3 on 1 Oct
+- [[ENG-04 - Engine sync]]: built on laptop; real backfill done 1 Oct; waits on APP-12 and the test server
 
 ## Demos
 - [[Checklist]]: one command that checks everything still works
@@ -42,4 +43,4 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[Demo - ENG-01]]: the engine's home and databases
 - [[Demo - ENG-02]]: skeleton, health check, logs, live settings
 - [[Demo - ENG-03]]: reading SOCO's data correctly
-- [[Demo - ENG-04]]: receiving activity events
+- [[Demo - ENG-04]]: the engine sync

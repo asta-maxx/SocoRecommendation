@@ -3,7 +3,9 @@ tags: [concept, security]
 ---
 # Secrets and passwords
 
-**Secrets** are the logins and keys the engine uses: the database passwords (inside the connection strings) and, later, tokens that prove "this request really is from SOCO_BE".
+**Secrets** are the logins and keys the engine uses: the database passwords (inside the connection strings) and tokens that prove "this request really is from SOCO_BE":
+- the **serving token** (`INGEST_TOKEN`), which SOCO_BE sends when it asks for a list (`POST /v1/recommendations`). The name is left over from the retired events door (`POST /v1/events`); it now guards serving only;
+- later, an **admin token** (`ADMIN_TOKEN`) for the fraud case screens (ENG-21).
 
 ## The rule
 Secrets live **only in the server's own settings**. Never in code, never in a shared file, never in a chat.

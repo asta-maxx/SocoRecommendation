@@ -26,4 +26,4 @@ Some things are stored inconsistently. For example, some IDs are saved as text a
 - Its opposite is → [[Engine Database]].
 - Keeping the two apart was part of → [[ENG-01 - Engine home and databases]].
 - The login to it is a secret → [[Secrets and passwords]].
-- Its old event logs are being replaced day by day → [[Event source switch]].
+- Its activity log (`postevents`), orders and served lists are copied into the engine every 5 minutes → [[Engine sync]]. The old plan to switch between event logs is retired → [[Event source switch]].

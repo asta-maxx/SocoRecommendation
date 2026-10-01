@@ -24,7 +24,7 @@ It takes about 4 minutes. It ends with `Result: N passed, 0 failed` when all is 
 ### 1. ENG-01: the engine's home → [[ENG-01 - Engine home and databases]]
 | Line | Checks |
 |---|---|
-| 1.1 | The engine knows it's in dev, has its own database, and all 12 drawers exist |
+| 1.1 | The engine knows it's in dev, has its own database, and all 16 drawers exist (16 of 16) |
 | 1.2 | The login to SOCO's data can only read, never change |
 | 1.3 | The engine refuses to start if its database is SOCO's |
 | 1.4 | The password file is never uploaded to GitHub |
@@ -47,21 +47,28 @@ It takes about 4 minutes. It ends with `Result: N passed, 0 failed` when all is 
 ### 3. ENG-03: reading SOCO's data → [[ENG-03 - Reading SOCO's data correctly]]
 | Line | Checks |
 |---|---|
-| 3.1 | Every kind of SOCO record is read correctly (the task's official check) |
-| 3.2 | …including follows, whose IDs are stored as plain text |
-| 3.3 | Each kind of data comes from one place, and the old-to-new log switch never double-counts → [[Event source switch]] |
-| 3.4 | The fields the pack forbids are never read |
+| 3.1 | One of each kind of SOCO record is read correctly (the task's official check) |
+| 3.2 | …including the four cases the check names: follows with IDs stored as plain text, a business account as the actor, a product post on SOCO's own feed list, and an order with a status history and a return request |
+| 3.3 | Each kind of data comes from one place, and there is no event source switch → [[Event source switch]] |
+| 3.4 | The fields the pack says to ignore are never read |
 | 3.5 | Every real document in SOCO's database reads without a single failure |
 
-### 4. ENG-04: receiving events → [[ENG-04 - Receiving activity events]]
+### 4. ENG-04: the engine sync → [[ENG-04 - Engine sync]]
+Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync]].
+
 | Line | Checks |
 |---|---|
-| 4.1 | Every rule for refusing a bad event, and duplicates, work (tests) |
-| 4.2 | The daily comparison fixes the switch date only after 7 good days (tests) |
-| 4.3 | A real batch sent to the running engine is stored |
-| 4.4 | The same batch again comes back as all duplicates (the task's official check) |
-| 4.5 | An event with position 0 is refused with a reason (the task's official check) |
-| 4.6 | Without the token, the door says 401 |
+| 4.1 | Each copy keeps where it came from, its IDs, its undo details and its E code; orders keep their status history (tests) |
+| 4.2 | The first full copy (backfill) is filed under SOCO's own IDs and can restart halfway without duplicates (tests) |
+| 4.3 | (a) The daily audit compares IDs **and** field values, and re-reads any mismatch (tests) |
+| 4.4 | (b) A like undone after it was copied updates the existing copy (tests) |
+| 4.5 | (c) Stopping the sync for an hour and restarting loses nothing and doubles nothing (tests) |
+| 4.6 | (d) Two rows with the same change time across a page break are both copied (tests) |
+| 4.7 | (e) A failure before the bookmark is saved reads that batch again (tests) |
+| 4.8 | (f) The alert fires when the sync is behind, and when a run fails (tests) |
+| 4.9 | (g) Copies are kept 365 days from when the event really happened (tests) |
+| 4.10 | A real backfill from SOCO's data into the throwaway database finishes for all three collections |
+| 4.11 | A real audit of yesterday passes |
 
 ### Last line: clean up
 | Line | Checks |
@@ -75,7 +82,9 @@ It takes about 4 minutes. It ends with `Result: N passed, 0 failed` when all is 
 - **Anything else:** it's a real problem. Note which line failed and look at the message under it.
 
 ## Last full run
-29 Sep 2026 (with ENG-04): **31 passed, 0 failed.** Record: `Tracing/checks/Checklist_2026-09-29.md`.
+29 Sep 2026, on the 22 Sep design (ENG-04 was then the events door): **31 passed, 0 failed.** Record: `Tracing/checks/Checklist_2026-09-29.md`.
+
+The v1.3 checklist above has 36 lines. No full run of it is recorded yet.
 
 ## What the checklist can't check yet
 - The test and production servers, production's own login, and the private network: all waiting on Aravinth → [[People]].

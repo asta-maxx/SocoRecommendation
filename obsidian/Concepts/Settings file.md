@@ -5,6 +5,11 @@ tags: [concept]
 
 The engine uses lots of **numbers**: how much a "like" counts, how fast old activity fades, how many items to consider, when to raise a fraud flag. The pack lists every one of them, with a starting value and an allowed range, on the Build List's **Settings sheet**.
 
+Since pack v1.3 it also holds:
+- **Surface modes:** for the feed and for product pages, each is `off`, `internal` (engine lists only for the test accounts, for checks before launch) or `live`. Both start `off`.
+- **The engine sync's timings:** a read every 5 minutes, a 2-minute overlap, an alert when more than 15 minutes behind → [[Engine sync]].
+- **Lists:** the category map, order-status spellings, exemptions and test accounts. Each entry says who changed it and when it expires.
+
 ## The rules for it (from the pack)
 - **One file** holds every one of those numbers, and nothing else. Passwords never go in it → [[Secrets and passwords]].
 - **It has a version number,** so every list the engine serves can say which settings produced it.
