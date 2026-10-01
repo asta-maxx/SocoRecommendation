@@ -111,9 +111,9 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 - **Anything else:** it's a real problem. Note which line failed and look at the message under it.
 
 ## Last full run
-29 Sep 2026, on the 22 Sep design (ENG-04 was then the events door): **31 passed, 0 failed.** Record: `Tracing/checks/Checklist_2026-09-29.md`.
+1 Oct 2026, pack v1.3, ENG-01 to ENG-07: **53 passed, 0 failed.** The first run that day failed two lines (4.1 and 4.3) only because the script expected too few tests after new ones were added; every test passed. The counts were corrected and the whole list was run again. Record: `Tracing/checks/Checklist_2026-10-01.md`.
 
-The checklist above has 53 lines (ENG-01 to ENG-07, pack v1.3). Its last full run is recorded below once done.
+Earlier: 29 Sep 2026, on the 22 Sep design: 31 passed, 0 failed (`Tracing/checks/Checklist_2026-09-29.md`).
 
 ## What the checklist can't check yet
 - The test and production servers, production's own login, and the private network: all waiting on Aravinth → [[People]].
