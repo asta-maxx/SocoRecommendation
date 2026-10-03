@@ -10,14 +10,35 @@
 
 set -u
 cd "$(dirname "$0")/.."
-PY=.venv/bin/python
-WORK=$(mktemp -d /tmp/soco-checklist.XXXXXX)
+# The virtual environment's Python: .venv/bin (macOS, Linux, WSL) or .venv/Scripts (Windows, Git Bash).
+if [ -x .venv/bin/python ]; then PY=.venv/bin/python; else PY=.venv/Scripts/python.exe; fi
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/soco-checklist.XXXXXX")
 SETTINGS_COPY="$WORK/engine.toml"
 LOG="$WORK/engine.log"
 PASSES=0
 FAILS=0
 FAILED=()
 
+# Portable helpers: macOS sed needs -i '', GNU sed (Linux, WSL, Git Bash) needs -i.
+sedi() { if sed --version >/dev/null 2>&1; then sed -i "$@"; else sed -i '' "$@"; fi; }
+# Test engines are stopped by the process id recorded when each starts; pkill as
+# well where it exists (macOS, Linux, WSL). Git Bash has no pkill.
+started() { eval "PID_$1=$!"; }
+stop() {
+  local pid; eval "pid=\${PID_$1:-}"
+  [ -n "$pid" ] && kill "$pid" >/dev/null 2>&1
+  command -v pkill >/dev/null 2>&1 && pkill -f "uvicorn reco.main:app --port $1" >/dev/null 2>&1
+  return 0
+}
+any_running() {
+  local port pid
+  for port in 8190 8191 8192 8197; do
+    eval "pid=\${PID_$port:-}"
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && return 0
+  done
+  command -v pgrep >/dev/null 2>&1 && pgrep -f "uvicorn reco.main:app --port 819" >/dev/null && return 0
+  return 1
+}
 pass() { PASSES=$((PASSES + 1)); printf "  PASS  %s\n" "$1"; }
 fail() { FAILS=$((FAILS + 1)); FAILED+=("$1"); printf "  FAIL  %s\n" "$1"; [ -n "${2:-}" ] && printf "        %s\n" "$2"; }
 check() { # check "label" "command" ["text the output must contain"]
@@ -30,7 +51,7 @@ wait_for() { # wait_for "command" seconds
   local i; for ((i = 0; i < $2; i++)); do eval "$1" >/dev/null 2>&1 && return 0; sleep 1; done; return 1
 }
 cleanup() {
-  pkill -f "uvicorn reco.main:app --port 819" >/dev/null 2>&1
+  for port in 8190 8191 8192 8197; do stop $port; done
   $PY - <<'EOF' >/dev/null 2>&1
 import asyncio
 from pymongo import AsyncMongoClient
@@ -75,27 +96,27 @@ check "2.1 twelve modules; gatekeepers hold" "$PY -m pytest -q tests/test_module
 check "2.2 jobs mode" "$PY -m reco.jobs --list" "interest"
 cp settings/engine.toml "$SETTINGS_COPY"
 SETTINGS_FILE="$SETTINGS_COPY" ML_MONGO_DB=reco_demo $PY -m uvicorn reco.main:app --port 8190 >"$LOG" 2>&1 &
-disown
+started 8190; disown
 if wait_for "curl -sf http://127.0.0.1:8190/health" 60; then
   check "2.3 health 200 with both databases up" "curl -s -w ' HTTP%{http_code}' http://127.0.0.1:8190/health" "HTTP200"
 else fail "2.3 health 200 with both databases up" "engine did not start: $(tail -1 "$LOG")"; fi
 ML_MONGO_URI="mongodb://127.0.0.1:1" MONGO_TIMEOUT_SECONDS=1 SETTINGS_FILE="$SETTINGS_COPY" \
   $PY -m uvicorn reco.main:app --port 8191 >"$WORK/down.log" 2>&1 &
-disown
+started 8191; disown
 if wait_for "curl -s -o /dev/null http://127.0.0.1:8191/health" 60; then
   check "2.4 health 503 with the engine database down" "curl -s -w ' HTTP%{http_code}' http://127.0.0.1:8191/health" "HTTP503"
 else fail "2.4 health 503 with the engine database down" "second engine did not start"; fi
-pkill -f "uvicorn reco.main:app --port 8191" >/dev/null 2>&1
+stop 8191
 APP_MONGO_URI="mongodb://127.0.0.1:1" MONGO_TIMEOUT_SECONDS=1 SETTINGS_FILE="$SETTINGS_COPY" ML_MONGO_DB=reco_demo \
   $PY -m uvicorn reco.main:app --port 8197 >"$WORK/down2.log" 2>&1 &
-disown
+started 8197; disown
 if wait_for "curl -s -o /dev/null http://127.0.0.1:8197/health" 60; then
   check "2.4b health 503 with the platform database down" "curl -s -w ' HTTP%{http_code}' http://127.0.0.1:8197/health" "HTTP503"
 else fail "2.4b health 503 with the platform database down" "engine did not start"; fi
-pkill -f "uvicorn reco.main:app --port 8197" >/dev/null 2>&1
+stop 8197
 check "2.5 every request is logged" "grep '\"logger\": \"reco.request\"' '$LOG'" "\"status\": 200"
 V=$(sed -n 's/^config_version = "\([0-9]*\)"/\1/p' "$SETTINGS_COPY"); NEXT=$((V + 1))
-sed -i '' "s/config_version = \"$V\"/config_version = \"$NEXT\"/; s/changed_by = \"Allen\"/changed_by = \"Checklist\"/; s/popularity_window_days = 30 /popularity_window_days = 45 /" "$SETTINGS_COPY"
+sedi "s/config_version = \"$V\"/config_version = \"$NEXT\"/; s/changed_by = \"Allen\"/changed_by = \"Checklist\"/; s/popularity_window_days = 30 /popularity_window_days = 45 /" "$SETTINGS_COPY"
 if wait_for "grep -q '\"settings changed\".*\"config_version\": \"$NEXT\"' '$LOG'" 60; then pass "2.6 setting change in force within a minute, logged"
 else fail "2.6 setting change in force within a minute, logged"; fi
 check "2.7 change diary shows who changed what" "ML_MONGO_DB=reco_demo $PY scripts/show_config_changes.py" "interest.popularity_window_days: 30 -> 45"
@@ -107,7 +128,7 @@ else fail "2.8 broken file rejected; still serving"; fi
 sed 's/pool_size = 300 /pool_size = 250 /' "$WORK/good.toml" >"$SETTINGS_COPY"
 if wait_for "grep -q 'raise config_version' '$LOG'" 60; then pass "2.9 change without a new version refused"
 else fail "2.9 change without a new version refused"; fi
-pkill -f "uvicorn reco.main:app --port 8190" >/dev/null 2>&1
+stop 8190
 
 echo "== 3. ENG-03: reading SOCO's data correctly"
 check "3.1 one of each record type (the ENG-03 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider" " passed"
@@ -144,18 +165,18 @@ check "6.2 constructed data: eligible newest first; record matches the response"
 sed 's/^surface_mode_feed = "off"/surface_mode_feed = "live"/; s/^surface_mode_product = "off"/surface_mode_product = "live"/' settings/engine.toml >"$WORK/serve.toml"
 SERVE_TOKEN="checklist-$RANDOM$RANDOM"
 INGEST_TOKEN="$SERVE_TOKEN" SETTINGS_FILE="$WORK/serve.toml" ML_MONGO_DB=reco_demo $PY -m uvicorn reco.main:app --port 8192 >"$WORK/serve.log" 2>&1 &
-disown
+started 8192; disown
 if wait_for "curl -sf http://127.0.0.1:8192/health" 60; then
   check "6.3 feed over HTTP: p95 within 200 ms; every record matches" "INGEST_TOKEN=$SERVE_TOKEN ML_MONGO_DB=reco_demo $PY scripts/try_recommendations.py http://127.0.0.1:8192 feed" "19 of 19"
   check "6.4 product over HTTP: p95 within 200 ms; every record matches" "INGEST_TOKEN=$SERVE_TOKEN ML_MONGO_DB=reco_demo $PY scripts/try_recommendations.py http://127.0.0.1:8192 product" "19 of 19"
   check "6.5 a wrong token is 401" "curl -s -X POST http://127.0.0.1:8192/v1/recommendations -H 'Authorization: Bearer wrong' -d '{}' -w ' HTTP%{http_code}'" "HTTP401"
   V=$(sed -n 's/^config_version = "\([0-9]*\)"/\1/p' "$WORK/serve.toml"); NEXT=$((V + 1))
-  sed -i '' "s/config_version = \"$V\"/config_version = \"$NEXT\"/; s/^surface_mode_feed = \"live\"/surface_mode_feed = \"off\"/" "$WORK/serve.toml"
+  sedi "s/config_version = \"$V\"/config_version = \"$NEXT\"/; s/^surface_mode_feed = \"live\"/surface_mode_feed = \"off\"/" "$WORK/serve.toml"
   if wait_for "grep -q '\"settings changed\".*\"config_version\": \"$NEXT\"' '$WORK/serve.log'" 60; then
     check "6.6 feed set to off (no restart): 503" "curl -s -X POST http://127.0.0.1:8192/v1/recommendations -H 'Authorization: Bearer $SERVE_TOKEN' -d '{\"user_id\":\"64f1c0ffee0000000000abcd\",\"surface\":\"feed\",\"page\":1,\"limit\":5,\"session_id\":\"ses_1\"}' -w ' HTTP%{http_code}'" "HTTP503"
   else fail "6.6 feed set to off (no restart): 503" "the settings change was not picked up"; fi
 else fail "6.3 engine with live surfaces started" "$(tail -1 "$WORK/serve.log")"; fi
-pkill -f "uvicorn reco.main:app --port 8192" >/dev/null 2>&1
+stop 8192
 
 echo "== 7. ENG-07: daily refresh jobs (throwaway reco_demo)"
 T="$PY -m pytest -q tests/test_nightly.py -p no:cacheprovider"
@@ -163,7 +184,7 @@ check "7.1 the scheduler runs at the set time (2 AM IST), reconciliation last; o
 check "7.2 a batch is read only once complete; rows carry provenance" "TEST_MONGO_TIMEOUT_MS=15000 $T -k 'current or provenance or replaces'" "3 passed"
 check "7.3 a failure halfway keeps the previous batch" "TEST_MONGO_TIMEOUT_MS=15000 $T -k halfway" "1 passed"
 check "7.4 a killed run is recorded as failed and never read" "TEST_MONGO_TIMEOUT_MS=15000 $T -k killed" "1 passed"
-check "7.5 a real kill (SIGKILL) halfway: previous batch still read" "out=\$(ML_MONGO_DB=reco_demo $PY scripts/demo_kill_job.py 2>/dev/null); grep -A1 '3. straight' <<<\"\$out\" | grep -q 'DEMO-U1=fashion' && grep -q abandoned <<<\"\$out\" && echo kill-check-ok" "kill-check-ok"
+check "7.5 a real kill halfway: previous batch still read" "out=\$(ML_MONGO_DB=reco_demo $PY scripts/demo_kill_job.py 2>/dev/null); grep -A1 '3. straight' <<<\"\$out\" | grep -q 'DEMO-U1=fashion' && grep -q abandoned <<<\"\$out\" && echo kill-check-ok" "kill-check-ok"
 check "7.6 the real nightly run: both methods current" "ML_MONGO_DB=reco_demo $PY -m reco.jobs nightly && ML_MONGO_DB=reco_demo $PY scripts/show_job_runs.py | grep -c CURRENT" "2"
 
 echo "== 8. ENG-29: adapting to the platform as built"
@@ -194,7 +215,7 @@ from pymongo import AsyncMongoClient
 from reco.config import get_settings
 async def m():
     c = AsyncMongoClient(get_settings().ml_mongo_uri); gone = 'reco_demo' not in await c.list_database_names(); await c.close(); raise SystemExit(0 if gone else 1)
-asyncio.run(m())" && ! pgrep -f "uvicorn reco.main:app --port 819" >/dev/null; then pass "Z.1 clean up: reco_demo dropped, no engine left running"
+asyncio.run(m())" && ! any_running; then pass "Z.1 clean up: reco_demo dropped, no engine left running"
 else fail "Z.1 clean up: reco_demo dropped, no engine left running"; fi
 
 echo

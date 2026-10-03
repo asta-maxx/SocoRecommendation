@@ -7,7 +7,8 @@ Runs only against reco_demo (it refuses any other database). Uses four made-up
 users, DEMO-U1..DEMO-U4, and the interest score collection:
 
   1. a complete batch: everyone "fashion"           -> current
-  2. a slow batch ("beauty"), one user a second, killed with SIGKILL after ~2.5 s
+  2. a slow batch ("beauty"), one user a second, killed outright after ~2.5 s
+     (SIGKILL on macOS and Linux, TerminateProcess on Windows: nothing in the job runs after it)
   3. what a request reads now                        -> still "fashion"
   4. the next night's batch ("travel")               -> the killed run is recorded as failed
 """
@@ -16,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-import signal
 import subprocess
 import sys
 import time
@@ -84,9 +84,9 @@ async def main(slow: bool) -> int:
         print("2. a slow batch ('beauty'), killed halfway")
         child = subprocess.Popen([sys.executable, __file__, "--slow-batch"], env=os.environ.copy())
         time.sleep(2.5)
-        child.send_signal(signal.SIGKILL)
+        child.kill()  # SIGKILL on macOS/Linux, TerminateProcess on Windows
         child.wait()
-        print("   killed (SIGKILL: nothing in the job could run after it)")
+        print("   killed outright: nothing in the job could run after it")
         print("3. straight after the kill")
         print(f"   a request reads: {await reads(settings)}")
         await runs(settings)
