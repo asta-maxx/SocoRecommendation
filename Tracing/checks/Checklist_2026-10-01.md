@@ -23,3 +23,10 @@ Commit `485fe77`: **62 passed, 0 failed** (section 8, ENG-29, lines 8.1–8.9, a
 Commit `42e539b`: **67 passed, 1 failed** of 68.
 
 The one failure is 6.4, the product surface over HTTP. On dev every product is left out (E-07 x143, E-08 x857 per 1,000 read): the two import sellers have no `status`, and the engine counts that as not active until Aravinth answers question 17. So the rail is empty and the request reads the whole 1,000-row window (p95 about 350 ms from the laptop). It is a data question, not a code fault.
+
+## Run 5, after the Windows changes (3 Oct)
+
+Commit `72e8a5f`: **66 passed, 2 failed** of 68.
+
+- 6.4 as before (products on dev wait on question 17).
+- 6.3, the feed over HTTP, missed 200 ms: p95 257 ms, every record matched (19 of 19). The laptop's round trip to Atlas was 51 ms that day (22 ms on 1 Oct, when 6.3 passed at 127 ms); a feed request makes about five round trips. No serving code changed between the two runs. The pack's 200 ms check is "on test", next to the database.
