@@ -35,10 +35,11 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class EventType(StrEnum):
-    """The five event types P-06 carries a weight for.
+    """The action types M1 carries a weight for (Build List v1.3 ENG-10).
 
-    Negative feedback (hide, report, skip) is P-07 and is not in this list: its
-    launch weight is 0 and it is a separate concern from the purchase reversal.
+    The first five are the M1 demo's. ENG-10 adds likes, saves, shares, comments,
+    business follows and the Not interested / Hide feedback (−5 on the item's
+    category). A feedback event lowers a score; it is never a qualified action.
     """
 
     VIEW = "view"
@@ -46,6 +47,12 @@ class EventType(StrEnum):
     CLICK = "click"
     CART = "cart"
     PURCHASE = "purchase"
+    LIKE = "like"
+    SAVE = "save"
+    SHARE = "share"
+    COMMENT = "comment"
+    BUSINESS_FOLLOW = "business_follow"
+    FEEDBACK = "feedback"
 
 
 class Event(BaseModel):

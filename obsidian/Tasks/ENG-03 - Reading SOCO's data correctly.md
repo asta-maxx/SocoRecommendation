@@ -158,7 +158,7 @@ Other things the data showed on 1 Oct:
 |---|---|
 | Fill the category map so products count | ENG-29 (me) |
 | Confirm the shape of SOCO's block list (the reader guesses it today) | Aravinth, question 16 → [[People]] |
-| Move the interest score onto these clean records. Today it still reads SOCO's **live** activity log through the old demo reader, not the engine's copy | ENG-10 |
+| ~~Move the interest score onto these clean records~~ | Done 14 Oct: it reads the engine's copy → [[ENG-10 - Interest score on real data]] |
 | Re-run the check on the **test** server, then mark it Passed | The test server |
 
 ## How this connects

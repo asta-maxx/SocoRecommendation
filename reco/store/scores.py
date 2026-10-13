@@ -301,6 +301,16 @@ def normalise_with_coherence(
     return clamped, normalise_to_shares(clamped), []
 
 
+def clip_to_shares(raws: dict[str, float]) -> tuple[dict[str, float], dict[str, float]]:
+    """Build List v1.3 ENG-10's order of calculation, after the weighted actions and
+    the floor are added: clip each category at 0 ("so raw is never negative"), then
+    share = raw / the user's total raw. A negative is legitimate here (Not
+    interested and Hide are −5), so it is clipped, not treated as a fault. If every
+    category comes to 0, no shares: the ladder (ENG-09) serves that user."""
+    clipped = {category: max(raw, 0.0) for category, raw in raws.items()}
+    return clipped, normalise_to_shares(clipped)
+
+
 def normalise_to_shares(raws: dict[str, float]) -> dict[str, float]:
     """Turn a user's raw category map into shares summing to 1.
 

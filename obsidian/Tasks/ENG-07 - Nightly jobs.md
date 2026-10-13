@@ -121,7 +121,7 @@ The Build List splits ENG-07 into six numbered parts (1–6). There are three ex
 |---|---|
 | The other nightly jobs: M2 method two, M5, M8, M6, the fraud rules | ENG-14, ENG-17, ENG-16, ENG-18, ENG-21 |
 | A "first of the month" trigger for M8's monthly copy | ENG-16 |
-| M1 reading the engine's own copies instead of the old way | ENG-10 |
+| ~~M1 reading the engine's own copies instead of the old way~~ | Done 14 Oct → [[ENG-10 - Interest score on real data]] |
 | On the servers: the endless loop, or the server's own timer (cron)? | The servers → [[People]] |
 | Two timers running at once aren't prevented (the second would mark the first's run as abandoned) | One timer per server; a lock if the server setup needs one |
 | Run the check on the **test** server, then mark it Passed | The test server ([[ENG-01 - Engine home and databases]]) |

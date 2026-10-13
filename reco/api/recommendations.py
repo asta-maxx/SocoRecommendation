@@ -18,14 +18,21 @@ ml_events first: request_id, surface, user_id, session_id, policy_id, server_ts
 returned), config_version, each slot's intended method and fallback step, and
 the scored sample.
 
-Interim, until ENG-09, ENG-17 and ENG-19: the list is eligible items newest
-first (reco.ranking.serving); no slot's score is read, so fallback_step is null
-and each slot records the method it would use. Both surfaces stay off in
-production until then (settings serving.surface_mode_*).
+ENG-09: on the feed, the interest slot walks the fallback ladder
+(reco.fallback.read_path) for the user's assigned method. The rung is the
+response's fallback_step (null at rung 1) and the interest slot's fallback_step
+in slot_methods, which also says whether the assigned method actually served
+(SD-23: a fallback never counts as a result for a method that did not run) and
+whether the rung is cold start (ENG-24 counts it apart from fallback).
+
+Interim, until ENG-17 and ENG-19: the list is eligible items newest first
+(reco.ranking.serving), which is also what "rung 3 empty" serves. Both surfaces
+stay off in production until then (settings serving.surface_mode_*).
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
@@ -39,10 +46,12 @@ from fastapi.responses import JSONResponse
 from reco.api.auth import token_ok
 from reco.config import Settings, get_settings, live
 from reco.config.accounts import is_test_account
+from reco.fallback.profile import Profile, Rung
+from reco.fallback.read_path import get_profile
 from reco.ranking import serving
 from reco.slots.assignment import Assignment, assign, method_number, policy_id
 from reco.store import writers
-from reco.store.scores import utc_now
+from reco.store.scores import Method, utc_now
 
 logger = logging.getLogger("reco.api.recommendations")
 
@@ -88,10 +97,25 @@ def _bad_request(body: Any) -> tuple[dict[str, Any] | None, JSONResponse | None]
     }, None
 
 
-def _slot_method(a: Assignment) -> dict[str, Any]:
-    """Capture Register F71: {slot, method, fallback_step}, plus how it was chosen."""
-    return {"slot": a.slot, "method": a.method, "fallback_step": None, "method_number": method_number(a),
-            "bucket": a.bucket, "from_default": a.from_default}
+def _slot_method(a: Assignment, profile: Profile | None = None) -> dict[str, Any]:
+    """Capture Register F71: {slot, method, fallback_step}, plus how it was chosen.
+
+    For the interest slot, the ladder's rung: `method_served` is False whenever a
+    rung other than 1 answered, so the intended method is never credited with a
+    fallback's result (SD-23)."""
+    entry = {"slot": a.slot, "method": a.method, "fallback_step": None, "method_number": method_number(a),
+             "bucket": a.bucket, "from_default": a.from_default}
+    if profile is not None:
+        entry |= {"fallback_step": profile.fallback_step, "rung": int(profile.rung),
+                  "method_served": profile.rung is Rung.PERSONALISED, "cold_start": profile.cold_start}
+    return entry
+
+
+def _interest_method(a: Assignment) -> Method:
+    try:
+        return Method(a.method)
+    except ValueError:  # a method name the settings allow but M1 doesn't compute
+        return Method.RECENCY_DECAY
 
 
 def request_budget_seconds(settings: Settings, tunables) -> float:
@@ -100,6 +124,10 @@ def request_budget_seconds(settings: Settings, tunables) -> float:
     if settings.engine_env == "dev":
         return 2.0
     return tunables.serving.soco_be_timeout_ms / 1000
+
+
+async def _none() -> None:
+    return None
 
 
 @router.post("/v1/recommendations")
@@ -136,8 +164,12 @@ async def recommendations(
     clock = time.monotonic()
     try:
         with pymongo.timeout(budget):
-            built = await serving.interim_candidates(
-                settings, surface, asked["page"], asked["limit"], asked["context_item_id"], asked["user_id"], request_id
+            interest = next((a for a in assignments if a.slot == "interest"), None)
+            built, profile = await asyncio.gather(
+                serving.interim_candidates(
+                    settings, surface, asked["page"], asked["limit"], asked["context_item_id"], asked["user_id"], request_id
+                ),
+                get_profile(settings, asked["user_id"] or "", _interest_method(interest)) if interest else _none(),
             )
             page_items = await serving.page_after_recheck(settings, built, asked["page"], asked["limit"], request_id)
         candidates = built.candidates
@@ -155,7 +187,7 @@ async def recommendations(
         "policy_id": policy_id(*assignments, config_version=tunables.config_version),
         "model_version": settings.model_version,
         "config_version": tunables.config_version,
-        "fallback_step": None,
+        "fallback_step": profile.fallback_step if profile else None,
         "is_exploration": exploration,
         "items": items,
     }
@@ -179,8 +211,8 @@ async def recommendations(
         "created_at": server_ts,  # the retention expiry runs from it (ENG-01)
         "candidate_ids": [c.item_id for c in candidates],
         "served_items": items,
-        "slot_methods": [_slot_method(a) for a in assignments],
-        "fallback_step": None,
+        "slot_methods": [_slot_method(a, profile if a.slot == "interest" else None) for a in assignments],
+        "fallback_step": response["fallback_step"],
         "is_exploration": exploration,
         "is_fallback": False,
         "ordering": INTERIM_ORDERING,
@@ -195,5 +227,7 @@ async def recommendations(
         logger.error("engine database unwritable", extra={"request_id": request_id, "error": repr(exc)[:300]})
         return _error(503, "database_unavailable", "the served list could not be recorded")
     logger.info("served list", extra={"request_id": request_id, "surface": surface, "items": len(items),
-                                      "policy_id": response["policy_id"], "is_exploration": exploration})
+                                      "policy_id": response["policy_id"], "is_exploration": exploration,
+                                      "fallback_step": response["fallback_step"],
+                                      "cold_start": bool(profile and profile.cold_start)})
     return response

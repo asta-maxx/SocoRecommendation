@@ -4,6 +4,7 @@ The same codebase as the API, started the other way: it runs scheduled work and
 exits. Nothing here serves a request, so a failed job never touches the feed.
 
     python -m reco.jobs interest            # M1, both Wave 1A methods
+    python -m reco.jobs popularity          # platform popularity, ladder rung 3 (ENG-09)
     python -m reco.jobs sync                # one engine sync pass (ENG-04)
     python -m reco.jobs sync_loop           # a pass every sync_interval_minutes
     python -m reco.jobs sync_check          # the sync lag alert, on its own
@@ -23,12 +24,14 @@ import sys
 from typing import Awaitable, Callable
 
 from reco.config import Settings, get_settings, sync
+from reco.fallback import popularity
 from reco.jobs import category_check, scheduler
 from reco.jobs.batches import recorded_run, run_batch
 from reco.jobs.refresh import data_window, refresh
 from reco.monitoring.logs import configure_logging, job_logger, job_run
 from reco.platform import connection as platform_conn
 from reco.store import connection as store_conn
+from reco.store import writers
 from reco.store.scores import Method, utc_now
 from reco.store.writers import ensure_engine_collections, ensure_indexes
 from reco.sync import reconcile as sync_reconcile
@@ -38,6 +41,10 @@ from reco.sync import run as sync_run
 async def _interest(settings: Settings) -> None:
     """M1 interest: both methods, for every user, each as a batch (ENG-07; ENG-10 takes it further).
     One method failing doesn't stop the other; the job still fails at the end."""
+    # ENG-10: old time-windows rows with no method name are deleted, then recomputed below.
+    removed = await writers.delete_unnamed_scores(settings)
+    if removed:
+        job_logger.info("unnamed score rows deleted", extra={"job": "interest", "rows": removed})
     failed = []
     for method in (Method.RECENCY_DECAY, Method.TIME_WINDOWS):
         try:
@@ -73,6 +80,24 @@ async def _interest_method(settings: Settings, method: Method) -> None:
                 "scores_written": result.scores_written,
             },
         )
+
+
+async def _popularity(settings: Settings) -> None:
+    """ENG-09 rung 3: qualified views per category over the window, as one batch."""
+    async with job_run("popularity"):
+        now = utc_now()
+        detail: dict = {}
+
+        async def work(job_run_id: str) -> int:
+            rows, detail["counts"] = await popularity.compute_popularity(settings, now, job_run_id)
+            return rows
+
+        record = await run_batch(
+            settings, job="popularity", slot="interest", method=writers.POPULARITY_METHOD,
+            collection="ml_measurements", data_window=popularity.data_window(now), work=work,
+        )
+        job_logger.info("platform popularity", extra={"job": "popularity", "job_run_id": record["_id"],
+                                                      "categories": record["rows_written"], **detail["counts"]})
 
 
 async def _sync(settings: Settings) -> None:
@@ -130,6 +155,7 @@ async def _scheduler(settings: Settings) -> None:
 #: Job name -> what it runs. ENG-07 adds the rest of the nightly jobs here.
 JOBS: dict[str, Callable[[Settings], Awaitable[None]]] = {
     "interest": _interest,
+    "popularity": _popularity,
     "sync": _sync,
     "sync_loop": _sync_loop,
     "sync_check": _sync_check,

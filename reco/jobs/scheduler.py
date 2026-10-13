@@ -6,6 +6,7 @@
 The Build List's nightly list, and the item that brings each job:
 
     M1, both methods                 interest        here now (ENG-10 moves it onto ml_events)
+    ladder rung 3 popularity         popularity      here now (ENG-09)
     M2 method two candidates         ENG-14
     M5, both methods                 ENG-17
     M8, both methods, and the        ENG-16
@@ -40,7 +41,7 @@ logger = logging.getLogger("reco.job")
 IST = timezone(timedelta(hours=5, minutes=30))
 
 #: Job names (in reco.jobs JOBS) run every night, in this order.
-NIGHTLY: tuple[str, ...] = ("interest", "category_check", "reconcile_sync")
+NIGHTLY: tuple[str, ...] = ("interest", "popularity", "category_check", "reconcile_sync")
 
 
 def next_run(now: datetime, at: str = "02:00") -> datetime:

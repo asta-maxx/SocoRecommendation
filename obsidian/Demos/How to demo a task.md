@@ -47,6 +47,9 @@ A demo proves one thing: **the task's check in the Build List passes**. Every ta
 - [[Demo - ENG-07]]: nightly jobs, and a job killed halfway (about 5 minutes)
 - [[Demo - ENG-29]]: the adapters: category check, order history, serve log, made-up test data (about 5 minutes)
 - [[Demo - ENG-08]]: the twelve filters, one item left out and one kept for each (about 5 minutes)
+- [[Demo - ENG-09]]: the fallback ladder, each rung reported, and real users (about 5 minutes, read-only)
+- [[Demo - ENG-10]]: the interest score on SOCO's real data (about 4 minutes)
+- [[Demo - ENG-11]]: the interest score's 11 checks (about 3 minutes, throwaway databases)
 
 ## How this connects
 - Every demo acts out a task's check from → [[Task Board]].

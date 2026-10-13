@@ -555,9 +555,9 @@ class Tunables(_Section):
         """What the M1 methods read, keyed as they read it (P-02 ... P-27).
 
         The interest methods predate the Settings sheet and read a reference-keyed
-        map. This builds that map from the sheet's values. ENG-10 moves M1 onto
-        the sheet's names and adds the weights it does not read yet (like, save,
-        share, comment, business follow).
+        map. This builds that map from the sheet's values, with every ENG-10
+        weight (view, click, like, save, share, comment, add to cart, purchase,
+        business follow, and Not interested / Hide).
         """
         weights = self.interest.weights
         return {
@@ -572,6 +572,12 @@ class Tunables(_Section):
                 # No weight on the Settings sheet: search events are deferred
                 # (E11), so a search contributes nothing.
                 "search": 0.0,
+                "like": weights.like,
+                "save": weights.save,
+                "share": weights.share,
+                "comment": weights.comment,
+                "business_follow": weights.business_follow,
+                "feedback": weights.not_interested_or_hide,
             },
             "P-07": weights.not_interested_or_hide,
             "P-08": self.interest.stale_after_hours,

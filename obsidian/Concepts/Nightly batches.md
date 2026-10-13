@@ -3,7 +3,7 @@ tags: [concept]
 ---
 # Nightly batches
 
-At **2 AM India time** every night (a setting), the engine recomputes its scores (interest, product ranking, promoter scores…). Last of all, the engine sync's daily audit runs → [[Engine sync]]. Each job writes a **whole new set** of scores, called a **batch**. Requests keep reading the old batch until the new one is finished.
+At **2 AM India time** every night (a setting), the engine recomputes its scores (interest, product ranking, promoter scores…). Since 14 Oct it also counts what's popular across SOCO, for newcomers who picked no interests → [[ENG-09 - Fallback ladder]]. Last of all, the engine sync's daily audit runs → [[Engine sync]]. Each job writes a **whole new set** of scores, called a **batch**. Requests keep reading the old batch until the new one is finished.
 
 > [!example] Like a restaurant printing tomorrow's menu overnight. Diners keep using tonight's menu. The new menus go on the tables only once they're all printed. A half-printed menu never reaches a table.
 

@@ -244,3 +244,55 @@ async def read_blocks(settings: Settings, account_ids: list[str]) -> list[record
         {"status": {"$regex": r"^\s*blocked\s*$", "$options": "i"}, "$or": [{"userId": either}, {"followerId": either}]}
     )
     return [block async for doc in cursor if (block := records.parse_block(doc)) is not None]
+
+
+# --- the fallback ladder (ENG-09) ---------------------------------------------------------
+
+
+async def read_user_with(
+    settings: Settings, user_id: str, extra: tuple[str, ...] = ()
+) -> tuple[records.UserRecord | None, dict[str, Any]]:
+    """One user's record (declared interests matched to the 23), plus the raw values of
+    `extra` fields the caller names. (None, {}) when there is no such user.
+
+    `extra` is how the ladder reads the old delivered score, a field ENG-03 lets only
+    reco/fallback name."""
+    if not user_id:
+        return None, {}
+    projection = {**_FIELDS["user"], **{field: 1 for field in extra}}
+    doc = await app_db(settings)[PLATFORM_COLLECTIONS["user"]].find_one({"_id": id_match(user_id)}, projection)
+    if doc is None:
+        return None, {}
+    parse = await _parser(settings, "user")
+    return parse(doc), {field: doc.get(field) for field in extra}
+
+
+async def read_business_follows(settings: Settings, user_id: str, since: Any) -> int:
+    """How many businesses the user has followed since `since` (follows with
+    followingReference businessRegister; ENG-10's source for business follows)."""
+    if not user_id:
+        return 0
+    follows = await read_records(settings, "follow", {"userId": id_match(user_id)})
+    return sum(1 for f in follows if f.followed_kind == "business" and f.created_at and f.created_at >= since)
+
+
+async def read_post_categories(settings: Settings, post_ids: list[str]) -> dict[str, list[str]]:
+    """Each post's categories, matched to the 23 (unmatched ones dropped, ENG-03)."""
+    return {post.post_id: post.categories for post in await read_where(settings, "post", "_id", post_ids)}
+
+
+# --- M1 on the engine's copies (ENG-10) ------------------------------------------------------
+
+
+async def read_product_categories(settings: Settings, product_ids: list[str]) -> dict[str, str | None]:
+    """Each product's category, one of the 23 through the category tree, or None (ENG-03)."""
+    if not product_ids:
+        return {}
+    index = await product_categories(settings)
+    cursor = app_db(settings)[PLATFORM_COLLECTIONS["product"]].find({"_id": _any_form(product_ids)}, _FIELDS["product"])
+    return {p.product_id: p.category async for doc in cursor if (p := records.parse_product(doc, index))}
+
+
+async def read_business_categories(settings: Settings, business_ids: list[str]) -> dict[str, str | None]:
+    """Each business's category (businessregisters.category), matched to the 23 by name, or None."""
+    return {b.business_id: b.category for b in await read_where(settings, "business", "_id", business_ids)}

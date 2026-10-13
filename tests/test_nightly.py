@@ -187,7 +187,11 @@ async def test_one_interest_method_failing_still_runs_the_other(monkeypatch) -> 
         if m == jobs.Method.RECENCY_DECAY:
             raise RuntimeError("boom")
 
+    async def no_unnamed_rows(settings):
+        return 0
+
     monkeypatch.setattr(jobs, "_interest_method", method)
+    monkeypatch.setattr(jobs.writers, "delete_unnamed_scores", no_unnamed_rows)
     with pytest.raises(RuntimeError, match="recency_decay"):
         await jobs._interest(None)
     assert ran == ["recency_decay", "time_windows"]

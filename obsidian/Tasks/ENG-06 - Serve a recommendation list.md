@@ -43,11 +43,11 @@ The Build List row has eleven parts (1–11). There are three extras (A–C).
 > [!note] A missing session id: my choice (1 Oct 2026)
 > The API contract calls the session id "required", but its own list of reasons to refuse a request (400) leaves it out, and Aravinth's task says it may be empty. The pack doesn't say what to do, so the engine accepts the request and writes "no session" on the receipt.
 
-### 3. The answer ✅ (the "plan B" step waits on ENG-09)
+### 3. The answer ✅
 - **What it asks:** the answer carries a fresh ID for the list (`request_id`), a label saying which settings version and which method in each slot made it (`policy_id`), the model and settings versions, which plan-B step was used (if any), whether it's an exploration list, and the items, numbered from 1.
 - **What we did:** exactly those fields. The label reads like `cfg2.interest-recency_decay.promoter_score-cohort_percentile`: settings version 2, the *recency decay* interest method, the *cohort percentile* promoter method. It names the methods rather than numbering them, so old labels still make sense after a method is swapped out later (ENG-26). The pack's API contract shows numbers in its example, but the Build List, which comes first, asks for names. The feed uses two slots (interest and promoter score); product rails use one (product ranking). The plan-B field is always empty for now, because nothing is ranked yet, so no plan B is needed.
 - **Why it matters:** the label is how every later measurement knows which method a shopper saw. The list ID is how a tap is joined back to the list it came from.
-- **Status:** done. The plan-B step arrives with ENG-09 (the fallback ladder).
+- **Status:** done. **Since 14 Oct** the plan-B field is filled on every feed list: it names the rung of the fallback ladder used (empty at rung 1). → [[ENG-09 - Fallback ladder]]
 
 ### 4. The receipt ✅
 - **What it asks:** for every list, write one record (called E1) in `ml_events`: who, which surface, the session, the label, the exact time, everything that **could** have been shown (never sent to the app), exactly what **was** shown, the settings version, each slot's intended method, and a sample of items for the models to learn from.
@@ -159,7 +159,7 @@ The Build List row has eleven parts (1–11). There are three extras (A–C).
 | What | Waiting on |
 |---|---|
 | Products on dev: no seller has a status, so nothing can be shown | Aravinth, question 17 → [[People]] |
-| The plan-B ladder, reported on each list | ENG-09 |
+| ~~The plan-B ladder, reported on each list~~ | Done 14 Oct → [[ENG-09 - Fallback ladder]] |
 | Real feed ranking, and skipping what was shown in the last 24 hours | ENG-19 |
 | Real product ranking, and a real score on the "passed over" items | ENG-17 |
 | Checklist line 6.1 expects 14 tests; there are 17 | A one-line fix in the checklist script |

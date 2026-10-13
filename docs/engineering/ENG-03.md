@@ -413,7 +413,7 @@ bash scripts/run_checklist.sh                              # section 3 is ENG-03
 
 | Open item | Needs |
 |---|---|
-| The M1 refresh (`reco/platform/readers.py`) still reads **live `postevents`** on the platform through its demo-era reader, not the engine's copy (`ml_events`) and these records. Confirmed in the 1 Oct audit | **ENG-10**, which moves M1 onto the engine copies and these records |
+| The M1 refresh (`reco/platform/readers.py`) still reads **live `postevents`** on the platform through its demo-era reader, not the engine's copy (`ml_events`) and these records. Confirmed in the 1 Oct audit | **Done 14 Oct 2026** (ENG-10): on the live profile M1 reads the engine copies through these records (`reco/slots/interest/copies.py`); the demo reader serves only `DATA_PROFILE=demo` |
 | Category map covering every category in use; daily unmapped report | **ENG-29** item 1 |
 | ~~Status spelling map; `followers` and `rec_serve_log` record kinds~~ Done: ENG-29 (`status_spellings`, `serve_log`) and ENG-08 (`BlockRecord`) | — |
 | The `followers` block shape (`BlockRecord` assumes `userId` blocks `followerId`, `status: blocked`) | Question 16: Aravinth or the backend code |

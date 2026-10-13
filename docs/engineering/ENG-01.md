@@ -6,7 +6,7 @@
 | **Step** | Step 1 (within 7 working days) |
 | **Waits on** | DB-02 (new read-only platform login, Aravinth) |
 | **Needed by** | DB-12, ENG-02 |
-| **Status** | **Waiting** (24 Sep 2026; realigned to pack v1.3 on 1 Oct 2026). Code done; dev (laptop) set up and verified with 16 of 16 collections. Blocked on Aravinth: test and production servers and clusters (SD-03), DB-02 rotation, then DB-12. Becomes Passed when §6 runs clean on test and production and the result is saved |
+| **Status** | **Waiting** (24 Sep 2026; realigned to pack v1.3 on 1 Oct 2026). Code done; dev (laptop) set up and verified with 16 of 16 collections. **14 Oct 2026: the test server is available and is set up now; production is set up later (§4.4).** Production still needs its server and cluster (SD-03), DB-02 rotation, then DB-12. Becomes Passed when §6 runs clean on test and production and the result is saved (the check names all three environments and the production read-only login) |
 | **Spec** | Build List v1.3 ENG-01; SDA v1.6 SD-04, SD-06, SD-08, SD-18 (and its collections table), SD-29; DS-017 v2.5 §2, §7, §9 step 1; AS-06, AS-09; X-08 |
 
 ---
@@ -247,7 +247,7 @@ AS-06). It does not say where each one physically runs. We decided:
 | **Platform data it reads** | `soco` on `nex-dev.cob9whd` | Constructed platform-shaped data (ENG-29 item 8, DB-13), never live SOCO data | The launch database, through the DB-02 read-only login |
 | **Called by** | Nobody but Allen | Test SOCO_BE and test app build (DB-13) | Production SOCO_BE and the admin panel |
 | **Settings and secrets** | `.env` | Server environment (so test behaves like production) | Server environment only (SD-08; enforced in code) |
-| **State** | Set up, 16/16 collections (1 Oct) | Waiting: cluster, server, DB-13 | Waiting: cluster, server, DB-02, DB-12 |
+| **State** | Set up, 16/16 collections (1 Oct) | Server available (14 Oct); being set up (§4.4) | Later (§4.4): cluster, server, DB-02, DB-12 |
 
 ### 4.2 Conditions that go with this decision
 
@@ -264,6 +264,26 @@ For each of the two environments:
 2. Create an engine database user with read/write on that environment's engine database only.
 3. Add the server's address to the cluster's access list.
 4. Set the settings in that server's environment, then run the §6 runbook.
+
+### 4.4 Test now, production later (decided 14 Oct 2026)
+
+The test server is available: `83.147.36.203`, access port 1097 (14 Oct 2026; the port
+answers TCP but sends no SSH banner, so it is likely remote desktop or another access
+service). Allen clones the repo there and runs §6. Its address must be on the
+Atlas access list of every cluster test uses. Decision: set up **test now**; set up
+**production later**. Every check the Build List runs "on test" can now run
+there, so the built items (ENG-02 to ENG-05, ENG-07, ENG-08, ENG-29) can
+move from Built to Passed once their checks pass there.
+
+What this does not change:
+
+- **ENG-01 stays Waiting.** Its check is "The engine runs in all three
+  environments. The production engine reaches the platform database read-only."
+  It passes only once production is up.
+- §4.2 still holds: test reads constructed platform-shaped data (ENG-29 item 8),
+  never live SOCO data; its secrets go in the server environment.
+- The production deadline is the go-live rule (ENG-24): the surfaces cannot go
+  live until production runs, DB-12 is open and APP-21 has passed there.
 
 ---
 
@@ -337,8 +357,9 @@ Result on 1 Oct 2026 (after the v1.3 realignment):
 
 | Open item | Needs |
 |---|---|
-| Test and production Atlas clusters and engine databases | Created later (§4.3); test also needs DB-13 and the constructed data of ENG-29 item 8 |
-| Test and production servers | Aravinth (SD-03 hosting) |
+| Test: bring it up on the test server (§4.4, §6), with its own Atlas cluster and the constructed data of ENG-29 item 8 | The server's access details and a test cluster |
+| Production Atlas cluster and engine database | Later (§4.4) |
+| Production server | Later (§4.4); Aravinth (SD-03 hosting) |
 | Rotate the platform login's password (DB-02); re-run the §2 C check afterwards | Aravinth (DB-02) |
 | DB-02's row is missing from the v1.3 Build List sheet, though ENG-01, ENG-04, DB-12 and the Waits sheet still reference it | Kala (question 1 in `Tracing/REALIGNMENT_v1.3.md`) |
 | Deploy in SOCO_BE's network; hand over the private address | Aravinth (SD-03 hosting, then DB-12) |

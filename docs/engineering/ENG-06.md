@@ -4,9 +4,9 @@
 |---|---|
 | **Owner** | Allen |
 | **Step** | Step 2 (within 12 working days) |
-| **Waits on** | ENG-04 (built), ENG-05 (built), ENG-09 (fallback ladder: **not built**), ENG-29 (adapters: built; item 6, the item adapter, done here) |
+| **Waits on** | ENG-04 (built), ENG-05 (built), ENG-09 (fallback ladder: built 14 Oct 2026), ENG-29 (adapters: built; item 6, the item adapter, done here) |
 | **Needed by** | APP-15 (Aravinth's serving call), ENG-20 (load test), ENG-24 (go-live rule and safety switch) |
-| **Status** | **In progress** (1 Oct 2026). Built to the row's own interim clause: the contract, the E1 record (with `slot_methods`, F71, and `scored_not_served`, F72), surface modes, exploration, the error bodies, no retries with a per-request time limit (SD-26) and the item adapter (F10, X-16) are done and tested. Since `11e515e` the list is items that pass ENG-08's rules E-01 to E-12, newest first, re-checked just before it is returned. Waits on ENG-09 (ladder), ENG-17 and ENG-19 (ranking, and the 24-hour page dedup). On dev the product surface returns **0 items** (every seller lacks `status`: open question 17), so checklist 6.4 fails there until that is answered. Both surfaces stay **off** in `settings/engine.toml` |
+| **Status** | **In progress** (1 Oct 2026). Built to the row's own interim clause: the contract, the E1 record (with `slot_methods`, F71, and `scored_not_served`, F72), surface modes, exploration, the error bodies, no retries with a per-request time limit (SD-26) and the item adapter (F10, X-16) are done and tested. Since `11e515e` the list is items that pass ENG-08's rules E-01 to E-12, newest first, re-checked just before it is returned. Since 14 Oct 2026 the feed reports the ENG-09 ladder rung (`fallback_step`; see ENG-09 §2 item 6). Waits on ENG-17 and ENG-19 (ranking, and the 24-hour page dedup). On dev the product surface returns **0 items** (every seller lacks `status`: open question 17), so checklist 6.4 fails there until that is answered. Both surfaces stay **off** in `settings/engine.toml` |
 | **Spec** | Build List v1.3 ENG-06 (and ENG-08, ENG-09, ENG-17, ENG-19, ENG-29 item 6; Settings sheet "Serving"); DS-017 v2.5 §2, §3, §4.1–4.6; SDA v1.6 SD-10, SD-26; AS-03, AS-04, AS-05, AS-07; Capture Register E1, F02, F05, F10, F71, F72, F75, X-11, X-16; eligibility E-01 to E-12 (ENG-08) |
 
 ---
@@ -144,7 +144,7 @@ was built to that clause:
 | Feed ordering | Eligible posts, newest first | ENG-19 (ranking layer) |
 | Product ordering | Eligible products, newest first, the context product left out. **The pack is silent on a product interim**; this is our choice, matching the feed's and ENG-17's own last fallback step (*"3. eligible products, newest first"*). It must satisfy ENG-17's *"Always excluded: the product being viewed"* | ENG-17 (product ranker) |
 | Eligibility | The interim `reco/eligibility/basic.py`, **deleted 1 Oct 2026 (`11e515e`)** and replaced by ENG-08's rules E-01 to E-12 with the final recheck (§2 A) | Done (ENG-08) |
-| `fallback_step` | `null` on the response and on every slot: no score is read, so no rung is used | ENG-09 |
+| `fallback_step` | ~~`null` on the response and on every slot~~ Done 14 Oct 2026: on the feed, the interest slot's ladder rung (ENG-09 §2 item 6); product and promoter_score stay `null` | ENG-09 (done) |
 | Slots | Each slot records the method it **would** use (ENG-05), with `fallback_step` null | ENG-09, ENG-17, ENG-19 |
 | Marker | The E1 carries `ordering: "interim_newest_first"`, so a list built before the rankers exist is never mistaken for a ranked one (and never counted as a result for a method that didn't run, ENG-09) | Removed when the rankers serve |
 | Item shape | §2.11: **done** (question 4 answered 1 Oct 2026: F10, X-16) | Done |

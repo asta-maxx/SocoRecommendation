@@ -30,6 +30,7 @@ from reco.platform import connection as platform_conn
 from reco.ranking import serving
 from reco.ranking.serving import Candidate
 from reco.eligibility.rules import Viewer
+from reco.fallback.profile import RUNG_DESCRIPTION, CategoryShare, Profile, Rung
 from reco.store import connection as store_conn
 from reco.store import writers
 from reco.store.scores import utc_now
@@ -60,11 +61,28 @@ def feed(**fields) -> dict:
     return {"user_id": USER, "surface": "feed", "page": 1, "limit": 5, "session_id": "ses_1", **fields}
 
 
+def profile(rung: Rung, *, categories: bool = True, fell_through_from: Rung | None = None) -> Profile:
+    """A ladder answer (ENG-09) at `rung`."""
+    return Profile(user_id=USER, categories=[CategoryShare(category="Pets", share=1.0)] if categories else [],
+                   rung=rung, rung_description=RUNG_DESCRIPTION[rung], personalised=rung is not Rung.POPULARITY,
+                   model_version="test", fell_through_from=fell_through_from)
+
+
+#: The rung the stubbed ladder answers with; a test changes it.
+LADDER = {"profile": profile(Rung.PERSONALISED), "asked": []}
+
+
 @pytest.fixture
 def served(settings, monkeypatch):
-    """No database: candidates are made up, records are kept in a list."""
+    """No database: candidates are made up, records are kept in a list, and the
+    ladder answers LADDER["profile"]."""
     settings = settings.model_copy(update={"ingest_token": TOKEN})
     records = []
+    LADDER.update(profile=profile(Rung.PERSONALISED), asked=[])
+
+    async def ladder(settings, user_id, method):
+        LADDER["asked"].append((user_id, method))
+        return LADDER["profile"]
 
     async def candidates(settings, surface, page, limit, context, user_id=None, request_id=None):
         kind = "post" if surface == "feed" else "product"
@@ -81,6 +99,7 @@ def served(settings, monkeypatch):
     monkeypatch.setattr(api.serving, "interim_candidates", candidates)
     monkeypatch.setattr(serving, "recheck", nothing_failed)
     monkeypatch.setattr(api.writers, "record_served_list", record)
+    monkeypatch.setattr(api, "get_profile", ladder)
     return settings, records
 
 
@@ -178,6 +197,41 @@ async def test_the_record_holds_what_the_pack_lists(served, monkeypatch) -> None
     assert all({"slot", "method", "fallback_step"} <= set(m) for m in record["slot_methods"])
     # F72: not on this request (the random draw missed and it is not an exploration list)
     assert record["scored_not_served"] is None
+
+
+@pytest.mark.parametrize(("answer", "step", "cold_start"), [
+    (profile(Rung.PERSONALISED), None, False),
+    (profile(Rung.DECLARED_ONLY), "rung_2", True),
+    (profile(Rung.POPULARITY), "rung_3", True),
+    (profile(Rung.POPULARITY, categories=False), "rung_3_empty", True),
+    (profile(Rung.STALE), "rung_4", False),
+    (profile(Rung.POPULARITY, fell_through_from=Rung.STALE), "rung_4_to_3", False),
+    (profile(Rung.UNAVAILABLE), "rung_5", False),
+    (profile(Rung.POPULARITY, categories=False, fell_through_from=Rung.UNAVAILABLE), "rung_5_to_3_empty", False),
+], ids=lambda v: v if isinstance(v, str) else None)
+async def test_each_rung_is_reported_on_the_list(served, answer, step, cold_start) -> None:
+    """ENG-09: "The rung used is reported on the response and the request record." A
+    rung other than 1 never credits the intended method (SD-23)."""
+    settings, records = served
+    put_in_force(LIVE)
+    LADDER["profile"] = answer
+    status, body = await call(settings, feed())
+    assert status == 200 and body["fallback_step"] == step
+    record = records[0]
+    assert record["fallback_step"] == step
+    interest, promoter = record["slot_methods"]
+    assert interest["slot"] == "interest" and interest["fallback_step"] == step
+    assert interest["rung"] == int(answer.rung) and interest["cold_start"] is cold_start
+    assert interest["method_served"] is (step is None)
+    assert promoter["fallback_step"] is None and "rung" not in promoter
+    assert LADDER["asked"] == [(USER, interest["method"])]  # the user's assigned interest method
+
+
+async def test_the_product_surface_does_not_walk_the_interest_ladder(served) -> None:
+    settings, records = served
+    put_in_force(LIVE)
+    _, body = await call(settings, feed(surface="product", context_item_id=str(ObjectId())))
+    assert body["fallback_step"] is None and LADDER["asked"] == []
 
 
 async def test_scored_not_served_is_on_about_ten_percent_of_requests(served, monkeypatch) -> None:

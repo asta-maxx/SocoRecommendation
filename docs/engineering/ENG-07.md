@@ -84,7 +84,7 @@ Whichever is chosen, **only one** may run per environment: see §7, "overlapping
 
 | Build List job | Job name | Status | Brought by |
 |---|---|---|---|
-| M1, both methods | `interest` | **Running** as batches (both methods) | here; ENG-10 moves its input onto `ml_events` |
+| M1, both methods | `interest` | **Running** as batches (both methods) | here; since 14 Oct its input is the engine copies (ENG-10) |
 | M2 method two candidates | | waiting | ENG-14 |
 | M5, both methods | | waiting | ENG-17 |
 | M8, both methods, monthly copy on the 1st | | waiting | ENG-16 |
@@ -449,7 +449,7 @@ success. The alert repeats every 5 minutes until then.
 |---|---|
 | The other nightly jobs: M2 method two (ENG-14), M5 (ENG-17), M8 (ENG-16), M6 (ENG-18), the fraud rules (ENG-21) | Their items; each adds its name to `NIGHTLY`, before `reconcile_sync` |
 | The monthly trigger for M8's copy on the 1st: the scheduler has none | ENG-16 |
-| M1's input from `ml_events` instead of the older readers | ENG-10 |
+| ~~M1's input from `ml_events` instead of the older readers~~ | Done 14 Oct 2026 (ENG-10) |
 | On the servers: the `scheduler` loop or cron calling `nightly` | The servers (ENG-01, SD-03); decide then |
 | Overlapping runs are not prevented: if two runs of the same job + method overlap (two schedulers, or cron plus the loop), the second records the first as abandoned while it still runs | Run one scheduler per environment; add a lock if the server setup needs one |
 | Run the check on **test**, then mark Passed | The test environment (ENG-01) |

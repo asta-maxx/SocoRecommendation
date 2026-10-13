@@ -144,7 +144,8 @@ def test_m1_reads_the_settings_sheet_values() -> None:
     m1 = Tunables().m1()
 
     assert m1["P-04"] == 30
-    assert m1["P-06"] == {"view": 2, "click": 5, "cart": 10, "purchase": 20, "search": 0.0}
+    assert m1["P-06"] == {"view": 2, "click": 5, "cart": 10, "purchase": 20, "search": 0.0,  # ENG-10 weights
+                          "like": 3, "save": 4, "share": 4, "comment": 4, "business_follow": 5, "feedback": -5}
     assert m1["P-07"] == -5
     assert m1["P-08"] == 48
     assert m1["P-10"] == [7, 30, 90] and m1["P-11"] == [0.5, 0.3, 0.2]

@@ -28,8 +28,8 @@ The engine's health page (`/health`) now says which environment it's in.
 
 ## Where things stand
 - **dev (laptop):** ready.
-- **test (server):** its database cluster will be created later. It also needs a server, and Aravinth's test setup (task DB-13).
-- **production (server):** its database cluster will be created later. It also needs Aravinth's hosting and the new login (DB-02).
+- **test (server):** the server is ready (14 Oct 2026): address `83.147.36.203`, access port 1097. I'm cloning the engine onto it and running the checks there. It still needs its own database cluster and the made-up SOCO data. (Aravinth's DB-13 test setup is *Not needed* in pack v1.3: the engine brings its own made-up data.)
+- **production (server):** set up **later** (decided 14 Oct 2026). It needs Aravinth's hosting, its own database cluster and the new login (DB-02). It must be up before anything goes live for shoppers.
 
 ## How this connects
 - Required by → [[ENG-01 - Engine home and databases]].

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The checklist, run end to end: every check for ENG-01 to ENG-08 and ENG-29 (pack v1.3).
+# The checklist, run end to end: every check for ENG-01 to ENG-11 and ENG-29 (pack v1.3).
 #
 #     bash scripts/run_checklist.sh
 #
@@ -160,7 +160,7 @@ check "5.4 missing settings or user_id: everyone gets the default, logged" "$T -
 check "5.5 the real settings file splits within 2 points" "$PY scripts/show_assignment.py | grep -c 'within 2 points'" "3"
 
 echo "== 6. ENG-06: serve a list and record it (throwaway reco_demo, port 8192)"
-check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "17 passed"
+check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "26 passed"
 check "6.2 constructed data: eligible newest first; record matches the response" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m mongo" "2 passed"
 sed 's/^surface_mode_feed = "off"/surface_mode_feed = "live"/; s/^surface_mode_product = "off"/surface_mode_product = "live"/' settings/engine.toml >"$WORK/serve.toml"
 SERVE_TOKEN="checklist-$RANDOM$RANDOM"
@@ -185,7 +185,7 @@ check "7.2 a batch is read only once complete; rows carry provenance" "TEST_MONG
 check "7.3 a failure halfway keeps the previous batch" "TEST_MONGO_TIMEOUT_MS=15000 $T -k halfway" "1 passed"
 check "7.4 a killed run is recorded as failed and never read" "TEST_MONGO_TIMEOUT_MS=15000 $T -k killed" "1 passed"
 check "7.5 a real kill halfway: previous batch still read" "out=\$(ML_MONGO_DB=reco_demo $PY scripts/demo_kill_job.py 2>/dev/null); grep -A1 '3. straight' <<<\"\$out\" | grep -q 'DEMO-U1=fashion' && grep -q abandoned <<<\"\$out\" && echo kill-check-ok" "kill-check-ok"
-check "7.6 the real nightly run: both methods current" "ML_MONGO_DB=reco_demo $PY -m reco.jobs nightly && ML_MONGO_DB=reco_demo $PY scripts/show_job_runs.py | grep -c CURRENT" "2"
+check "7.6 the real nightly run: both methods and the popularity batch current" "ML_MONGO_DB=reco_demo $PY -m reco.jobs nightly && ML_MONGO_DB=reco_demo $PY scripts/show_job_runs.py | grep -c CURRENT" "3"
 
 echo "== 8. ENG-29: adapting to the platform as built"
 T="TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_platform_dataset.py -p no:cacheprovider"
@@ -206,6 +206,17 @@ check "9.2 the viewer's follows, blocks and feedback are read when the list is b
 check "9.3 every exclusion is logged with request_id, item_id and rule" "$T -k logged" "1 passed"
 check "9.4 an item failing the final recheck is replaced by the next eligible one" "$T -k recheck" "1 passed"
 check "9.5 the rules run on SOCO's real data" "$PY scripts/show_exclusions.py" "left out, by rule"
+
+echo "== 10. ENG-09: the fallback ladder"
+check "10.1 each rung is reported on the response and the record (the ENG-09 check)" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -k each_rung" "8 passed"
+check "10.2 one test user per rung; first match wins; 4 and 5 fall to 3; rung 3 empty" "$PY -m pytest -q tests/test_read_path.py -p no:cacheprovider" "20 passed"
+check "10.3 on a database: the 5 qualified actions, the nightly popularity, one user per rung" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_ladder_store.py -p no:cacheprovider" "4 passed"
+check "10.4 the ladder walks SOCO's real users (reads only)" "$PY scripts/show_ladder.py" "users by step"
+
+echo "== 11. ENG-10 and ENG-11: M1 on the engine's copies, and its check script"
+check "11.1 each action read from one place: weights, undo, reversal, one view per post, categories" "$PY -m pytest -q tests/test_m1_copies.py -p no:cacheprovider" "15 passed"
+check "11.2 the M1 check script: all 11 checks on the constructed users (the ENG-10 and ENG-11 check)" "$PY scripts/check_m1.py" "Result: 11 of 11 passed"
+check "11.3 M1 runs on SOCO's real data from the copies (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs interest" '"outcome": "succeeded"'
 
 cleanup
 trap - EXIT

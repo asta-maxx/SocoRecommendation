@@ -98,7 +98,7 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 7.3 | A job that fails halfway leaves the previous batch in use (tests) |
 | 7.4 | A killed run is recorded as failed and never read (tests) |
 | 7.5 | A real kill (SIGKILL) halfway: requests still read the previous batch, and the run diary shows the failure |
-| 7.6 | A real nightly run: both interest methods end up current |
+| 7.6 | A real nightly run: both interest methods and the popularity count (ENG-09) end up current |
 
 ### 8. ENG-29: adapting to the platform as built → [[ENG-29 - Adapting to the platform as built]]
 | Line | Checks |
@@ -122,6 +122,21 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 9.4 | An item that fails the last-moment re-check is replaced by the next eligible one |
 | 9.5 | The rules run on SOCO's real data |
 
+### 10. ENG-09: the fallback ladder → [[ENG-09 - Fallback ladder]]
+| Line | Checks |
+|---|---|
+| 10.1 | Each rung is reported on the answer and the receipt (the task's official check) |
+| 10.2 | One test user per rung; the first rung that fits wins; rungs 4 and 5 drop to 3; "rung 3 empty" |
+| 10.3 | On a real database: what counts as the 5 actions, the nightly popularity count, one user per rung |
+| 10.4 | The ladder walks SOCO's real users (reads only) |
+
+### 11. ENG-10 and ENG-11: the interest score → [[ENG-10 - Interest score on real data]], [[ENG-11 - Interest score checks]]
+| Line | Checks |
+|---|---|
+| 11.1 | Each action is read from one place, with its weight, undo, cancellations, one view per post, and categories (tests) |
+| 11.2 | The interest-score check script: all 11 checks on the made-up users (the official check of both tasks) |
+| 11.3 | The interest score runs on SOCO's real data, from the engine's copy |
+
 ### Last line: clean up
 | Line | Checks |
 |---|---|
@@ -134,9 +149,7 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 - **Anything else:** it's a real problem. Note which line failed and look at the message under it.
 
 ## Last full run
-1 Oct 2026, after ENG-08 and the audit fixes: **67 of 68 passed** (commit `42e539b`). The one failure is **6.4**: the product rail is empty on dev because every seller there has no status, which the rules count as "not active" until Aravinth answers (question 17). Record: `Tracing/checks/Checklist_2026-10-01.md`.
-
-Earlier: 29 Sep 2026, on the 22 Sep design: 31 passed, 0 failed (`Tracing/checks/Checklist_2026-09-29.md`).
+14 Oct 2026, after ENG-10 and ENG-11 (before committing them): **72 passed, 3 failed**. Every ENG-09, ENG-10 and ENG-11 line passes. 0.1 fails because the work wasn't committed yet. 6.3, the feed's speed, was 337 ms against 200 ms on a slow laptop link that day (the product rail, which doesn't use the ladder, was 732 ms); the official speed check is on the test server. 6.4 is the empty product rail on dev (question 17), as before. Record: `Tracing/checks/Checklist_2026-10-14_2.md`.
 
 ## What the checklist can't check yet
 - The test and production servers, production's own login, and the private network: all waiting on Aravinth → [[People]].

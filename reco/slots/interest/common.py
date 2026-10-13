@@ -39,7 +39,16 @@ WEIGHT_KEY = {
     EventType.CART: "cart",
     EventType.PURCHASE: "purchase",
     EventType.SEARCH: "search",
+    EventType.LIKE: "like",
+    EventType.SAVE: "save",
+    EventType.SHARE: "share",
+    EventType.COMMENT: "comment",
+    EventType.BUSINESS_FOLLOW: "business_follow",
+    EventType.FEEDBACK: "feedback",
 }
+
+#: Not a qualified action (ENG-10: event_count counts qualified actions only).
+NOT_QUALIFIED = {EventType.FEEDBACK}
 
 
 class TimeFactor(Protocol):
@@ -187,7 +196,8 @@ def accumulate(
             raws[category] += weight * factor
             if factor:
                 contributed = True
-                stats.contributions[category] = stats.contributions.get(category, 0) + 1
+                if event.event_type not in NOT_QUALIFIED:
+                    stats.contributions[category] = stats.contributions.get(category, 0) + 1
             else:
                 # Keep the category in the map at zero. It was seen and it scored
                 # nothing -- which for Method B is the cut-off doing its job, and

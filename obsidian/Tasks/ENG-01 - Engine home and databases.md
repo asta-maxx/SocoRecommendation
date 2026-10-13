@@ -7,7 +7,9 @@ owner: Allen
 # ENG-01: Engine home and databases
 
 > [!note] Status: **Waiting** (24 Sep 2026; brought up to date with pack v1.3 on 1 Oct 2026)
-> Everything I can do on my laptop is **done and checked**, now with **16** drawers instead of 12. The task counts as finished only when the engine also runs on the **test** and **production** servers. Those don't exist yet; Aravinth sets them up. → [[People]]
+> Everything I can do on my laptop is **done and checked**, now with **16** drawers instead of 12. The task counts as finished only when the engine also runs on the **test** and **production** servers.
+>
+> **14 Oct 2026:** the **test server is ready**, so the engine goes there now. **Production comes later.** Until it's up, this task stays Waiting, because its check says the engine runs in all three places.
 
 **In one line:** give my engine a proper home. That means three separate setups, its own database with all its drawers, and safe handling of passwords.
 
@@ -106,6 +108,7 @@ The Build List splits ENG-01 into four numbered parts (1–4). We added three sm
   - **production** runs on **a server** next to [[SOCO_BE]]. Its database cluster will be created later.
 
   More detail → [[Environments]]
+- **Test now, production later (14 Oct 2026):** the test server is available, so the engine is set up there first. Every other task can then run its official check on test and become Passed. Production is set up later; it must be up before anything goes live for shoppers. → [[Environments]]
 - **How long copies are kept (1 Oct 2026, from the pack):** 365 days from when the event really happened. This is fixed for Wave 1A; it's in the settings file but can't be changed. → [[Settings file]]
 
 ## Re-checked
@@ -115,8 +118,8 @@ The Build List splits ENG-01 into four numbered parts (1–4). We added three sm
 ## Still to do
 | What                                                             | Waiting on                          |
 | ---------------------------------------------------------------- | ----------------------------------- |
-| Create the test and production database clusters                | Later, when the servers are ready   |
-| Test and production servers                                      | Aravinth's hosting → [[People]]     |
+| Set up the engine on the test server, with its own database cluster | The server's access details |
+| Production: server and database cluster                          | Later (decided 14 Oct) → [[People]] |
 | Change the read-only login's password (only the password changes) | Aravinth, DB-02                     |
 | DB-02 is missing from the v1.3 Build List sheet; ask Kala to restore it | Kala, in writing                    |
 | Put the engine next to [[SOCO_BE]] and give Aravinth its address | Aravinth's hosting                  |

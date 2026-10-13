@@ -1,4 +1,4 @@
-"""What the read path returns. RE-05 and RE-07, tasks 17 and 20.
+"""What the read path returns: an interest profile and the ladder rung behind it. ENG-09.
 
 A profile is never a bare list of categories. It always says which rung of the
 fallback ladder produced it, and which method and version were involved.
@@ -17,30 +17,29 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class Rung(IntEnum):
-    """The fallback ladder, checked in order. First match wins.
+    """The fallback ladder (Build List ENG-09, SD-23), checked in order. First match wins.
 
     Every user, every request, gets one of these -- nobody is ever served
     nothing.
     """
 
-    #: Has activity and a current score. The personalised score.
+    #: At least 5 qualified actions in the last 90 days, and a score computed in
+    #: the last 48 hours that passes its checks.
     PERSONALISED = 1
 
-    #: No events, but interests declared at signup. The floor alone, normalised
-    #: across what they picked.
-    #:
-    #: The common case at launch rather than the exception: everyone who signs up
-    #: on day one has picked interests and done nothing yet.
+    #: Fewer than 5 qualified actions, with interests declared at sign-up: the
+    #: floor for those interests plus whatever actions they have.
     DECLARED_ONLY = 2
 
-    #: Neither events nor declared interests. Platform-wide category popularity
-    #: over the P-27 window. NOT personalised, and labelled as such.
+    #: Fewer than 5 qualified actions and no declared interests: platform-wide
+    #: category popularity (qualified views) over the last 30 days. NOT personalised.
     POPULARITY = 3
 
-    #: A score exists but is older than P-08, or fails a range check.
+    #: The stored score is older than 48 hours, or fails its checks (or, with 5 or
+    #: more actions, there is none): the old delivered interest score.
     STALE = 4
 
-    #: The engine could not be reached at all.
+    #: The engine's own store cannot be read: the old delivered interest score.
     UNAVAILABLE = 5
 
 
@@ -52,16 +51,18 @@ RUNG_DESCRIPTION = {
     # relevance to the individual.
     Rung.DECLARED_ONLY: "this user's declared interests, no activity yet",
     Rung.POPULARITY: "platform popularity, not personalised",
-    Rung.STALE: "stored score was stale",
-    Rung.UNAVAILABLE: "engine unavailable",
+    Rung.STALE: "stored score stale or failed its checks; the old delivered score",
+    Rung.UNAVAILABLE: "engine store unreadable; the old delivered score",
 }
 
-#: Rungs 4 and 5 serve the delivered fixed-weight score -- except that score
-#: exists for almost nobody, so both fall through to rung 3 instead of returning
-#: empty. The fall-through is logged separately for each: a stale score is a
-#: refresh problem, an unreachable engine is a serving problem, and they need
-#: different fixes.
+#: Rungs 4 and 5 serve the old delivered score. Where none exists, both fall
+#: through to rung 3, each logged separately: a stale score is a refresh problem,
+#: an unreadable store is a serving problem, and they need different fixes.
 FALLS_THROUGH_TO_POPULARITY = {Rung.STALE, Rung.UNAVAILABLE}
+
+#: Rungs a new user lands on with the engine working normally (cold start). Rungs 4
+#: and 5 are operational fallback. ENG-24 counts the two apart.
+COLD_START = {Rung.DECLARED_ONLY, Rung.POPULARITY}
 
 
 class CategoryShare(BaseModel):
@@ -99,7 +100,7 @@ class Profile(BaseModel):
     rung: Rung
     rung_description: str
 
-    #: False for rungs 3, 4 and 5 -- those answers are the same for every user.
+    #: False at rung 3 -- that answer is the same for every user.
     personalised: bool
 
     #: Task 20. The stamp travels with every response, and the same stamp goes on
@@ -128,6 +129,24 @@ class Profile(BaseModel):
         if len(names) != len(set(names)):
             raise ValueError("a profile must not repeat a category")
         return v
+
+    @property
+    def fallback_step(self) -> str | None:
+        """What the response and the E1 record name as the fallback step (DS-017 4.2:
+        "string or null"; null when none was needed, i.e. rung 1).
+
+        rung_2, rung_3, rung_4, rung_5; rung_4_to_3 / rung_5_to_3 where no delivered
+        score existed; and _empty when rung 3 had nothing either, so the list is
+        eligible posts newest first (ENG-09 "rung 3 empty")."""
+        if self.rung is Rung.PERSONALISED:
+            return None
+        step = f"rung_{int(self.fell_through_from)}_to_3" if self.fell_through_from else f"rung_{int(self.rung)}"
+        return step + "_empty" if self.rung is Rung.POPULARITY and not self.categories else step
+
+    @property
+    def cold_start(self) -> bool:
+        """Rung 2 or 3 reached directly: a new user, not a failure (ENG-09, ENG-24)."""
+        return self.rung in COLD_START and self.fell_through_from is None
 
     def top(self, n: int = 5) -> list[CategoryShare]:
         return self.categories[:n]

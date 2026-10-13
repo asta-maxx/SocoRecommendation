@@ -16,3 +16,4 @@ tags: [project, people]
 ## How this connects
 - The first thing I need from Aravinth is a new login → [[ENG-01 - Engine home and databases]].
 - The split of work is shown on → [[Task Board]].
+- Aravinth's tasks, and which of mine wait on them → [[Aravinth's tasks]].

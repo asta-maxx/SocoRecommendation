@@ -510,3 +510,120 @@ async def read_running_jobs(settings: Settings, started_before: datetime) -> lis
     """Job runs still marked running that started before `started_before`."""
     query = {"outcome": "running", "started_at": {"$lt": started_before}}
     return await ml_db(settings)["ml_job_runs"].find(query).to_list(None)
+
+
+# --- the fallback ladder (ENG-09) ---------------------------------------------------------
+
+#: postevents types that count as a qualified action besides a qualified view (ENG-10's
+#: sources for M1: clicks, likes, saves, comments, shares and add-to-carts). Feedback
+#: (not interested, hide) lowers a score rather than building one, so it isn't here.
+QUALIFYING_EVENT_TYPES = ("click", "product_click", "like", "save", "comment", "share", "add_to_cart")
+
+#: ml_measurements rows of the nightly platform popularity (ENG-09 rung 3).
+POPULARITY_MEASURE = "category_popularity"
+POPULARITY_METHOD = "platform_popularity"
+
+
+async def count_qualified_actions(
+    settings: Settings, user_id: str, since: datetime, view_ms: float, enough: int
+) -> int:
+    """ENG-09 rung 1: the user's qualified actions since `since`, from the engine's own
+    copies (ENG-04), counted up to `enough` (no need to count past the threshold).
+
+    postevents: a view with dwell_ms of at least `view_ms` (one per post), or one of
+    QUALIFYING_EVENT_TYPES; never an undo row, nor an action later undone.
+    Orders: one per order placed, unless it was cancelled, rejected or returned (its
+    purchase then nets to zero, ENG-10). Business follows come from the platform
+    (reco.platform.fetch) and are added by the caller.
+    """
+    events = ml_db(settings)["ml_events"].aggregate([
+        {"$match": {
+            "kind": "postevent", "user_id": user_id, "created_at": {"$gte": since},
+            "undone_at": None, "undo_of": None,
+            "$or": [{"event_type": {"$in": list(QUALIFYING_EVENT_TYPES)}},
+                    {"event_type": "view", "dwell_ms": {"$gte": view_ms}}],
+        }},
+        # A qualified view counts once per post; every other action counts once.
+        {"$group": {"_id": {"$cond": [{"$eq": ["$event_type", "view"]},
+                                      {"$concat": ["view:", {"$ifNull": ["$post_id", ""]}]},
+                                      {"$toString": "$_id"}]}}},
+        {"$limit": enough},
+        {"$count": "n"},
+    ])
+    counted = await (await events).to_list(None)
+    found = counted[0]["n"] if counted else 0
+    if found >= enough:
+        return found
+    orders = await ml_db(settings)["ml_orders"].count_documents(
+        {"buyer_id": user_id, "created_at": {"$gte": since}, "is_returned": {"$ne": True}, "cancelled_at": None},
+        limit=enough - found,
+    )
+    return found + orders
+
+
+async def read_qualified_views(settings: Settings, since: datetime, view_ms: float) -> list[dict[str, Any]]:
+    """ENG-09 rung 3: every (viewer, post) pair with a qualified view since `since`, from
+    the engine's copy of postevents. One row per pair, so a post viewed twice by one
+    person counts once."""
+    cursor = await ml_db(settings)["ml_events"].aggregate([
+        {"$match": {"kind": "postevent", "event_type": "view", "dwell_ms": {"$gte": view_ms},
+                    "created_at": {"$gte": since}, "undone_at": None, "post_id": {"$ne": None}}},
+        {"$group": {"_id": {"user_id": "$user_id", "post_id": "$post_id"}}},
+    ])
+    return [row["_id"] async for row in cursor]
+
+
+async def write_popularity(settings: Settings, rows: list[dict[str, Any]]) -> int:
+    """One nightly batch of platform popularity rows (each carries its job_run_id)."""
+    if not rows:
+        return 0
+    result = await _collection(ml_db(settings), "ml_measurements").insert_many(rows)
+    return len(result.inserted_ids)
+
+
+async def read_popularity(settings: Settings) -> list[dict[str, Any]]:
+    """The current batch of platform popularity (never a half-written one), largest
+    first. Empty when no batch has been made current yet."""
+    job_run_id = await current_job_run_id(settings, "popularity", POPULARITY_METHOD)
+    if job_run_id is None:
+        return []
+    cursor = ml_db(settings)["ml_measurements"].find(
+        {"measure": POPULARITY_MEASURE, "job_run_id": job_run_id}
+    ).sort("qualified_views", DESCENDING)
+    return await cursor.to_list(None)
+
+
+# --- M1 on the engine's copies (ENG-10) ------------------------------------------------------
+
+#: The postevents types M1 reads from the engine's copy (ENG-10). Impressions,
+#: remove_from_cart and the other new platform events are stored but carry no
+#: weight; purchases come from the order, follows from the platform's follows.
+M1_EVENT_TYPES = ("view", "click", "product_click", "like", "save", "comment", "share", "add_to_cart", "feedback")
+
+_M1_EVENT_FIELDS = {f: 1 for f in ("user_id", "actor", "event_type", "post_id", "product_id", "dwell_ms",
+                                   "feedback_type", "target_id", "target_type", "undone_at", "undo_of",
+                                   "created_at")}
+_M1_ORDER_FIELDS = {f: 1 for f in ("order_id", "buyer_id", "buyer_actor", "product_id", "post_id", "status",
+                                   "cancelled_at", "is_returned", "created_at")}
+
+
+async def read_m1_event_copies(settings: Settings) -> list[dict[str, Any]]:
+    """Every copied postevents row of a type M1 weighs (ENG-04 copies; one source per action)."""
+    cursor = ml_db(settings)["ml_events"].find(
+        {"kind": "postevent", "event_type": {"$in": list(M1_EVENT_TYPES)}}, _M1_EVENT_FIELDS
+    )
+    return await cursor.to_list(None)
+
+
+async def read_order_copies(settings: Settings) -> list[dict[str, Any]]:
+    """Every copied order (ml_orders): purchases, and their reversals, come from the order."""
+    return await ml_db(settings)["ml_orders"].find({}, _M1_ORDER_FIELDS).to_list(None)
+
+
+async def delete_unnamed_scores(settings: Settings) -> int:
+    """ENG-10: "Delete any old time-windows rows that carry no method name, and
+    recompute them." Rows with no method at all; the nightly run recomputes them."""
+    result = await _collection(ml_db(settings), settings.scores_collection).delete_many(
+        {"$or": [{"method": {"$exists": False}}, {"method": None}, {"method": ""}]}
+    )
+    return result.deleted_count

@@ -1,4 +1,9 @@
-"""The refresh: compute a score for every user and write it. RE-06, task 10.
+"""The refresh: compute a score for every user and write it. ENG-10 (and the M1 demo's RE-06).
+
+ENG-10: on the live profile the inputs are the engine's own copies
+(reco.slots.interest.copies), with every v1.3 action and weight, and each user's
+raws are clipped at 0 before sharing. The demo profile keeps the M1 demo's reader
+and its coherence rule, which its pinned checks depend on.
 
     read the sources once
       -> score each user with a method
@@ -29,12 +34,13 @@ from reco.slots.interest.events import Event, ReadStats
 from reco.store.scores import (
     CoherenceFailure,
     InterestScore,
+    clip_to_shares,
     Method,
     Window,
     normalise_with_coherence,
     utc_now,
 )
-from reco.slots.interest import interest_decay, interest_windows
+from reco.slots.interest import copies, interest_decay, interest_windows
 from reco.slots.interest.context import ScoringContext
 
 logger = logging.getLogger(__name__)
@@ -80,6 +86,12 @@ class RefreshRun:
     users_scored: int = 0
     users_with_no_score: int = 0
     test_accounts_skipped: int = 0  # ENG-29 item 3
+    #: "copies" (ENG-10: the engine's own copies) or "demo" (the M1 demo's events).
+    source: str = "copies"
+    #: ENG-10: what the copy reader left out before scoring, and why.
+    skipped: dict[str, int] = field(default_factory=dict)
+    #: Users with a category below 0 before the clip (Not interested / Hide).
+    users_clipped: int = 0
     scores_written: int = 0
     stale_removed: int = 0
     duration_seconds: float = 0.0
@@ -106,6 +118,8 @@ class RefreshRun:
             f"Reversals {self.reversals_applied} "
             f"({self.reversals_unaged} could not be aged). "
             f"Users with no score: {self.users_with_no_score}. "
+            f"Source: {self.source}; left out before scoring: {self.skipped or 'nothing'}; "
+            f"users clipped at 0: {self.users_clipped}. "
             f"Test accounts left out: {self.test_accounts_skipped}. "
             f"Stale rows removed: {self.stale_removed}. "
             f"Coherence failures: {len(self.coherence_failures)}."
@@ -146,12 +160,22 @@ async def refresh(
         reference_date=anchor,
     )
 
-    events_by_user, run.read_stats = await readers.read_events_by_user(
-        settings, reference_date=anchor
-    )
-    declared = await readers.read_all_declared_interests(settings)
-    orders = await readers.read_all_order_creation_times(settings)
-    user_ids = await readers.read_all_user_ids(settings)
+    if settings.data_profile == "demo":
+        # The M1 demo's generated events (its pinned checks depend on them).
+        run.source = "demo"
+        events_by_user, run.read_stats = await readers.read_events_by_user(
+            settings, reference_date=anchor
+        )
+        declared = await readers.read_all_declared_interests(settings)
+        orders = await readers.read_all_order_creation_times(settings)
+        user_ids = await readers.read_all_user_ids(settings)
+    else:
+        # ENG-10: every model reads only the engine's copies (ENG-04). Reversed
+        # orders and undone actions are already netted to zero by the reader.
+        inputs = await copies.read_inputs(settings, anchor)
+        events_by_user, run.read_stats = inputs.events_by_user, inputs.read_stats
+        declared, orders, user_ids = inputs.declared, {}, inputs.user_ids
+        run.skipped = dict(inputs.skipped)
 
     # ENG-29 item 3: test accounts are left out of learning.
     tests = test_account_ids()
@@ -179,8 +203,15 @@ async def refresh(
         run.reversals_applied += stats.reversals_applied
         run.reversals_unaged += stats.reversals_unaged
 
-        clamped, shares, failures = normalise_with_coherence(user_id, raws)
-        run.coherence_failures.extend(failures)
+        if run.source == "demo":
+            clamped, shares, failures = normalise_with_coherence(user_id, raws)
+            run.coherence_failures.extend(failures)
+        else:
+            # ENG-10's order: weighted actions, plus the floor, then clip each
+            # category at 0, then share. A negative is Not interested / Hide doing
+            # its job, not a fault.
+            run.users_clipped += any(raw < 0 for raw in raws.values())
+            clamped, shares = clip_to_shares(raws)
 
         if not shares:
             # Either the user has no signal at all, or a coherence failure
