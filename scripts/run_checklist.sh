@@ -2,6 +2,11 @@
 # The checklist, run end to end: every check for ENG-01 to ENG-11 and ENG-29 (pack v1.3).
 #
 #     bash scripts/run_checklist.sh
+#     PROOF_DIR="Test Output" bash scripts/run_checklist.sh   # also saves each task's full output
+#
+# With PROOF_DIR set, every check's command, exit code and full output are written
+# to one file per task (<PROOF_DIR>/ENG-NN.md), headed by the task's Build List
+# "How to check it is done", the date, the commit and where it ran.
 #
 # Prints PASS or FAIL per item and a summary; exits 0 only if everything passes.
 # Anything that writes uses a throwaway settings copy and the throwaway database
@@ -40,12 +45,43 @@ any_running() {
   return 1
 }
 pass() { PASSES=$((PASSES + 1)); printf "  PASS  %s\n" "$1"; }
-fail() { FAILS=$((FAILS + 1)); FAILED+=("$1"); printf "  FAIL  %s\n" "$1"; [ -n "${2:-}" ] && printf "        %s\n" "$2"; }
+fail() { FAILS=$((FAILS + 1)); FAILED+=("$1"); printf "  FAIL  %s\n" "$1"; [ -n "${2:-}" ] && printf "        %s\n" "$2"; [ "${FUNCNAME[1]:-}" != check ] && proof "$1" "(see the checklist)" "-" "${2:-}" FAIL; return 0; }
+PROOF_DIR="${PROOF_DIR:-}"
+PROOF_FILE=""
+proof_to() { # proof_to ENG-NN: the file the next checks' full output goes into
+  [ -z "$PROOF_DIR" ] && return 0
+  mkdir -p "$PROOF_DIR"; PROOF_FILE="$PROOF_DIR/$1.md"
+  [ -f "$PROOF_FILE" ] && return 0
+  {
+    echo "# $1: check output"
+    echo
+    $PY - "$1" <<'EOF'
+import sys
+from pathlib import Path
+item = sys.argv[1]
+for line in Path("Tracing/pack_text/SOCO-REC_Wave1A_Build_List_App_DB_Engine_v1_3.xlsx.txt").read_text(encoding="utf-8").splitlines():
+    cells = line.split(" | ")
+    if cells[0] == item and len(cells) > 10:
+        print(f"**Task:** {cells[5]}  ")
+        print(f"**Build List v1.3, How to check it is done:** {cells[-2]}")
+        break
+EOF
+    echo
+    echo "- **Run:** $(date '+%Y-%m-%d %H:%M %Z') on $(hostname) ($(uname -s)), environment ${ENGINE_ENV:-dev}"
+    echo "- **Code:** branch $(git branch --show-current), commit $(git rev-parse --short HEAD)"
+    echo "- **Command:** PROOF_DIR=\"$PROOF_DIR\" bash scripts/run_checklist.sh. Each section below is one check: the command it ran, the full output, and the exit code."
+    echo
+  } >"$PROOF_FILE"
+}
+proof() { # proof "label" "command" exit-code "output" PASS|FAIL
+  [ -z "$PROOF_FILE" ] && return 0
+  { echo "## $5  $1"; echo; echo '```'; echo "\$ $2"; echo "$4"; echo "(exit code $3)"; echo '```'; echo; } >>"$PROOF_FILE"
+}
 check() { # check "label" "command" ["text the output must contain"]
   local out
   out=$(eval "$2" 2>&1); local code=$?
-  if [ $code -eq 0 ] && { [ -z "${3:-}" ] || grep -qF -- "$3" <<<"$out"; }; then pass "$1"
-  else fail "$1" "$(tail -2 <<<"$out" | tr '\n' ' ' | cut -c1-160)"; fi
+  if [ $code -eq 0 ] && { [ -z "${3:-}" ] || grep -qF -- "$3" <<<"$out"; }; then pass "$1"; proof "$1" "$2" "$code" "$out" PASS
+  else fail "$1" "$(tail -2 <<<"$out" | tr '\n' ' ' | cut -c1-160)"; proof "$1" "$2" "$code" "$out" FAIL; fi
 }
 wait_for() { # wait_for "command" seconds
   local i; for ((i = 0; i < $2; i++)); do eval "$1" >/dev/null 2>&1 && return 0; sleep 1; done; return 1
@@ -72,6 +108,7 @@ check "0.3 unit tests pass" "$PY -m pytest -q -m 'not mongo' -p no:cacheprovider
 check "0.4 database tests pass (Atlas awake)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q -m mongo -p no:cacheprovider" " passed"
 
 echo "== 1. ENG-01: the engine's home and databases"
+proof_to ENG-01
 check "1.1 environment, own database, 16 collections" "$PY scripts/setup_engine_db.py" "16 of 16 collections present"
 check "1.2 platform login is read-only" "$PY scripts/check_platform_access.py" "NONE (read-only)"
 check "1.3 safety lock refuses engine = platform" "$PY -c \"
@@ -92,6 +129,7 @@ except RuntimeError as e:
 \"" "SD-08"
 
 echo "== 2. ENG-02: skeleton, health, logs, live settings (throwaway reco_demo)"
+proof_to ENG-02
 check "2.1 twelve modules; gatekeepers hold" "$PY -m pytest -q tests/test_module_layout.py -p no:cacheprovider" "16 passed"
 check "2.2 jobs mode" "$PY -m reco.jobs --list" "interest"
 cp settings/engine.toml "$SETTINGS_COPY"
@@ -118,6 +156,7 @@ check "2.5 every request is logged" "grep '\"logger\": \"reco.request\"' '$LOG'"
 V=$(sed -n 's/^config_version = "\([0-9]*\)"/\1/p' "$SETTINGS_COPY"); NEXT=$((V + 1))
 sedi "s/config_version = \"$V\"/config_version = \"$NEXT\"/; s/changed_by = \"Allen\"/changed_by = \"Checklist\"/; s/popularity_window_days = 30 /popularity_window_days = 45 /" "$SETTINGS_COPY"
 if wait_for "grep -q '\"settings changed\".*\"config_version\": \"$NEXT\"' '$LOG'" 60; then pass "2.6 setting change in force within a minute, logged"
+  proof "2.6 setting change in force within a minute, logged" "wait for the engine log line 'settings changed' with config_version $NEXT" 0 "$(grep '"settings changed"' "$LOG" | tail -2)" PASS
 else fail "2.6 setting change in force within a minute, logged"; fi
 check "2.7 change diary shows who changed what" "ML_MONGO_DB=reco_demo $PY scripts/show_config_changes.py" "interest.popularity_window_days: 30 -> 45"
 cp "$SETTINGS_COPY" "$WORK/good.toml"
@@ -127,10 +166,12 @@ if wait_for "grep -q 'settings file rejected' '$LOG'" 60; then
 else fail "2.8 broken file rejected; still serving"; fi
 sed 's/pool_size = 300 /pool_size = 250 /' "$WORK/good.toml" >"$SETTINGS_COPY"
 if wait_for "grep -q 'raise config_version' '$LOG'" 60; then pass "2.9 change without a new version refused"
+  proof "2.9 change without a new version refused" "wait for the engine log line refusing a change without a new config_version" 0 "$(grep 'raise config_version' "$LOG" | tail -2)" PASS
 else fail "2.9 change without a new version refused"; fi
 stop 8190
 
 echo "== 3. ENG-03: reading SOCO's data correctly"
+proof_to ENG-03
 check "3.1 one of each record type (the ENG-03 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider" " passed"
 check "3.2 the four cases the ENG-03 check names" "$PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider -k 'follow_with_text_ids or businessregister_actor or product_post_on_a_platform_feed or history_and_a_return'" "4 passed"
 check "3.3 one source per kind; no event source switch" "$PY -m pytest -q tests/test_platform_records.py -p no:cacheprovider -k 'source'" " passed"
@@ -138,6 +179,7 @@ check "3.4 ignored platform data is never read" "$PY -m pytest -q tests/test_pla
 check "3.5 every real platform document reads cleanly" "$PY scripts/check_platform_records.py" "PASS: 0 document(s) could not be read"
 
 echo "== 4. ENG-04: the engine sync"
+proof_to ENG-04
 T="$PY -m pytest -q tests/test_sync.py -p no:cacheprovider"
 check "4.1 copies keep source, ids, undo fields, E code; order history" "$T -k 'copy or e1 or history or four_sources'" "7 passed"
 check "4.2 backfill keyed on the platform _id, restartable" "TEST_MONGO_TIMEOUT_MS=15000 $T -k backfill" "2 passed"
@@ -152,6 +194,7 @@ check "4.10 real backfill from SOCO into reco_demo" "ML_MONGO_DB=reco_demo $PY -
 check "4.11 real reconciliation of yesterday passes" "ML_MONGO_DB=reco_demo $PY -m reco.jobs reconcile_sync" '"passed": true'
 
 echo "== 5. ENG-05: the same method for each user"
+proof_to ENG-05
 T="$PY -m pytest -q tests/test_assignment.py -p no:cacheprovider"
 check "5.1 same method across two restarts" "$T -k restarts" "1 passed"
 check "5.2 changing a split moves users with no deploy" "$T -k no_deploy" "1 passed"
@@ -160,6 +203,7 @@ check "5.4 missing settings or user_id: everyone gets the default, logged" "$T -
 check "5.5 the real settings file splits within 2 points" "$PY scripts/show_assignment.py | grep -c 'within 2 points'" "3"
 
 echo "== 6. ENG-06: serve a list and record it (throwaway reco_demo, port 8192)"
+proof_to ENG-06
 check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "26 passed"
 check "6.2 constructed data: eligible newest first; record matches the response" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m mongo" "2 passed"
 sed 's/^surface_mode_feed = "off"/surface_mode_feed = "live"/; s/^surface_mode_product = "off"/surface_mode_product = "live"/' settings/engine.toml >"$WORK/serve.toml"
@@ -179,6 +223,7 @@ else fail "6.3 engine with live surfaces started" "$(tail -1 "$WORK/serve.log")"
 stop 8192
 
 echo "== 7. ENG-07: daily refresh jobs (throwaway reco_demo)"
+proof_to ENG-07
 T="$PY -m pytest -q tests/test_nightly.py -p no:cacheprovider"
 check "7.1 the scheduler runs at the set time (2 AM IST), reconciliation last; one failed job doesn't stop the rest" "$T -k '2am or does_not_stop or run_time'" "5 passed"
 check "7.2 a batch is read only once complete; rows carry provenance" "TEST_MONGO_TIMEOUT_MS=15000 $T -k 'current or provenance or replaces'" "3 passed"
@@ -188,6 +233,7 @@ check "7.5 a real kill halfway: previous batch still read" "out=\$(ML_MONGO_DB=r
 check "7.6 the real nightly run: both methods and the popularity batch current" "ML_MONGO_DB=reco_demo $PY -m reco.jobs nightly && ML_MONGO_DB=reco_demo $PY scripts/show_job_runs.py | grep -c CURRENT" "3"
 
 echo "== 8. ENG-29: adapting to the platform as built"
+proof_to ENG-29
 T="TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_platform_dataset.py -p no:cacheprovider"
 check "8.1 the constructed test data covers every platform collection and reads" "$T -k every_constructed" "1 passed"
 check "8.2 an unmapped category is reported, and left out until mapped" "$T -k unmapped" "2 passed"
@@ -200,6 +246,7 @@ check "8.8 the real daily category check runs on SOCO's data" "ML_MONGO_DB=reco_
 check "8.9 the engine test environment holds the constructed data" "$PY scripts/seed_test_platform.py soco_engine_test" "all parse"
 
 echo "== 9. ENG-08: eligibility filters E-01 to E-12"
+proof_to ENG-08
 T="TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_eligibility.py -p no:cacheprovider"
 check "9.1 each rule E-01 to E-12: one item excluded, one kept (the ENG-08 check)" "$T -m 'not mongo' -k 'test_e0 or test_e1'" "12 passed"
 check "9.2 the viewer's follows, blocks and feedback are read when the list is built" "$T -k viewer_context" "1 passed"
@@ -208,14 +255,18 @@ check "9.4 an item failing the final recheck is replaced by the next eligible on
 check "9.5 the rules run on SOCO's real data" "$PY scripts/show_exclusions.py" "left out, by rule"
 
 echo "== 10. ENG-09: the fallback ladder"
+proof_to ENG-09
 check "10.1 each rung is reported on the response and the record (the ENG-09 check)" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -k each_rung" "8 passed"
 check "10.2 one test user per rung; first match wins; 4 and 5 fall to 3; rung 3 empty" "$PY -m pytest -q tests/test_read_path.py -p no:cacheprovider" "20 passed"
 check "10.3 on a database: the 5 qualified actions, the nightly popularity, one user per rung" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_ladder_store.py -p no:cacheprovider" "4 passed"
 check "10.4 the ladder walks SOCO's real users (reads only)" "$PY scripts/show_ladder.py" "users by step"
 
 echo "== 11. ENG-10 and ENG-11: M1 on the engine's copies, and its check script"
+proof_to ENG-10
 check "11.1 each action read from one place: weights, undo, reversal, one view per post, categories" "$PY -m pytest -q tests/test_m1_copies.py -p no:cacheprovider" "15 passed"
+proof_to ENG-11
 check "11.2 the M1 check script: all 11 checks on the constructed users (the ENG-10 and ENG-11 check)" "$PY scripts/check_m1.py" "Result: 11 of 11 passed"
+proof_to ENG-10
 check "11.3 M1 runs on SOCO's real data from the copies (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs interest" '"outcome": "succeeded"'
 
 cleanup
