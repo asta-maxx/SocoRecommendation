@@ -75,7 +75,7 @@ EOF
 }
 proof() { # proof "label" "command" exit-code "output" PASS|FAIL
   [ -z "$PROOF_FILE" ] && return 0
-  { echo "## $5  $1"; echo; echo '```'; echo "\$ $2"; echo "$4"; echo "(exit code $3)"; echo '```'; echo; } >>"$PROOF_FILE"
+  { echo "## $5  $1"; echo; echo '~~~~'; echo "\$ $2"; echo "$4"; echo "(exit code $3)"; echo '~~~~'; echo; } >>"$PROOF_FILE"
 }
 check() { # check "label" "command" ["text the output must contain"]
   local out
