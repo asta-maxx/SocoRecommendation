@@ -327,3 +327,5 @@ ENG-29's text is unchanged in v1.4; ENG-30 voids point 2's "exact stored value o
 | ENG-01, 02, 05, 07, 09 | Settings entries: category map, spelling map, test accounts, exemptions | Spelling map done; **category map (42 names), test accounts and exemptions wait on decisions / account ids** |
 
 Point 4 (order history) is now ENG-30 point 5's history-text map (`[lists.tracking_stages]`, config_version 4).
+
+**Where the 23 come from (checked 15 Oct 2026).** The v1.4 pack refers to "the 23" (ENG-03, ENG-29 item 1, the Settings sheet's Lists row, Capture Register X-20, DB-07 "the 23 platform categories") but never lists their names. The engine's list, `reco/platform/categories.json`, comes from the app's post-category picker (`reference/post_picker_categories.txt`, saved during the M1 demo); the older Sprint 1 Activity Pack (DS-003, superseded) also lists them. Asked in writing to confirm they are still the app's current 23.

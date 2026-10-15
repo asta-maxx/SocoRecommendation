@@ -118,6 +118,9 @@ The Build List splits ENG-29 into eight numbered parts (1–8). There are three 
 | 1 Oct 2026 | A post card showing a product is item type `product` | Capture Register F10 and X-16 (question 4) |
 | 1 Oct 2026 | Test accounts are left out of fraud entirely | Build List ENG-29 and X-21, which outrank the Fraud Policy (question 5) |
 
+> [!note] Where "the 23" come from (15 Oct 2026)
+> The pack says "the 23 categories" many times but never lists them. The engine's list comes from the SOCO app's own post-category picker (saved during the M1 demo). Asked Aravinth to confirm it's still the app's current list.
+
 ## Still to do
 | What | Waiting on |
 |---|---|
