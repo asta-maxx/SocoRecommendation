@@ -124,6 +124,7 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 9.3 | Every item left out is logged with the list's ID, the item and the rule |
 | 9.4 | An item that fails the last-moment re-check is replaced by the next eligible one |
 | 9.5 | The rules run on SOCO's real data |
+| 9.6 | The "pushed down or removed" rule (E-12) still shows posts marked ok, review, fix requested, or not marked (pack v1.4) |
 
 ### 10. ENG-09: the fallback ladder → [[ENG-09 - Fallback ladder]]
 | Line | Checks |

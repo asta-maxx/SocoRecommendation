@@ -250,7 +250,8 @@ check "8.9 the engine test environment holds the constructed data" "$PY scripts/
 echo "== 9. ENG-08: eligibility filters E-01 to E-12"
 proof_to ENG-08
 T="TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_eligibility.py -p no:cacheprovider"
-check "9.1 each rule E-01 to E-12: one item excluded, one kept (the ENG-08 check)" "$T -m 'not mongo' -k 'test_e0 or test_e1'" "12 passed"
+check "9.1 each rule E-01 to E-12: one item excluded, one kept (the ENG-08 check)" "$T -m 'not mongo' -k '(test_e0 or test_e1) and not serves_every_other'" "12 passed"
+check "9.6 E-12 still serves ok, review, fix_requested and no compliance record (ENG-30 point 11)" "$T -m 'not mongo' -k serves_every_other" "4 passed"
 check "9.2 the viewer's follows, blocks and feedback are read when the list is built" "$T -k viewer_context" "1 passed"
 check "9.3 every exclusion is logged with request_id, item_id and rule" "$T -k logged" "1 passed"
 check "9.4 an item failing the final recheck is replaced by the next eligible one" "$T -k recheck" "1 passed"
