@@ -532,8 +532,8 @@ async def count_qualified_actions(
 
     postevents: a view with dwell_ms of at least `view_ms` (one per post), or one of
     QUALIFYING_EVENT_TYPES; never an undo row, nor an action later undone.
-    Orders: one per order placed, unless it was cancelled, rejected or returned (its
-    purchase then nets to zero, ENG-10). Business follows come from the platform
+    Orders: one per order placed, unless its order_status is Cancelled, Rejected or
+    Returned (its purchase then nets to zero, ENG-10, ENG-30 point 6). Business follows come from the platform
     (reco.platform.fetch) and are added by the caller.
     """
     events = ml_db(settings)["ml_events"].aggregate([
@@ -554,11 +554,18 @@ async def count_qualified_actions(
     found = counted[0]["n"] if counted else 0
     if found >= enough:
         return found
-    orders = await ml_db(settings)["ml_orders"].count_documents(
-        {"buyer_id": user_id, "created_at": {"$gte": since}, "is_returned": {"$ne": True}, "cancelled_at": None},
-        limit=enough - found,
-    )
-    return found + orders
+    # A user's orders in 90 days are few: read their state and test it as M1 does
+    # (order_status Cancelled, Rejected or Returned nets to zero; ENG-10, ENG-30 point 6).
+    from reco.config import live
+    from reco.platform.records import status_is
+
+    statuses = live.current().lists.order_status
+    reversed_ = (statuses.cancelled, statuses.rejected, statuses.returned)
+    rows = await ml_db(settings)["ml_orders"].find(
+        {"buyer_id": user_id, "created_at": {"$gte": since}}, {"status": 1}
+    ).to_list(None)
+    kept = sum(1 for r in rows if not any(status_is(r.get("status"), s) for s in reversed_))
+    return found + min(kept, enough - found)
 
 
 async def read_qualified_views(settings: Settings, since: datetime, view_ms: float) -> list[dict[str, Any]]:

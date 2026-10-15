@@ -48,6 +48,7 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[ENG-09 - Fallback ladder]]: built on dev, 14 Oct; every feed list says which rung it used
 - [[ENG-10 - Interest score on real data]]: built on dev, 14 Oct; M1 learns from the engine's own copy
 - [[ENG-11 - Interest score checks]]: built, 14 Oct; all 11 checks pass
+- [[ENG-30 - Adapting to the October platform facts]]: new in pack v1.4; in progress, 15 Oct
 - [[ENG-20 - Speed test]]: part 1 timer built, 13 Oct; waits on the feed address and a test login
 
 ## Demos

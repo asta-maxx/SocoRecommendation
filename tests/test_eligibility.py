@@ -152,6 +152,14 @@ def test_e12_deranked_or_removed() -> None:
     assert post_rule(P("under_review_post"), AUTHOR, VIEWER) is None  # served as normal
 
 
+@pytest.mark.parametrize("compliance", [{"status": "ok"}, {"status": "review"}, {"status": "fix_requested"}, None],
+                         ids=["ok", "review", "fix_requested", "none"])
+def test_e12_serves_every_other_compliance_status(compliance) -> None:
+    """ENG-30 point 11 (a check only): E-12 excludes only deranked and removed."""
+    post = P("post", compliance=compliance) if compliance else P("post")
+    assert post_rule(post, AUTHOR, VIEWER) is None
+
+
 # --- on a database ----------------------------------------------------------------------
 
 

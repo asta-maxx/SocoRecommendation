@@ -13,7 +13,7 @@
 # config_version is rejected: the engine keeps the last good version and logs
 # the fault. "fixed" means the sheet fixes the value for Wave 1A.
 
-config_version = "3"
+config_version = "4"
 changed_by = "Allen"
 
 [serving]
@@ -221,28 +221,28 @@ cycle_days = 14
 # be mapped; unmapped ones are reported daily and left out of category scoring.
 category_map = {}
 # Status spellings compared ignoring case: stored spelling -> compared value.
-status_spellings = {}
+# Products store "Activate", product posts "Activated": both read as active (ENG-29 item 2).
+status_spellings = { activated = "activate" }
 # Exemptions: flagged, never actioned. Test accounts: left out of learning,
 # measurement and fraud; the accounts internal mode serves. Each entry:
 #   { account_id = "<24-char id>", reason = "...", expiry = 2026-12-31, changed_by = "Allen" }
 exemptions = []
 test_accounts = []
 
-[lists.tracking_stages]                  # ENG-29 item 4: tracking_info text beginning -> stage (ignoring case; longest match wins)
+[lists.tracking_stages]                  # ENG-30 point 5: history-text map, opening words -> history event (whole words, ignoring case)
 "order created" = "created"
 "order accepted" = "accepted"
-"confirmed" = "confirmed"
+"confirmed by buyer" = "confirmed"
 "shipped" = "shipped"
-"payment completed" = "paid"
+"payment completed" = "payment"
 "delivered" = "delivered"
-"return requested" = "return_requested"
-"returned" = "returned"
 "cancelled" = "cancelled"
-"rejected" = "rejected"
+"return requested" = "return_request"
+"refund of" = "refund"
+"returned to seller" = "returned"
 
-[lists.order_status]                     # the exact stored order_status values (AS-23, ENG-23 V8)
+[lists.order_status]                     # the exact stored order_status values; the order's state (ENG-30 points 5, 6; ENG-23 V8)
 delivered = "Delivered"
 cancelled = "Cancelled"
 rejected = "Rejected"
-return_requested = "Return Requested"
 returned = "Returned"

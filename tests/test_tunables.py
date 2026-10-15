@@ -20,17 +20,27 @@ NEXT = str(int(V) + 1)
 # --- the file holds the Settings sheet ----------------------------------------------
 
 
+#: The lists Allen maintains (Settings sheet "Lists": category map, spellings, exemptions,
+#: test accounts). Their entries are added over time; every other value is the sheet's.
+MAINTAINED = ("lists.category_map.", "lists.status_spellings.", "lists.exemptions", "lists.test_accounts")
+
+
+def _sheet_values(values: dict) -> dict:
+    return {k: v for k, v in values.items() if not k.startswith(MAINTAINED)}
+
+
 def test_the_file_holds_every_setting_and_nothing_else() -> None:
     from_file = Tunables.model_validate(tomllib.loads(FILE.read_text()))
 
-    assert set(from_file.values()) == set(Tunables().values())
+    assert set(_sheet_values(from_file.values())) == set(_sheet_values(Tunables().values()))
 
 
 def test_the_file_matches_the_settings_sheet() -> None:
-    """The committed file starts at the pack's values; only the version header differs."""
+    """The committed file holds the pack's values (the maintained lists aside); only the
+    version header differs."""
     from_file = Tunables.model_validate(tomllib.loads(FILE.read_text()))
 
-    assert from_file.values() == Tunables().values()
+    assert _sheet_values(from_file.values()) == _sheet_values(Tunables().values())
     assert from_file.config_version != Tunables().config_version
 
 
@@ -315,6 +325,23 @@ async def test_a_broken_file_at_start_falls_back_to_the_last_recorded_version(
     assert live.current().config_version == "7"
     assert live.current().interest.half_life_days == 40
     assert live.state().source == "engine database"
+
+
+async def test_a_recorded_version_in_an_older_shape_does_not_stop_the_start(
+    tmp_path: Path, change_log: FakeLog
+) -> None:
+    """v1.4 changed the order-history map's values. A settings copy recorded before
+    that no longer reads: the engine starts on the file, and that copy is no fallback."""
+    old = Tunables().model_dump()
+    old["lists"]["tracking_stages"]["payment completed"] = "paid"  # a v1.3 value
+    change_log.latest = {"config_version": "3", "values": old}
+
+    await sync.load_at_start(_settings(_write(tmp_path, FILE.read_text())))
+    assert live.current().config_version == V and live.state().source == "file"
+
+    change_log.latest = {"config_version": "3", "values": old}  # the old copy is the latest again
+    await sync.load_at_start(_settings(_write(tmp_path, "broken = [")))
+    assert live.state().source == "defaults"  # not the unreadable copy
 
 
 async def test_the_same_version_as_recorded_is_not_recorded_twice(tmp_path: Path, change_log: FakeLog) -> None:

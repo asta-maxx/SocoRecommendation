@@ -10,7 +10,7 @@ platform's order history. Document shapes copy the platform rows seen on 1 Oct 2
 from __future__ import annotations
 
 import ast
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -178,18 +178,26 @@ def test_undo_fields_dwell_and_own_posts_are_kept() -> None:
 
 
 def test_order_with_history_and_a_return_request() -> None:
-    """The check's fourth case. v1.3 ENG-29: the history is tracking_info, and a
-    return is an order that reached Return Requested or Returned (AS-23)."""
+    """The check's fourth case, as ENG-30 (v1.4) replaces it: the history is
+    tracking_info mapped to events; a return is order_status Returned, timed by
+    return_info.returned_at. A 'Return requested' event alone returns nothing."""
+    later = T + timedelta(days=29)
     doc = {"_id": ObjectId(), "user_id": UID, "userModel": "user", "seller_id": BIZ, "product_id": PRODUCT,
            "variant_id": ObjectId(), "checkout_id": "58e9b6b2-762a-48db-b013-67449ba06fa5", "total_price": 2299,
-           "order_status": "Return Requested", "buyer_approval_status": "Approved", "isIncognitoMode": True,
+           "order_status": "Returned", "buyer_approval_status": "Approved", "isIncognitoMode": True,
+           "return_info": {"reason": "Arrived damaged or broken", "recorded_by": "seller", "returned_at": later},
            "tracking_info": [{"status": "Order created by Rahul", "timestamp": T, "_id": ObjectId()},
-                             {"status": "Delivered (Urban Vogue Fashion Studio)", "timestamp": T, "_id": ObjectId()}],
-           "created_at": T, "updated_at": T}
+                             {"status": "Delivered (Urban Vogue Fashion Studio)", "timestamp": T, "_id": ObjectId()},
+                             {"status": "Return requested (RET-115A15BF)", "timestamp": later, "_id": ObjectId()},
+                             {"status": "Returned to seller", "timestamp": later, "_id": ObjectId()}],
+           "created_at": T, "updated_at": later}
     order = records.parse_order(doc)
 
-    assert order.is_returned and order.status == "Return Requested"
-    assert [e.status for e in order.tracking] == ["Order created by Rahul", "Delivered (Urban Vogue Fashion Studio)"]
+    assert order.is_returned and order.returned_at == later and order.delivered_at == T
+    assert [e.stage for e in order.tracking] == ["created", "delivered", "return_request", "returned"]
+    requested_only = {**doc, "order_status": "Delivered", "return_info": {"returned_at": None, "reason": None}}
+    assert not records.parse_order(requested_only).is_returned  # a request is not a return
+    assert records.parse_order(requested_only).returned_at is None  # return_info with nulls means nothing
     assert order.value == 2299.0 and order.variant_id and order.checkout_id.startswith("58e9")
     assert order.is_incognito and order.buyer_actor == "user"  # purchase privacy only: still read
 
@@ -207,10 +215,54 @@ def test_who_cancelled_is_worked_out(status: str, approval, who) -> None:
 
 
 def test_the_stored_return_value_comes_from_the_settings() -> None:
-    custom = OrderStatusValues(return_requested="Return requested by buyer")
-    doc = {"_id": ObjectId(), "order_status": "Return requested by buyer"}
+    custom = OrderStatusValues(returned="Returned to store")
+    doc = {"_id": ObjectId(), "order_status": "Returned to store"}
     assert records.parse_order(doc, custom).is_returned
     assert not records.parse_order(doc).is_returned
+
+
+#: The opening words of every tracking_info text on the platform database, 15 Oct 2026.
+REAL_HISTORY = {
+    "Order created by Arun kuamr": "created", "Order Accepted By Seller": "accepted", "Confirmed by buyer": "confirmed",
+    "Shipped by seller": "shipped", "Payment Completed": "payment", "Delivered (Urban Vogue Fashion Studio)": "delivered",
+    "Return requested (RET-115A15BF)": "return_request", "Refund of \u20b96099 initiated": "refund",
+    "Returned to seller": "returned", "Cancelled by seller": "cancelled",
+}
+
+
+def test_history_every_text_on_the_platform_maps() -> None:
+    """ENG-30 check: every tracking_info text in the data maps (whole words, any case)."""
+    from reco.config.tunables import TRACKING_STAGES
+
+    assert {text: records.tracking_stage(text, TRACKING_STAGES) for text in REAL_HISTORY} == REAL_HISTORY
+    assert records.tracking_stage("DELIVERED", TRACKING_STAGES) == "delivered"
+    assert records.tracking_stage("Deliveredx today", TRACKING_STAGES) is None  # whole words only
+
+
+def test_history_an_unknown_text_is_reported_not_guessed() -> None:
+    doc = {"_id": ObjectId(), "order_status": "Delivered",
+           "tracking_info": [{"status": "Delivered", "timestamp": T}, {"status": "Parcel lost in transit", "timestamp": T}]}
+    order = records.parse_order(doc)
+    assert order.history_unmatched == ["Parcel lost in transit"] and order.tracking[-1].stage is None
+
+
+@pytest.mark.parametrize("text", ["Payment Completed", "Return requested (RET-1)", "Refund of \u20b9100"])
+def test_history_payment_request_and_refund_leave_the_state(text: str) -> None:
+    """ENG-30 point 5: a history event never changes the order's state."""
+    doc = {"_id": ObjectId(), "order_status": "Delivered",
+           "tracking_info": [{"status": "Delivered", "timestamp": T}, {"status": text, "timestamp": T + timedelta(hours=1)}]}
+    order = records.parse_order(doc)
+    assert order.status == "Delivered" and not order.is_returned and not order.is_reversed
+
+
+def test_history_that_contradicts_itself_is_flagged() -> None:
+    after = {"_id": ObjectId(), "order_status": "Returned", "tracking_info": [
+        {"status": "Delivered", "timestamp": T}, {"status": "Returned to seller", "timestamp": T + timedelta(days=1)},
+        {"status": "Delivered", "timestamp": T + timedelta(days=2)}]}
+    missing = {"_id": ObjectId(), "order_status": "Delivered", "tracking_info": [{"status": "Order created by A", "timestamp": T}]}
+    fine = {"_id": ObjectId(), "order_status": "Delivered", "tracking_info": [{"status": "Delivered", "timestamp": T}]}
+    assert records.parse_order(after).history_conflict and records.parse_order(missing).history_conflict
+    assert not records.parse_order(fine).history_conflict
 
 
 def test_cart_line_carries_the_first_list() -> None:

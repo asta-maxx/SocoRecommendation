@@ -68,3 +68,7 @@ Checklist section 11 (`scripts/run_checklist.sh`): 11.1 the ENG-10 reader tests,
 | `scripts/check_m1.py` | New |
 | `tests/m1_dataset.py` | New: the constructed users |
 | `scripts/run_checklist.sh` | Section 11 |
+
+## Pack v1.4 update (15 Oct 2026)
+
+The ENG-29 rework adds two checks to the script: **12. A test account is left out of scoring** (a constructed user with six likes, on the test_accounts list of the run's own settings copy, has no rows) and **13. An unmapped category is reported** (the daily `category_check` job, run on the constructed data, records "Cricket"). The script runs on a copy of `settings/engine.toml` with that test account added; the real file is untouched. Result, 15 Oct 2026: **13 of 13 passed**. ENG-30 asks for ENG-11 to pass again after ENG-10's change: it does.

@@ -9,6 +9,9 @@ owner: Allen
 > [!note] Status: **Built** (1 Oct 2026, on dev)
 > All twelve rules work, every item left out is written in the log with its rule, and each list is checked once more just before it goes out. Two rules wait on answers from **Aravinth**: how SOCO stores a block (E-01), and whether an account with no status counts as active (E-08). The 15-minute "current state" from ENG-27 comes later. It becomes **Passed** once the checks run on the test server.
 
+> [!tip] Pack v1.4 (15 Oct 2026)
+> The spelling list got its first entry: "Activated" reads as "Activate", so a product and a product post both count as active whichever word SOCO stored. New tests show the "pushed down or removed" rule (E-12) still serves posts marked ok, review, fix requested, or with no mark at all.
+
 **In one line:** before any list leaves the engine, twelve fixed rules take out anything this person must not see: people they blocked or muted, hidden or private posts, things that can't be bought, their own posts, adult content for under-18s, and posts SOCO has pushed down or removed.
 
 ## Why this task

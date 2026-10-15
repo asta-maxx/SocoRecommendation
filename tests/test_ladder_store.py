@@ -37,7 +37,7 @@ def event(user: str, event_type: str, days_ago: float = 1, **fields) -> dict:
 
 def order(buyer: str, days_ago: float = 1, **fields) -> dict:
     return {"_id": ObjectId(), "buyer_id": buyer, "created_at": NOW - timedelta(days=days_ago),
-            "is_returned": False, "cancelled_at": None, **fields}
+            "status": "Delivered", **fields}
 
 
 @pytest.fixture
@@ -77,8 +77,8 @@ async def test_qualified_actions_count_what_the_pack_counts(dbs) -> None:
     ])
     await engine["ml_orders"].insert_many([
         order("u"),  # 3
-        order("u", cancelled_at=NOW),  # cancelled: nets to zero
-        order("u", is_returned=True),  # returned: nets to zero
+        order("u", status="Cancelled"),  # cancelled: nets to zero
+        order("u", status="Returned"),  # returned: nets to zero
     ])
     assert await writers.count_qualified_actions(settings, "u", since, 3000, 5) == 3
 

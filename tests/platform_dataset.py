@@ -163,7 +163,7 @@ def build_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[str,
     del like_time
 
     # --- orders: tracking_info as the history (ENG-29 item 4) -----------------------
-    for key in ("order_delivered", "order_return_requested", "order_cancelled_by_seller", "order_incognito", "order_pending"):
+    for key in ("order_delivered", "order_returned", "order_cancelled_by_seller", "order_incognito", "order_pending"):
         c[key] = _id()
 
     def order(key: str, status: str, approval: str, steps: list[tuple[str, int]], **fields: Any) -> dict[str, Any]:
@@ -177,8 +177,12 @@ def build_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[str,
     orders = [
         order("order_delivered", "Delivered", "Accepted", [("Order created by Buyer One", 100), ("Order Accepted By Seller", 90),
               ("Shipped by seller", 80), ("Delivered (Test Seller Studio)", 70)]),
-        order("order_return_requested", "Return Requested", "Accepted", [("Order created by Buyer One", 60),
-              ("Delivered (Test Seller Studio)", 50), ("Return Requested by buyer", 40)]),
+        # v1.4 (ENG-30 points 5, 6): no Return Requested status. The seller's return sets
+        # Returned and return_info.returned_at; the request and refund are history events.
+        order("order_returned", "Returned", "Accepted", [("Order created by Buyer One", 60),
+              ("Delivered (Test Seller Studio)", 50), ("Return requested (RET-TEST0001)", 45),
+              ("Refund of ₹799 initiated", 42), ("Returned to seller", 40)],
+              return_info={"reason": "Arrived damaged or broken", "recorded_by": "seller", "returned_at": ago(hours=40)}),
         order("order_cancelled_by_seller", "Rejected", "Rejected By Seller", [("Order created by Buyer One", 30),
               ("Cancelled by seller", 29)], reject_reason_by_buyer="out of stock"),
         order("order_incognito", "Pending", "Pending", [("Order created by Buyer One", 20)], isIncognitoMode=True),

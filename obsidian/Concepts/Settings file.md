@@ -30,6 +30,9 @@ If you forget step 2, or type something invalid, nothing breaks. The engine refu
 ## Status
 Built in parts 3 and 4 of → [[ENG-02 - Service skeleton and settings]]. Checked live: a change took effect in 29 seconds.
 
+## Where it stands (15 Oct 2026)
+The file is at **version 4**: pack v1.4's order-history words, and the first spelling entry ("Activated" reads as "Activate"). The category map, test accounts and exemptions are still empty, waiting on decisions. → [[ENG-29 - Adapting to the platform as built]]
+
 ## How this connects
 - Part of the config area of the → [[Recommendation Engine]].
 - Its values come from → [[The Pack]].

@@ -9,6 +9,9 @@ owner: Allen
 > [!note] Status: **Built** (realigned 1 Oct 2026)
 > First built on 29 Sep. The pack's v1.3 rewrote this task, so on 1 Oct it was rebuilt to the new row. All 10 parts are built, and the check **passed again on my laptop** on 1 Oct. It becomes **Passed** once the same check runs on the test server.
 
+> [!tip] Pack v1.4 (15 Oct 2026)
+> An order's history is now read the v1.4 way: each line of its history ("Delivered", "Refund of ₹…", "Returned to seller") becomes an event, and the order's **status** alone says whether it was returned. There is no "Return Requested" status any more. The test that read "an order with a status log and a return request" now reads a returned order with a request, a refund and a return in its history. → [[ENG-30 - Adapting to the October platform facts]]
+
 **In one line:** teach the engine exactly how SOCO stores things, so no model ever misses data, misreads it, or counts it twice.
 
 ## Why this task

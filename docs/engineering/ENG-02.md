@@ -577,3 +577,8 @@ unreachable as well as the engine's; a locked value (`exploration_percent = 3`)
 rejected. `reco_demo` dropped afterwards.
 
 **Whole checklist:** `bash scripts/run_checklist.sh` re-runs this item's checks, with those of every other finished item. It prints PASS/FAIL per line and cleans up after itself.
+
+## Pack v1.4 update (15 Oct 2026)
+
+- **Start-up with an outdated recorded copy (fix).** `reco/config/sync.load_at_start` validated the last settings recorded in `ml_config_changes` without a guard. After v1.4 changed the order-history map's values, the copy recorded at version 3 no longer validated and every start (API and jobs) crashed. Now a recorded copy that no longer fits the model is logged ("the last recorded settings no longer match the settings model; not used as a fallback") and skipped; the file loads as usual. Test: `test_a_recorded_version_in_an_older_shape_does_not_stop_the_start`.
+- `settings/engine.toml` is at **config_version 4** (history-text map, spelling map, `return_requested` removed). The settings tests compare everything except the four lists Allen maintains (category map, spellings, exemptions, test accounts).

@@ -11,6 +11,9 @@ owner: Allen
 >
 > **1 Oct 2026, after checking every open question against the pack:** four of this task's questions are answered (3, 4, 5 and 12), so they're off the list. The serve log is now copied every 5 minutes instead of a day late, and a tracking step the engine doesn't recognise now leaves a warning in the log.
 
+> [!tip] Pack v1.4 (15 Oct 2026): the rework on the built tasks
+> v1.4 keeps ENG-29's words but its new sister task, [[ENG-30 - Adapting to the October platform facts]], replaces the "Return Requested" parts. The rework list, done on 15 Oct: order history read as events (ENG-03), returns only at "Returned" (ENG-10), the spelling list's first entry and new E-12 tests (ENG-08), and two new checks (ENG-11, 13 of 13). The settings file is now **version 4**. **Still yours to decide:** the category map (42 SOCO names), and the test-account and exemption lists (account ids needed).
+
 **In one line:** the engine learns the quirks of SOCO's real database (its category names, its spellings, how it writes an order's steps, its new serve log) and gets a test database full of made-up SOCO data.
 
 ## Why this task

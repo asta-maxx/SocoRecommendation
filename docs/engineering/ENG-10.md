@@ -139,3 +139,10 @@ python scripts/check_m1.py        # the ENG-11 checks (throwaway databases)
 | `reco/jobs/refresh.py` | The live profile reads the copies and clips |
 | `reco/jobs/__main__.py` | Unnamed rows deleted before the run |
 | `tests/test_m1_copies.py` | New |
+
+## Pack v1.4 update (15 Oct 2026)
+
+- ENG-30 point 6: there is no Return Requested status. A purchase now nets to zero only when **order_status** is Cancelled, Rejected or Returned (`copies._is_reversed`, and the ladder's count in `writers.count_qualified_actions`); a history event never decides it. Before, a "Return Requested" status or a cancellation event in the history also reversed it. Test: `test_only_the_order_state_reverses_a_purchase`.
+- ENG-30 point 10 (leave a purchase out while a return request is open; restore it when the request ends without a return) is ENG-30 work, not yet built.
+- Category map (including a followed business's category) and test accounts: already in place (ENG-29).
+- Dev, 15 Oct (after `sync` and `interest`): 8 of 16 users scored; 2 orders reversed (one Returned, one Rejected).

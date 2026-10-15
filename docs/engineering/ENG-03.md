@@ -444,3 +444,14 @@ The live demo script, in plain language, is `obsidian/Demos/Demo - ENG-03.md`.
 **Whole checklist:** `bash scripts/run_checklist.sh` re-runs this item's checks,
 with those of every other finished item. It prints PASS/FAIL per line and cleans
 up after itself.
+
+## Pack v1.4 update (15 Oct 2026)
+
+v1.4 leaves ENG-03's text unchanged; ENG-30 voids its "order outcome from orders.statusLog and orders.return_info" clause and its fourth check case, and the ENG-29 rework list names four points here:
+
+| Rework | State |
+|---|---|
+| (1) Categories from the category map; unmapped reported daily, left out | Done (ENG-29, 1 Oct). The map's entries are still to fill (42 platform names on dev) |
+| (2) No statusLog; history from tracking_info mapped as ENG-30 point 5 | **Done 15 Oct**: the history-text map; `is_returned` from order_status Returned; return time from `return_info.returned_at` (ENG-30 §2) |
+| (3) No delivered-list record or engine_position | Done (ENG-29, 1 Oct) |
+| (4) Update the "status log and return request" test | **Done 15 Oct**: `test_order_with_history_and_a_return_request` now reads a Returned order with a request, refund and return in its history; a request alone returns nothing |

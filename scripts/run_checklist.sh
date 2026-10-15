@@ -59,11 +59,13 @@ proof_to() { # proof_to ENG-NN: the file the next checks' full output goes into
 import sys
 from pathlib import Path
 item = sys.argv[1]
-for line in Path("Tracing/pack_text/SOCO-REC_Wave1A_Build_List_App_DB_Engine_v1_3.xlsx.txt").read_text(encoding="utf-8").splitlines():
+build_list = sorted(Path("Tracing/pack_text").glob("SOCO-REC_Wave1A_Build_List_*.txt"))[-1]  # the current pack
+print(f"**Pack:** {build_list.name.removesuffix('.txt')}  ")
+for line in build_list.read_text(encoding="utf-8").splitlines():
     cells = line.split(" | ")
     if cells[0] == item and len(cells) > 10:
         print(f"**Task:** {cells[5]}  ")
-        print(f"**Build List v1.3, How to check it is done:** {cells[-2]}")
+        print(f"**How to check it is done:** {cells[-2]}")
         break
 EOF
     echo
@@ -265,7 +267,7 @@ echo "== 11. ENG-10 and ENG-11: M1 on the engine's copies, and its check script"
 proof_to ENG-10
 check "11.1 each action read from one place: weights, undo, reversal, one view per post, categories" "$PY -m pytest -q tests/test_m1_copies.py -p no:cacheprovider" "15 passed"
 proof_to ENG-11
-check "11.2 the M1 check script: all 11 checks on the constructed users (the ENG-10 and ENG-11 check)" "$PY scripts/check_m1.py" "Result: 11 of 11 passed"
+check "11.2 the M1 check script: the 11 checks plus the two from the ENG-29 rework, on the constructed users (the ENG-10 and ENG-11 check)" "$PY scripts/check_m1.py" "Result: 13 of 13 passed"
 proof_to ENG-10
 check "11.3 M1 runs on SOCO's real data from the copies (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs interest" '"outcome": "succeeded"'
 

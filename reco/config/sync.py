@@ -15,6 +15,7 @@ import asyncio
 import logging
 from typing import Any
 
+from pydantic import ValidationError
 from reco.config import Settings
 from reco.config import live
 from reco.config.tunables import Tunables
@@ -95,7 +96,18 @@ async def load_at_start(settings: Settings) -> None:
     except Exception:
         logger.exception("could not read ml_config_changes; starting without the last good record")
         last = None
-    last_good = Tunables.model_validate(last["values"]) if last else None
+    last_good = None
+    if last:
+        try:
+            last_good = Tunables.model_validate(last["values"])
+        except ValidationError as exc:
+            # A code update changed the settings' shape (v1.4: the order-history map), so
+            # the recorded copy no longer reads. It can't be a fallback; the file still can.
+            logger.warning(
+                "the last recorded settings no longer match the settings model; not used as a fallback",
+                extra={"config_version": last.get("config_version") or last.get("new_version"),
+                       "errors": exc.error_count()},
+            )
     read = live.read_file(settings.settings_file)
     live.state().seen = read.fingerprint
 

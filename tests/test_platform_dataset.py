@@ -118,11 +118,13 @@ def _order(key: str) -> records.OrderRecord:
 
 
 def test_an_order_with_tracking_info_and_a_return_request_reads_correctly() -> None:
-    order = _order("order_return_requested")
-    assert [e.stage for e in order.tracking] == ["created", "delivered", "return_requested"]
-    assert order.delivered_at is not None and order.return_requested_at is not None
-    assert order.delivered_at < order.return_requested_at and order.is_returned
-    assert order.tracking[-1].actor == "buyer"
+    """v1.4 (ENG-30 points 5 and 6): the history maps to events; Returned is order_status;
+    the return time is return_info.returned_at."""
+    order = _order("order_returned")
+    assert [e.stage for e in order.tracking] == ["created", "delivered", "return_request", "refund", "returned"]
+    assert order.delivered_at < order.return_requested_at < order.returned_at
+    assert order.is_returned and order.is_reversed and order.returned_at == order.returned_event_at
+    assert order.history_unmatched == [] and not order.history_conflict
 
 
 def test_the_first_delivery_is_kept_from_free_text_entries() -> None:
@@ -200,8 +202,8 @@ async def test_rec_serve_log_rows_are_copied(seeded) -> None:
     rows = await engine["ml_events"].find({"source": "rec_serve_log"}).to_list(None)
     assert len(rows) == 3
     assert sorted(r["origin"] for r in rows) == ["cache", "engine", "fallback"] and all(r["event_type"] == "serve_log" for r in rows)
-    order = await engine["ml_orders"].find_one({"_id": CASES["order_return_requested"]})
-    assert order["is_returned"] and order["return_requested_at"] is not None
+    order = await engine["ml_orders"].find_one({"_id": CASES["order_returned"]})
+    assert order["is_returned"] and order["returned_at"] is not None and order["return_requested_at"] is not None
 
 
 @pytest.mark.mongo

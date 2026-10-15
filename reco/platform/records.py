@@ -464,9 +464,11 @@ class TrackingEntry(_Record):
 
 
 def tracking_stage(text: str, stages: dict[str, str]) -> str | None:
-    """The stage an entry's text begins with, ignoring case; the longest beginning wins."""
-    lowered = text.strip().lower()
-    matches = [prefix for prefix in stages if lowered.startswith(prefix)]
+    """The history event an entry's text opens with (ENG-30 point 5): whole words,
+    ignoring case; the longest opening wins. None for a text that matches nothing."""
+    words = " ".join(text.strip().lower().split())
+    matches = [prefix for prefix in stages if words == prefix or words.startswith(prefix + " ")
+               or (words.startswith(prefix) and not words[len(prefix)].isalnum())]
     return stages[max(matches, key=len)] if matches else None
 
 
@@ -499,11 +501,15 @@ class OrderRecord(_Record):
     status: str | None  # orders.order_status
     buyer_approval_status: str | None
     tracking: list[TrackingEntry]  # orders.tracking_info: the order's history (ENG-29), in time order
-    delivered_at: datetime | None  # the FIRST time it reached Delivered (ENG-29 item 4)
-    return_requested_at: datetime | None
-    returned_at: datetime | None
-    cancelled_at: datetime | None  # first cancellation or rejection
-    is_returned: bool  # reached Return Requested or Returned, now or in its history (ENG-29 item 5)
+    delivered_at: datetime | None  # the first Delivered history event (ENG-30 point 5)
+    return_requested_at: datetime | None  # a 'Return requested' event: a cross-check only (ENG-30 point 7)
+    returned_at: datetime | None  # return_info.returned_at, when filled (ENG-30 point 6)
+    returned_event_at: datetime | None  # the 'Returned to seller' event: a cross-check
+    cancelled_at: datetime | None  # the first Cancelled history event
+    is_returned: bool  # order_status is Returned (ENG-30 point 6: the only test)
+    is_reversed: bool  # order_status Cancelled, Rejected or Returned: the purchase nets to zero (ENG-10, ENG-30 point 10)
+    history_unmatched: list[str]  # entries the history-text map doesn't match: reported, never guessed
+    history_conflict: bool  # Delivered after Returned, or Delivered / Returned with no Delivered event (ENG-30 point 5)
     cancelled_by: Literal["buyer", "seller"] | None  # worked out, not stored (DS-017 6.4; ENG-29 item 4)
     cancel_reasons: dict[str, str]  # whatever exists; stored, never scored
     is_incognito: bool  # purchase privacy only: counts for the buyer, never names them
@@ -528,10 +534,12 @@ def _cancelled_by(status: str | None, approval: str | None, statuses: OrderStatu
 def parse_order(
     doc: dict[str, Any], statuses: OrderStatusValues = OrderStatusValues(), stages: dict[str, str] | None = None
 ) -> OrderRecord:
-    """ENG-29 item 4: tracking_info is the order's history. Each entry's stage comes
-    from how its text begins (the settings' tracking_stages), its actor from
-    "by buyer" / "by seller". order_status and buyer_approval_status decide the
-    canceller first (DS-017 6.4); the entry decides it where they don't."""
+    """ENG-30 points 5 and 6 (replacing ENG-29 points 4 and 5): order_status is the
+    order's state; tracking_info is its history, each entry a history event from
+    its opening words (the settings' history-text map). A history event never
+    changes the state. Returned means order_status Returned; its time is
+    return_info.returned_at. order_status and buyer_approval_status decide the
+    canceller (DS-017 6.4); an entry's "by buyer" / "by seller" where they don't."""
     stages = stages if stages is not None else live.current().lists.tracking_stages
     tracking = sorted(
         (
@@ -543,11 +551,16 @@ def parse_order(
         key=lambda e: (e.at is None, e.at or datetime.min),
     )
     status = doc.get("order_status")
-    delivered, requested, returned = _first(tracking, "delivered"), _first(tracking, "return_requested"), _first(tracking, "returned")
-    cancelled = next((e for e in tracking if e.stage in ("cancelled", "rejected")), None)
-    is_returned = (
-        any(status_is(status, v) for v in (statuses.return_requested, statuses.returned))
-        or requested is not None or returned is not None
+    delivered, requested, returned = _first(tracking, "delivered"), _first(tracking, "return_request"), _first(tracking, "returned")
+    cancelled = _first(tracking, "cancelled")
+    is_returned = status_is(status, statuses.returned)
+    return_info = doc.get("return_info") if isinstance(doc.get("return_info"), dict) else {}
+    # A Delivered event after a Returned one, or an order Delivered or Returned with no
+    # Delivered event: flagged, and kept out of the timing rules until resolved.
+    conflict = (
+        (delivered is None and (status_is(status, statuses.delivered) or is_returned))
+        or (returned is not None and delivered is not None and returned.at and delivered.at
+            and any(e.stage == "delivered" and e.at and e.at > returned.at for e in tracking))
     )
     reasons = {
         field: str(doc[field])
@@ -572,9 +585,13 @@ def parse_order(
         tracking=tracking,
         delivered_at=delivered.at if delivered else None,
         return_requested_at=requested.at if requested else None,
-        returned_at=returned.at if returned else None,
+        returned_at=as_utc(return_info.get("returned_at")),
+        returned_event_at=returned.at if returned else None,
         cancelled_at=cancelled.at if cancelled else None,
         is_returned=is_returned,
+        is_reversed=is_returned or status_is(status, statuses.cancelled) or status_is(status, statuses.rejected),
+        history_unmatched=[e.status for e in tracking if e.stage is None],
+        history_conflict=bool(conflict),
         cancelled_by=_cancelled_by(status, doc.get("buyer_approval_status"), statuses) or (cancelled.actor if cancelled else None),
         cancel_reasons=reasons,
         is_incognito=bool(doc.get("isIncognitoMode")),

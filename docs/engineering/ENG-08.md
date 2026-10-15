@@ -296,3 +296,8 @@ Commits `11e515e`, `6c3ef46`, `d1e5427`, `964f4ec` (1 Oct 2026):
 ## 8. Demo
 
 The live demo script, in plain language, is `obsidian/Demos/Demo - ENG-08.md`.
+
+## Pack v1.4 update (15 Oct 2026)
+
+- Rework (ENG-29): status comparisons go through the spelling map, so "Activate" and "Activated" both count. The code already did (`records.status_is`); on 15 Oct the map gained its first entry, `status_spellings = { activated = "activate" }` (settings config_version 4).
+- ENG-30 point 11 (a check only): `test_e12_serves_every_other_compliance_status`, where ok, review, fix_requested and no compliance record are served.

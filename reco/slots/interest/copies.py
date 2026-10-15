@@ -23,9 +23,10 @@ contribute nothing. That is the pack's "the undo removes the weight of the actio
 it undoes, aged from the original action's time", applied once: weight minus the
 same weight at the same age is exactly zero.
 
-Reversal: an order that is Cancelled or Rejected (order_status), or reached Return
-Requested or Returned, contributes nothing: its +20 and its -20 are both aged
-from the order's creation, so it nets to exactly zero, once.
+Reversal: an order whose order_status is Cancelled, Rejected or Returned contributes
+nothing: its +20 and its -20 are both aged from the order's creation, so it nets to
+exactly zero, once. (There is no Return Requested status, ENG-30 point 6; leaving a
+purchase out while a return request is open is ENG-30 point 10.)
 
 Incognito orders count for the buyer (purchase privacy only). Impressions,
 remove_from_cart and the other new platform events carry no weight. Only user
@@ -81,12 +82,11 @@ class CopyInputs:
 
 
 def _is_reversed(order: dict[str, Any]) -> bool:
+    """ENG-10 (and ENG-30 point 6): Cancelled, Rejected or Returned, read from
+    order_status, the order's state. A history event never decides it."""
     statuses = live.current().lists.order_status
     status = order.get("status")
-    return bool(
-        order.get("is_returned") or order.get("cancelled_at")
-        or status_is(status, statuses.cancelled) or status_is(status, statuses.rejected)
-    )
+    return any(status_is(status, value) for value in (statuses.cancelled, statuses.rejected, statuses.returned))
 
 
 def _latest_qualified_views(rows: list[dict[str, Any]], qualified_ms: float) -> list[dict[str, Any]]:

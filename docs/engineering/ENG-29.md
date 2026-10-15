@@ -311,3 +311,19 @@ Since then, on 1 Oct 2026:
 The live demo script, in plain language, is `obsidian/Demos/Demo - ENG-29.md`.
 
 **Whole checklist:** `bash scripts/run_checklist.sh` re-runs this item's checks (section 8) with those of every other finished item, prints PASS/FAIL per line and drops `reco_demo` at the end.
+
+## Pack v1.4 update (15 Oct 2026)
+
+ENG-29's text is unchanged in v1.4; ENG-30 voids point 2's "exact stored value of a return request (Return Requested)", point 4's "a return request" and "who acted", point 5, and ENG-29's order check. The rework list for the built items, and its state:
+
+| Item | Rework | State |
+|---|---|---|
+| ENG-03 | Category map; history mapped as ENG-30 point 5; no delivered-list record; update the order test | Done (15 Oct); map entries still to fill |
+| ENG-04 | Reconciliation on tracking_info; rec_serve_log in the sync | Done (1 Oct) |
+| ENG-06 | Items in the app's shape | Done (1 Oct) |
+| ENG-08 | Spelling map; E-12 tests | Done (15 Oct): `activated → activate`; E-12 tests added |
+| ENG-10 | Category map; test accounts left out; reversal on Cancelled, Rejected or Returned | Done (15 Oct): reversal from order_status only |
+| ENG-11 | Re-run; add "unmapped category reported" and "test account left out" | Done (15 Oct): 13 of 13 |
+| ENG-01, 02, 05, 07, 09 | Settings entries: category map, spelling map, test accounts, exemptions | Spelling map done; **category map (42 names), test accounts and exemptions wait on decisions / account ids** |
+
+Point 4 (order history) is now ENG-30 point 5's history-text map (`[lists.tracking_stages]`, config_version 4).

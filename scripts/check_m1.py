@@ -10,8 +10,13 @@ database, then runs the engine for real on them, the way the servers will:
     python -m reco.jobs interest     M1, both methods, from the copies (ENG-10)
     python -m reco.jobs popularity   the ladder's rung 3 (ENG-09)
 
-and prints PASS or FAIL for each of the row's 11 checks. The full output is saved
-to Tracing/checks/ENG-11_<date>.md (the Home sheet: "<item ID>_<date>").
+and prints PASS or FAIL for each of the row's 11 checks, plus two from the ENG-29
+rework (12: a test account is left out of scoring; 13: an unmapped category is
+reported). The full output is saved to Tracing/checks/ENG-11_<date>.md (the Home
+sheet: "<item ID>_<date>").
+
+The run uses its own copy of the settings file, with the constructed test account
+on its test_accounts list (ENG-29 item 3); the real settings file is not touched.
 
 Both databases are throwaway, on the ENGINE cluster (ML_MONGO_URI; the platform
 login is read-only and is never used): reco_m1_check and reco_m1_check_platform.
@@ -36,11 +41,23 @@ ENGINE_DB = "reco_m1_check"
 PLATFORM_DB = "reco_m1_check_platform"
 
 from dotenv import load_dotenv  # noqa: E402
+import tempfile  # noqa: E402
+
+from tests.m1_dataset import build_m1_dataset as _build  # noqa: E402
 
 load_dotenv(ROOT / ".env")
+NOW = datetime.now(timezone.utc)
+DATASET, USERS, EXPECT = _build(NOW)
+# A copy of the settings with the constructed test account listed (ENG-29 item 3).
+_settings_text = (ROOT / "settings" / "engine.toml").read_text(encoding="utf-8")
+_entry = (f'test_accounts = [{{ account_id = "{USERS[EXPECT["test_account"]]}", reason = "ENG-11 check", '
+          f'expiry = {(date.today() + timedelta(days=7)).isoformat()}, changed_by = "check_m1" }}]')
+assert "\ntest_accounts = []" in _settings_text, "the settings file's test_accounts line has moved"
+SETTINGS_COPY = Path(tempfile.mkdtemp(prefix="check-m1-")) / "engine.toml"
+SETTINGS_COPY.write_text(_settings_text.replace("\ntest_accounts = []", "\n" + _entry), encoding="utf-8")
 os.environ.update({  # before the engine's settings are read
     "APP_MONGO_URI": os.environ.get("ML_MONGO_URI", ""), "APP_MONGO_DB": PLATFORM_DB, "ML_MONGO_DB": ENGINE_DB,
-    "DATA_PROFILE": "live",
+    "DATA_PROFILE": "live", "SETTINGS_FILE": str(SETTINGS_COPY),
 })
 
 from pymongo import AsyncMongoClient  # noqa: E402
@@ -52,7 +69,7 @@ from reco.slots.interest import copies, interest_decay  # noqa: E402
 from reco.slots.interest.context import ScoringContext  # noqa: E402
 from reco.store import connection as store_conn  # noqa: E402
 from reco.store.scores import Method  # noqa: E402
-from tests.m1_dataset import ELEC, HOME, PETS, build_m1_dataset  # noqa: E402
+from tests.m1_dataset import ELEC, HOME, PETS  # noqa: E402
 
 PY = sys.executable
 lines: list[str] = []
@@ -96,15 +113,17 @@ def assignments() -> dict[str, str]:
 
 
 async def main(keep: bool) -> int:
-    now = datetime.now(timezone.utc)
+    now = NOW
     settings = get_settings()
     say(f"# ENG-11: M1 check script, {date.today().isoformat()}")
+    say()
+    say("Checks 1 to 11 are the Build List's ENG-11 row; 12 and 13 come from the ENG-29 rework.")
     say()
     say(f"Engine database {ENGINE_DB}, platform database {PLATFORM_DB} (both throwaway, engine cluster); "
         f"model_version {settings.model_version}.")
     say()
     say("```")
-    dataset, users, expect = build_m1_dataset(now)
+    dataset, users, expect = DATASET, USERS, EXPECT
     name_of = {v: k for k, v in users.items()}
     client = AsyncMongoClient(settings.ml_mongo_uri, tz_aware=True)
     try:
@@ -114,7 +133,7 @@ async def main(keep: bool) -> int:
             if documents:
                 await client[PLATFORM_DB][collection].insert_many(documents)
         say(f"Loaded {sum(map(len, dataset.values()))} constructed documents; {len(users)} users.")
-        for name in ("sync", "interest", "popularity"):
+        for name in ("sync", "interest", "popularity", "category_check"):
             job(name)
         say()
 
@@ -135,8 +154,9 @@ async def main(keep: bool) -> int:
         missing = sorted(u for u in expect["scored"] for m in scores if u not in scores[m])
         extra = sorted(u for m in scores for u in scores[m] if u in expect["not_scored"])
         check(1, "Scores exist for every user with a mappable category", not missing and not extra,
-              f"missing {missing}; scored though nothing mappable {extra}" if missing or extra else
-              f"{len(expect['scored'])} users scored under both methods; {len(expect['not_scored'])} correctly not")
+              f"missing {missing}; scored though it shouldn't be {extra}" if missing or extra else
+              f"{len(expect['scored'])} users scored under both methods; {len(expect['not_scored'])} correctly not "
+              f"(nothing mappable, or a test account)")
         # 2
         sums = {(m, u): sum(r["share"] for r in cats.values()) for m in scores for u, cats in scores[m].items()}
         bad = {k: round(v, 9) for k, v in sums.items() if abs(v - 1) > 1e-9}
@@ -209,6 +229,16 @@ async def main(keep: bool) -> int:
               first == second and all(gap <= 2 for gap in splits.values()),
               f"two separate processes, 10,000 ids: {'identical' if first == second else 'DIFFERENT'}; "
               + ", ".join(f"{s} {g:.2f} points from the split" for s, g in splits.items()))
+        # 12 (ENG-29 rework)
+        tester = expect["test_account"]
+        in_rows = [m for m in scores if tester in scores[m]]
+        check(12, "A test account is left out of scoring", not in_rows,
+              f"the test account (6 Home & Living likes, on the settings' test_accounts) has rows under: {in_rows or 'neither method'}")
+        # 13 (ENG-29 rework)
+        report = await engine["ml_measurements"].find_one({"measure": "unmapped_categories"})
+        labels = [row["label"] for row in (report or {}).get("unmapped", [])]
+        check(13, "An unmapped category is reported", expect["unmapped"] in labels,
+              f"the daily category check recorded {len(labels)} unmapped: {labels}")
         say()
         passed = sum(results)
         say(f"Result: {passed} of {len(results)} passed")
@@ -216,6 +246,7 @@ async def main(keep: bool) -> int:
     finally:
         await platform_conn.close_client()
         await store_conn.close_client()
+        SETTINGS_COPY.unlink(missing_ok=True)
         if not keep:
             await client.drop_database(ENGINE_DB)
             await client.drop_database(PLATFORM_DB)
@@ -223,7 +254,7 @@ async def main(keep: bool) -> int:
     out = ROOT / "Tracing" / "checks" / f"ENG-11_{date.today().isoformat()}.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"Saved {out.relative_to(ROOT)}")
-    return 0 if all(results) and len(results) == 11 else 1
+    return 0 if all(results) and len(results) == 13 else 1
 
 
 def _vocabulary(settings) -> list[str]:

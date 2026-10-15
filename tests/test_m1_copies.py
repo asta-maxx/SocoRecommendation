@@ -131,12 +131,19 @@ async def test_unmatched_categories_are_dropped_and_counted(world, settings) -> 
     assert kinds(result) == [] and result.read_stats.unresolved_category == 2
 
 
-@pytest.mark.parametrize("change", [{"status": "Cancelled"}, {"status": "rejected"}, {"is_returned": True},
-                                    {"cancelled_at": NOW}], ids=["cancelled", "rejected", "returned", "cancelled_at"])
+@pytest.mark.parametrize("change", [{"status": "Cancelled"}, {"status": "rejected"}, {"status": "Returned"}],
+                         ids=["cancelled", "rejected", "returned"])
 async def test_a_reversed_order_counts_nothing(world, settings, change) -> None:
     world["orders"] = [order(**change)]
     result = await inputs(settings)
     assert kinds(result) == [] and result.skipped["order_reversed"] == 1
+
+
+async def test_only_the_order_state_reverses_a_purchase(world, settings) -> None:
+    """v1.4 (ENG-30 points 5, 6): a history event never decides it. A 'Return requested'
+    event or an old Return Requested flag on a Delivered order is not a reversal."""
+    world["orders"] = [order("Delivered", is_returned=True, cancelled_at=NOW)]
+    assert [k for k, _ in kinds(await inputs(settings))] == ["purchase"]
 
 
 async def test_a_kept_order_is_a_purchase_at_its_creation_including_incognito(world, settings) -> None:

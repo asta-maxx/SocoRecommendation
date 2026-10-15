@@ -433,30 +433,34 @@ class AccountEntry(_Section):
 
 
 class OrderStatusValues(_Section):
-    """The exact stored order_status values the engine reads (AS-23, ENG-23 V8)."""
+    """The exact stored order_status values the engine reads (ENG-23 V8). order_status
+    is the order's state (Build List v1.4 ENG-30 points 5 and 6). There is no Return
+    Requested status: a request is a returnrequests record (ENG-30 point 7)."""
 
     delivered: str = "Delivered"
     cancelled: str = "Cancelled"
     rejected: str = "Rejected"
-    return_requested: str = "Return Requested"
     returned: str = "Returned"
 
 
-TrackingStage = Literal["created", "accepted", "confirmed", "shipped", "paid", "delivered",
-                        "return_requested", "returned", "cancelled", "rejected"]
+#: History events (Build List v1.4 ENG-30 point 5).
+TrackingStage = Literal["created", "accepted", "confirmed", "shipped", "payment", "delivered", "cancelled",
+                        "return_request", "refund", "returned"]
 
-#: The beginnings seen in tracking_info on 1 Oct 2026, and the stages the pack names.
+#: ENG-30 point 5, the history-text map: each tracking_info entry's opening words ->
+#: its history event, matched as whole words, ignoring case. Every text on the
+#: platform database on 15 Oct 2026 maps.
 TRACKING_STAGES: dict[str, str] = {
     "order created": "created",
     "order accepted": "accepted",
-    "confirmed": "confirmed",
+    "confirmed by buyer": "confirmed",
     "shipped": "shipped",
-    "payment completed": "paid",
+    "payment completed": "payment",
     "delivered": "delivered",
-    "return requested": "return_requested",
-    "returned": "returned",
     "cancelled": "cancelled",
-    "rejected": "rejected",
+    "return requested": "return_request",
+    "refund of": "refund",
+    "returned to seller": "returned",
 }
 
 
@@ -471,9 +475,10 @@ class Lists(_Section):
     #: engine compares with (ENG-29 item 2), e.g. {"activated": "activate"}.
     status_spellings: dict[str, str] = Field(default_factory=dict)
     order_status: OrderStatusValues = OrderStatusValues()
-    #: ENG-29 item 4: tracking_info entries are free text ("Delivered (Urban Vogue
-    #: ...)", "Cancelled by seller"). An entry is at a stage when its text starts
-    #: with one of these words, ignoring case; the longest match wins.
+    #: The history-text map (ENG-30 point 5, replacing ENG-29 point 4): tracking_info
+    #: entries are free text ("Delivered (Urban Vogue ...)", "Refund of ..."). An
+    #: entry is the event whose words it opens with, as whole words, ignoring case;
+    #: the longest match wins. An entry that matches nothing is reported, never guessed.
     tracking_stages: dict[str, TrackingStage] = Field(default_factory=lambda: dict(TRACKING_STAGES))
     #: Flagged, never actioned (ENG-21, X-21).
     exemptions: list[AccountEntry] = Field(default_factory=list)

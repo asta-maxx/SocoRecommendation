@@ -24,6 +24,10 @@ is built for one check of ENG-11:
                    rung3 nothing, rung5 read with the engine store down; rung4 and
                    rung5 carry an old delivered score
     nothing        no actions and nothing declared: no score (1, by exclusion)
+    tester         a test account (in the settings' test_accounts) with six Home & Living likes:
+                   left out of scoring (12)
+
+The "Cricket" post is also the unmapped category the daily check reports (13).
 
 `expect` holds what the checks compare against.
 """
@@ -43,7 +47,7 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
     ago = lambda **kw: now - timedelta(**kw)  # noqa: E731
 
     names = ("decay", "floor", "cancelled", "unmappable", "views", "negative", "undo",
-             "rung1", "rung2", "rung3", "rung4", "rung5", "nothing", "author")
+             "rung1", "rung2", "rung3", "rung4", "rung5", "nothing", "author", "tester")
     uid = {n: ObjectId() for n in names}
     declared = {"floor": [PETS], "rung2": [PETS]}
     delivered = {"rung4": {FASHION: 7, "Cricket": 3}, "rung5": {PETS: 3}}
@@ -114,6 +118,9 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
             event(who, "like", ago(days=1), post_id=fashion)
         event(who, "view", ago(days=1), post_id=fashion, dwell_ms=6000)
     event("rung2", "like", ago(days=1), post_id=pets)
+    # (12) a test account: plenty of activity, never scored
+    for _ in range(6):
+        event("tester", "like", ago(days=1), post_id=home)
 
     # --- orders -------------------------------------------------------------------------
     def order(who: str, status: str, hours: int) -> dict[str, Any]:
@@ -138,7 +145,9 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
                "recommendationrequests": []}
     expect = {
         "scored": {"decay", "floor", "cancelled", "unmappable", "views", "negative", "undo", "rung1", "rung2", "rung4"},
-        "not_scored": {"rung3", "rung5", "nothing", "author"},
+        "not_scored": {"rung3", "rung5", "nothing", "author", "tester"},
+        "test_account": "tester",
+        "unmapped": "Cricket",
         "rungs": {"rung1": None, "rung2": "rung_2", "rung3": "rung_3", "rung4": "rung_4", "rung5": "rung_5"},
     }
     return dataset, {n: str(i) for n, i in uid.items()}, expect

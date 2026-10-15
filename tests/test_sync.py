@@ -196,13 +196,13 @@ async def test_an_order_keeps_its_status_history(synced) -> None:
     placed = order("Placed")
     await platform[ORDERS].insert_one(placed)
     await run.sync_once(settings)
-    for status in ("Delivered", "Return Requested"):
+    for status in ("Delivered", "Returned"):  # v1.4: no Return Requested status (ENG-30 point 6)
         now = utc_now()
         await platform[ORDERS].update_one({"_id": placed["_id"]}, {"$set": {"order_status": status, "updated_at": now}})
         await run.sync_once(settings)
 
     copy = await engine["ml_orders"].find_one({"_id": placed["_id"]})
-    assert [h["status"] for h in copy["status_history"]] == ["Placed", "Delivered", "Return Requested"]
+    assert [h["status"] for h in copy["status_history"]] == ["Placed", "Delivered", "Returned"]
     assert copy["is_returned"]
 
 

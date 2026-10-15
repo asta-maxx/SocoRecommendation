@@ -9,6 +9,9 @@ owner: Allen
 > [!note] Status: **Built** (24 Sep 2026; realigned to the new pack on 1 Oct 2026)
 > All 6 parts are built, and the task's official check **passed on my laptop**, first on 24 Sep and again on 1 Oct after the update. The pack says every check must also be run on the **test** server. Once that server exists and the check passes there, this becomes **Passed**.
 
+> [!warning] Fixed 15 Oct 2026
+> After the v1.4 settings change, the engine **crashed on start**: the copy of the settings it keeps in its database (version 3) no longer fitted the new shape. Now an old copy that doesn't fit is noted in the log and skipped, and the settings file loads as normal. A test covers it. → [[Settings file]]
+
 > [!tip] What changed on 1 Oct (pack v1.3)
 > The engine **no longer receives events**. SOCO_BE used to post them to the engine's event door (`/v1/events`). That door is closed. Instead, the engine fetches the events itself, every few minutes, with its read-only login. → [[Engine sync]]
 > So for this task:

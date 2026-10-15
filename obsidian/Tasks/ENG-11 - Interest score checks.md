@@ -9,6 +9,9 @@ owner: Allen
 > [!note] Status: **Built** (14 Oct 2026, on my laptop)
 > One script checks the whole interest score on made-up users and prints PASS or FAIL for each of the pack's 11 checks. **All 11 pass.** It becomes **Passed** once it passes on the test server and the output is saved in the shared "Wave1A checks" folder.
 
+> [!tip] Pack v1.4 (15 Oct 2026)
+> Two more checks, from the rework list: **12, a test account is left out** (a made-up user with six likes, on the test-account list, gets no score) and **13, an unmapped category is reported** ("Cricket"). **13 of 13 pass.**
+
 **In one line:** a single command that proves the interest score (M1) does what the pack says, end to end.
 
 ## Why this task
