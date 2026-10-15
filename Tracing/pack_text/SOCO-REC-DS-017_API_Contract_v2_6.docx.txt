@@ -1,11 +1,11 @@
-SOCO-REC-DS-017  API Contract  v2.5
-SOCO Recommendation Intelligence Engine. Contract between SOCO_BE and the recommendation service. Issued by Kala (Cristo Labs), 29 September 2026. Status: frozen for build. Replaces v2.4 in full. v2.5 adapts the service to what the platform already has: lists are shown unchanged with a small serve log, order history comes from tracking_info, returns are read from Return Requested, blocks from followers, and the service keeps eligibility current itself. v2.3 was an internal draft and was not issued.
+SOCO-REC-DS-017  API Contract  v2.6
+SOCO Recommendation Intelligence Engine. Contract between SOCO_BE and the recommendation service. Issued by Kala (Cristo Labs), 14 October 2026. Status: frozen for build. Replaces v2.5 in full. v2.6 follows the platform facts of 8 to 14 October: there is no Return Requested status, so a return is order_status Returned and an open return request is a returnrequests record; order history entries are free text that the service maps; M8 credits a sale to the original post's author and leaves out purchases by the same person; and the service also reads returnrequests and commissionconfigs. Nothing new is asked of SOCO_BE. v2.3 was an internal draft and was not issued.
 1. Status of this contract
 This version replaces every earlier version of this contract, and SERVICE_CONTRACT v1.0, in full. Anything not stated here is not part of the contract.
 Event (E), field (F), data model (D) and rule (X) codes refer to the SOCO-REC-DS-003a Capture Register, which is kept alongside this contract.
 Where a fact still needs confirming from the app or the database, this contract states an assumption and is written to it. The assumptions are listed in Section 11, and each is marked [Assumed: AS-nn] where it applies.
 If an assumption turns out to be wrong, the owner tells Cristo Labs in writing, and Cristo Labs issues the next version. The build does not stop while that happens.
-Every change is listed, with its date, in the Wave 1A build list v1.3, sheet 'Change register'.
+Every change is listed, with its date, in the Wave 1A build list v1.4, sheet 'Change register'.
 2. Parties, endpoints and surfaces
 Item
 Contract
@@ -219,12 +219,12 @@ In
 E5
 order_placed
 SOCO_BE → orders, and one postevents purchase row per order
-order_id F23, request_id F24, line_items F25 (variant_id, qty, price), promoter_id F26, order_value F27 (total_price), server_ts F28 (orders.created_at), checkout_id F59, isIncognitoMode
+order_id F23, request_id F24, line_items F25 (variant_id, qty, price), promoter_id F26 (text: the post's author, a user or a store; taken from the post when missing, build list ENG-30), order_value F27 (total_price), server_ts F28 (orders.created_at), checkout_id F59, isIncognitoMode
 In
 E6
 order_state_changed
 SOCO_BE → orders.tracking_info (existing), one entry per status change (build list APP-08)
-order_id F29, the new status F30, who acted, the time F32. Cancel reasons F31 when present.
+order_id F29, the history event F30 (free text, mapped by the service to a history event; order_status alone is the order's state), the timestamp F32. No actor. Cancel reasons F31 when present.
 In
 E7
 payment_state_changed
@@ -232,7 +232,7 @@ F33 to F35
 Deferred
 E8
 commission_state_changed
-F36 to F41
+F36 to F41, from commissiontransactions when scheduled. influencerearnings is not used.
 Deferred
 E9
 social_interaction
@@ -240,8 +240,8 @@ SOCO_BE → postevents
 user_id F42, target_id F43 (post_id; influencer_id on follow), action F44 (like, unlike, save, unsave, comment, uncomment, share, repost, follow, unfollow), request_id F45, server_ts F46, is_self
 In
 E10
-opportunity_state_changed
-F47 to F51
+opportunity_state_changed (collaboration)
+F47 to F51, from collaborationevents when scheduled
 Deferred
 E11
 search_performed
@@ -268,36 +268,36 @@ Incognito is purchase privacy only (Product Owner decision, 28 September 2026). 
 Item
 Contract
 new_state
-The status on each orders.tracking_info entry (build list APP-08), which is an order_status value: Pending, Accepted, Confirmed, Shipped, Payed Off, Delivered, Cancelled, Rejected, Return Requested or Returned. Processing and Out for Delivery are allowed by the platform but not written. The service stores and logs any other value rather than rejecting it.
+order_status is the order's current state. Its values are Pending, Accepted, Processing, Shipped, Payed Off, Out for Delivery, Delivered, Cancelled, Rejected, Confirmed and Returned; there is no Return Requested status. orders.tracking_info is the order's history: free-text entries with a timestamp, including events that do not change order_status (payment, return request, refund). The service maps each entry to a history event with its history-text map (build list ENG-30) and always takes outcomes from order_status. It stores and logs any other order_status value rather than rejecting it, and reports any history text it cannot map.
 Order states
 The service does not assume states arrive in sequence. Payed Off can be reached without Delivered. The service takes the first time an order reached Delivered from tracking_info. The order (order_status and tracking_info) is the authority for an order's outcome. The purchase row's undone_at is a convenience, not the source. The status changes the service observes itself are a cross-check only.
 reason_code
 Optional. No Wave 1A scoring rule uses cancel reasons. The service stores whatever exists (reason_code, cancel_reason, cancel_reason_by_buyer, reject_reason_by_buyer) for investigation.
 cancelled_by
-Worked out, not stored: from the tracking_info entry, order_status and buyer_approval_status. Cancelled is by the buyer; Rejected with buyer_approval_status Rejected By Seller is by the seller; Rejected with buyer_approval_status Rejected is by the buyer.
+Worked out, not stored: from order_status, buyer_approval_status and the tracking_info text. Cancelled is by the buyer; Rejected with buyer_approval_status Rejected By Seller is by the seller; Rejected with buyer_approval_status Rejected is by the buyer.
 Returns
-No return event and no return fields. The existing Request return button moves order_status to Return Requested. The service treats any order that has reached Return Requested or Returned as returned. The exact stored value is held in the service's order-status map and checked on real rows (build list ENG-23 V8).
+No return event and no return fields are added. There is no Return Requested status: a buyer's return request creates a returnrequests record, and order_status stays Delivered until the seller records the return, which sets Returned and return_info.returned_at. The service treats an order as returned only when order_status is Returned, with the return time from return_info.returned_at, and as having an open return request while a returnrequests record for it has isActive true. A missing record is never taken as proof that no request exists: when the service's copy of returnrequests is not current, the promoter score keeps its previous batch (build list ENG-30, checked by ENG-23 V8).
 Scope decision: partial refunds are not modelled in Wave 1A.
 How each model counts an order
-M1 interest: +20 at order creation. The same 20 is taken off, once, when the order becomes Cancelled or Rejected, or a return is requested, or it becomes Returned.
+M1 interest: +20 at order creation, aged from the order time. It nets to zero while the order is Cancelled or Rejected, is Returned, or has an open return request; a request that ends without a return restores it at the next refresh.
 M5 bought together: orders sharing a checkout_id, leaving out Cancelled and Rejected orders. Incognito orders count; no buyer is named.
-M8 promoter: a completed sale is Delivered, past the product's return window, with no return requested and not Returned. An order still in progress counts on neither side.
+M8 promoter: a completed sale is Delivered, at or past the Delivered time plus the product's return window (products.deliveryConfig.returnWindow) plus 2 days, with no open return request, and not Returned, Cancelled or Rejected. It counts for the author of the original post (a repost leads back to its original), and a purchase by the same person as that author (their personal account or any store they own) is left out. An order still in progress counts on neither side.
 M9 fraud: every order, including cancelled, rejected, returned and incognito orders, and every undone or own-post action.
 7. How the service reads events (engine sync)
-Source: the service reads postevents, orders, recommendationrequests and rec_serve_log from the platform database with its read-only login. For eligibility it also reads posts, users, businessregisters, products, productvariants, categories, follows and followers (blocks).
+Source: the service reads postevents, orders, recommendationrequests, rec_serve_log and returnrequests from the platform database with its read-only login. For eligibility it also reads posts, users, businessregisters, products, productvariants, categories, follows and followers (blocks). For the opportunity job (M6) it reads commissionconfigs in full each night.
 Batching from the app: unchanged. Flutter sends client events to SOCO_BE POST /events every 10 seconds, or when 20 have gathered, or when the app goes to background, whichever comes first. SOCO_BE stores them in postevents.
-Reading: every 5 minutes, per collection, the rows with updated_at later than the last checkpoint, ordered by updated_at then _id, re-reading a 2-minute overlap. A row already held is updated, never skipped, so an undo, an order status change, a return request or new seen_ids arrive. The checkpoint is saved only after the batch is written.
+Reading: every 5 minutes, per collection, the rows with updated_at later than the last checkpoint, ordered by updated_at then _id, re-reading a 2-minute overlap. A row already held is updated, never skipped, so an undo, an order status change, a return request or new seen_ids arrive. The checkpoint is saved only after the batch is written. returnrequests is read the same way by its updatedAt field, and only the fields listed in build list ENG-30 are kept; the pickup address, phone number, photos, comment and refund destination are never copied.
 Backfill: before the first incremental read, the service copies everything the platform still holds.
-Store: ml_events (events and served lists) and ml_orders in the engine's own database, unique on the platform _id, keeping event_id, undo_of, undone_at and the original event time. Kept at least 365 days from the original event time, under the engine's own expiry; the platform's 90-day expiry never deletes them. [Assumed: AS-09]
+Store: ml_events (events and served lists), ml_orders and ml_return_requests in the engine's own database, unique on the platform _id, keeping event_id, undo_of, undone_at and the original event time. Kept at least 365 days from the original event time, under the engine's own expiry; the platform's 90-day expiry never deletes them. [Assumed: AS-09]
 Checks: an alert when any collection is more than 15 minutes behind; a daily reconciliation that compares ids and field values (undone_at, order_status, tracking_info, seen_ids), not just counts (build list ENG-04; the tracking_info comparison is added by ENG-29).
 Eligibility data: posts, users, businessregisters, products and productvariants are re-read in full every 15 minutes, and only completed reads are used. Blocks, visibility and stock are also re-checked on the returned items when each list is built (build list ENG-08, ENG-27). A deleted account is purged only after a completed read, a direct lookup and a second completed read at least 24 hours later all confirm it is gone (ENG-28).
-Platform obligations: the read-only login (DB-02) and the serve log (APP-15). updated_at on postevents, orders and recommendationrequests is reported built (APP-12) and checked by the reconciliation.
+Platform obligations: the serve log (APP-15). The service reads the platform database with the read-only login it already uses; a read role on the soco database also covers returnrequests and commissionconfigs. updated_at on postevents, orders and recommendationrequests is reported built (APP-12) and checked by the reconciliation.
 POST /v1/events, INGEST_TOKEN on events and the queued forwarding in v2.2 are retired.
 8. Other endpoints
 8.1 GET /health
 Reports whether both database connections work: the platform database (read-only) and the engine database. Returns 200 when both work and 503 otherwise (SD-28). The path is [Assumed: AS-05].
 8.2 Fraud case API
-Used only by the admin panel, for the review screen. It carries ADMIN_TOKEN, not the serving token, plus X-Reviewer-Id and X-Reviewer-Role (owner, reviewer or second_approver) on every call. The service records both on the case, returns 403 for an action the role may not take or a second approval by the person who recorded the outcome, and 409 with detail roles_not_set while SOCO has not named the roles.
+Used only by the admin panel, for the review screen. It carries ADMIN_TOKEN, not the serving token, plus X-Reviewer-Id and X-Reviewer-Role (owner, reviewer or second_approver) on every call. The service trusts these headers only on calls carrying ADMIN_TOKEN, which stays on the admin panel's server; the admin panel sets them from the signed-in admin's own account and role, never from anything a browser or app sends. The service records both on the case, returns 403 for an action the role may not take or a second approval by the person who recorded the outcome, and 409 with detail roles_not_set while SOCO has not named the roles.
 Endpoint
 What it does
 GET /v1/fraud/cases
@@ -331,7 +331,7 @@ SOCO_BE calls the service, shows lists unchanged and writes the serve log (APP-1
 4
 Aravinth
 Adds any field in this contract that is not yet in the Capture Register, so the code test that reads it keeps passing.
-The order of work, and the step each item sits in, are in the Wave 1A build list v1.3. The engine sync and the E1 record come first, because everything else waits on them.
+The order of work, and the step each item sits in, are in the Wave 1A build list v1.4. The engine sync and the E1 record come first, because everything else waits on them.
 9.1 How the two-method serving is proven
 Allen shows three checks: the same user gets the same method across two restarts; changing a split in configuration changes assignment without a redeploy; E1 rows carry the method for each slot.
 10. Change control
@@ -361,7 +361,7 @@ ml_events and ml_orders live in the engine's own database.
 AS-10
 Replaced by a decision (28 September 2026): incognito is purchase privacy only. See Section 6.3.
 AS-11
-Order states are as in the platform schema reference v4 (28 September 2026): Pending, Accepted, Confirmed, Shipped, Payed Off, Delivered, Cancelled, Rejected, Return Requested and Returned are written; Processing and Out for Delivery are allowed but not written.
+Order states are as listed by the App Team on 13 October 2026: Pending, Accepted, Processing, Shipped, Payed Off, Out for Delivery, Delivered, Cancelled, Rejected, Confirmed and Returned. There is no Return Requested status.
 AS-12
 Platform field names are as in the platform schema reference v4 (28 September 2026), generated from the live schemas.
 AS-21
@@ -369,7 +369,13 @@ At launch no user is on an app build that sends no action key. The minimum suppo
 AS-22
 Blocks are saved as status blocked in followers, in either direction, including for accounts the blocker does not follow. Checked by build list APP-21 test 3.
 AS-23
-A return request is saved as order_status Return Requested (confirmed by Kala, 28 September 2026). Checked by build list ENG-23 V8.
+Replaced by a fact (13 and 14 October 2026): there is no Return Requested status. A return request is a returnrequests record, and the order becomes Returned when the seller records the return. Checked by build list ENG-23 V8.
+AS-24
+The service's copy of the platform's built-in commission defaults (enabled true, poolPercent 10, minOrderAmount 0, holdDays 7) matches the app.
+AS-25
+The read-only login the service already uses can read returnrequests and commissionconfigs (a read role on the soco database covers them); the service confirms it with one read of each. If it cannot, nothing is assumed in their place: the promoter score's net commerce, conversion and sales quality stay switched off, and the M6 job does not run. Both are logged.
+AS-26
+A product's current return window (deliveryConfig.returnWindow) is the window for its orders. The platform's own return flow takes it from the product when a return is requested.
 12. Sign-off
 Signing confirms this is the contract both routes are built and tested against.
 Role
