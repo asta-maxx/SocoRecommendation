@@ -69,6 +69,7 @@ python -m pytest -q tests/test_sources.py
 | What | Waits on |
 |---|---|
 | The check on test load (each source within 20 ms) | The test server |
+| The sources feed ENG-13's pool and ENG-15's shortlist (both built 16 Oct); serving them waits on ranking | ENG-19 |
 | Posts in the last 30 days on dev, and views with dwell_ms | Platform data (APP-02 backfill) |
 
 ## 7. Files changed

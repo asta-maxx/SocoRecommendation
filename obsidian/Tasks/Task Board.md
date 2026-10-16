@@ -14,7 +14,7 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 - [ ] [[ENG-20 - Speed test|ENG-20 (part 1)]]: Time today's feed: **in progress** (13 Oct: timer built and tested; the real run waits on the feed's address and a test login from Aravinth)
 
 > [!success] M1 (the interest score) complete, 16 Oct 2026
-> ENG-09, ENG-10 and ENG-11, finished to pack v1.4 with Kala's answers: 18 of 18 interest-score checks pass, and the earlier tasks' checks pass again on the new code. Next: M2 (ENG-12 to ENG-15).
+> ENG-09, ENG-10 and ENG-11, finished to pack v1.4 with Kala's answers: 18 of 18 interest-score checks pass, and the earlier tasks' checks pass again on the new code. Next: M2 (ENG-12 to ENG-15): all four built on dev, 16 Oct.
 
 ## Step 2: serving lists
 - [ ] [[ENG-06 - Serve a recommendation list]]: **built** (16 Oct, Kala S2; passed once checked on the test server) (1 Oct: serving, record, modes, exploration and errors work; interim newest-first lists until ENG-08, ENG-09, ENG-17, ENG-19 and ENG-29) · [[Demo - ENG-06|demo]]
@@ -30,7 +30,7 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 - [ ] [[ENG-12 - Candidate sources]]: **built** (16 Oct, dev: the post index and five sources, each within 20 ms or dropped and logged; timed on the test server later)
 - [ ] [[ENG-14 - Similar posts]]: **built** (16 Oct: nightly job similar_posts stores each person's top 200 similar recent posts as a batch; 31 tests pass; a list reads in 0 ms in the database, about 5 ms beyond the network; timed on the test server later)
 - [ ] [[ENG-13 - Quotas]]: **built** (16 Oct: the pool of 300 in turns, 40/30/20/10, short sources pass on, no duplicates, reposts as their original, filters before and after; 24 tests pass; check on the test server later)
-- [ ] ENG-15: merge into the shortlist of 200 (next)
+- [ ] [[ENG-15 - Merge the shortlist]]: **built** (16 Oct: pool and similar posts merged into 200, scores as percentiles, duplicates keep both tags, cut by order; 14 tests pass; M2 all built)
 - [ ] ENG-16: Promoter score
 - [ ] ENG-17: Product "you might also like"
 

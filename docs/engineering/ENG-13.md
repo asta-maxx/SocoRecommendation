@@ -71,7 +71,7 @@ python -m reco.jobs post_index      # the index now carries original_id
 |---|---|
 | Q7: popular short wraps to interest (built that way) | Kala / Nisha |
 | The check on the test server (checklist 13.x) | The test server |
-| Serving the pool: ENG-15 merges it with the similar list; ENG-19 ranks | ENG-15, ENG-19 |
+| Serving: ENG-15 merges the pool with the similar list (built 16 Oct); ENG-19 ranks | ENG-19 |
 | Filters read the platform for every offered post (up to ~1,200) per request; ENG-27 moves them onto `ml_item_state` | ENG-27 |
 
 ## 7. Files changed

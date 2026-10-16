@@ -157,6 +157,12 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 13.1 | The pool's rules: shares, turns, short sources, no duplicates, reshares as originals, filters before and after (tests) |
 | 13.2 | On a real database: 300 or fewer, shares within 1, no duplicates; blocked and hidden posts kept out |
 
+### 14. ENG-15: the shortlist → [[ENG-15 - Merge the shortlist]]
+| Line | Checks |
+|---|---|
+| 14.1 | Fair scores (0 to 1 within each source), both methods mixed, duplicates keep both labels, cut by order, sizes logged (tests) |
+| 14.2 | On a real database: 200 or fewer, no duplicates, a blocked author's similar post kept out |
+
 ### Last line: clean up
 | Line | Checks |
 |---|---|

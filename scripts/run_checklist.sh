@@ -292,6 +292,10 @@ echo "== 13. ENG-13: quotas (the pool of 300), and ENG-30 point 3 (reposts)"
 check "13.1 quotas, round-robin, short sources, duplicates, reposts as originals, filters before and after; repost chains (no database)" "$PY -m pytest -q tests/test_quotas.py -p no:cacheprovider -m 'not mongo'" "23 passed"
 check "13.2 on a database: 300 or fewer, quotas within 1, no duplicates; blocked author out before, hidden original out after (the ENG-13 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_quotas.py -p no:cacheprovider -m mongo" "1 passed"
 
+echo "== 14. ENG-15: merge into the shortlist"
+check "14.1 percentiles within each source, both methods in proportion, duplicates keep the higher percentile and both tags, cut by order, pool sizes logged (no database)" "$PY -m pytest -q tests/test_merge.py -p no:cacheprovider -m 'not mongo'" "13 passed"
+check "14.2 on a database: 200 or fewer, no duplicates, method two filtered (the ENG-15 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_merge.py -p no:cacheprovider -m mongo" "1 passed"
+
 cleanup
 trap - EXIT
 if $PY -c "
