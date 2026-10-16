@@ -5,6 +5,7 @@ exits. Nothing here serves a request, so a failed job never touches the feed.
 
     python -m reco.jobs interest            # M1, both Wave 1A methods
     python -m reco.jobs popularity          # platform popularity, ladder rung 3 (ENG-09)
+    python -m reco.jobs similar_posts       # M2 method two: similar posts per user (ENG-14)
     python -m reco.jobs sync                # one engine sync pass (ENG-04)
     python -m reco.jobs sync_loop           # a pass every sync_interval_minutes
     python -m reco.jobs sync_check          # the sync lag alert, on its own
@@ -30,6 +31,7 @@ from reco.jobs.batches import recorded_run, run_batch
 from reco.jobs.refresh import data_window, refresh
 from reco.monitoring.logs import configure_logging, job_logger, job_run
 from reco.platform import connection as platform_conn
+from reco.ranking import similar_job
 from reco.store import connection as store_conn
 from reco.store import writers
 from reco.store.scores import Method, utc_now
@@ -100,6 +102,13 @@ async def _popularity(settings: Settings) -> None:
                                                       "categories": record["rows_written"], **detail["counts"]})
 
 
+async def _similar_posts(settings: Settings) -> None:
+    """ENG-14: M2 method two, the top similar posts per user, as one batch."""
+    async with job_run("similar_posts"):
+        report = await similar_job.run(settings)
+        job_logger.info("similar posts", extra={"job": "similar_posts", **report})
+
+
 async def _sync(settings: Settings) -> None:
     """ENG-04: one pass over postevents, orders and recommendationrequests."""
     async with job_run("sync"):
@@ -156,6 +165,7 @@ async def _scheduler(settings: Settings) -> None:
 JOBS: dict[str, Callable[[Settings], Awaitable[None]]] = {
     "interest": _interest,
     "popularity": _popularity,
+    "similar_posts": _similar_posts,
     "sync": _sync,
     "sync_loop": _sync_loop,
     "sync_check": _sync_check,

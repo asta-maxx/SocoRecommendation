@@ -188,6 +188,11 @@ async def ensure_indexes(settings: Settings) -> None:
     )
     logger.info("Indexes ensured on %s", settings.scores_collection)
 
+    # ENG-14: method two's stored lists, read per user from the current batch.
+    from reco.store.candidates import ensure_candidate_indexes
+
+    await ensure_candidate_indexes(settings)
+
 
 async def upsert_score(settings: Settings, score: InterestScore) -> None:
     """Write one score, keyed on (user_id, category, method, model_version). ST7.
