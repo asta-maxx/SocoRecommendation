@@ -288,6 +288,10 @@ check "12.4 ENG-14 vectors, post type, pool rules, profile, cosine top 200 (no d
 check "12.5 ENG-14 the job writes a current batch; one list reads within 20 ms beyond the network (the ENG-14 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_similar.py -p no:cacheprovider -m mongo" "1 passed"
 check "12.6 ENG-14 similar posts runs on SOCO's real data (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs similar_posts" '"outcome": "succeeded"'
 
+echo "== 13. ENG-13: quotas (the pool of 300), and ENG-30 point 3 (reposts)"
+check "13.1 quotas, round-robin, short sources, duplicates, reposts as originals, filters before and after; repost chains (no database)" "$PY -m pytest -q tests/test_quotas.py -p no:cacheprovider -m 'not mongo'" "23 passed"
+check "13.2 on a database: 300 or fewer, quotas within 1, no duplicates; blocked author out before, hidden original out after (the ENG-13 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_quotas.py -p no:cacheprovider -m mongo" "1 passed"
+
 cleanup
 trap - EXIT
 if $PY -c "

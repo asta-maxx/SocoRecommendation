@@ -26,7 +26,7 @@ from reco.store.writers import _collection, current_job_run_id
 
 JOB = "post_index"
 METHOD = "post_index"
-_FIELDS = {"_id": 0, "post_id": 1, "author_id": 1, "categories": 1, "created_at": 1, "qualified_views_7d": 1}
+_FIELDS = {"_id": 0, "post_id": 1, "author_id": 1, "categories": 1, "created_at": 1, "qualified_views_7d": 1, "original_id": 1}
 
 
 async def ensure_post_index_indexes(settings: Settings) -> None:

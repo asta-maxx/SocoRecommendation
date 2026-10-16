@@ -151,6 +151,12 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 12.5 | ENG-14: the nightly job writes a batch; one person's list reads within 20 ms beyond the network |
 | 12.6 | ENG-14: the similar-posts job runs on SOCO's real data |
 
+### 13. ENG-13: quotas → [[ENG-13 - Quotas]]
+| Line | Checks |
+|---|---|
+| 13.1 | The pool's rules: shares, turns, short sources, no duplicates, reshares as originals, filters before and after (tests) |
+| 13.2 | On a real database: 300 or fewer, shares within 1, no duplicates; blocked and hidden posts kept out |
+
 ### Last line: clean up
 | Line | Checks |
 |---|---|

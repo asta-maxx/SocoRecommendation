@@ -52,12 +52,15 @@ v1.4 keeps the words of ENG-01 to ENG-11 and ENG-29, and puts every correction h
 - **What it asks:** posts marked as seed data are test data, like a test account.
 - **What we did:** the engine now recognises them; the interest score and the ladder leave them out (next step).
 
-### 1–4, 8 and 10. Still to build ⏳
+### 3. A reshare leads back to the original ✅ (16 Oct)
+- **What it asks:** follow a reshare back to the first post, at most 10 steps; a loop or a broken link has no original and is logged.
+- **What we did:** built with [[ENG-13 - Quotas]], which needs it ("a repost counts as its original"). The list of recent posts stores each post's original. The promoter score and fraud will use the same rule.
+
+### 1, 2, 4 and 8. Still to build ⏳
 | # | In plain words |
 |---|---|
 | 1 | Who promoted an order: the order says; if not, the post's author |
 | 2 | A person and their stores count as one person (for self-purchase) |
-| 3 | A repost leads back to the original post (up to 10 steps; loops stop) |
 | 4 | Commission settings for opportunities, layered platform → store → product |
 | 7 | Copy SOCO's return requests (no addresses, phones or photos), and treat a copy over 24 hours old as stale |
 | 8 | Each product's return window (7 days if unknown, plus 2 days' buffer) |
@@ -71,7 +74,7 @@ v1.4 keeps the words of ENG-01 to ENG-11 and ENG-29, and puts every correction h
 ## Still to do
 | What | Waiting on |
 |---|---|
-| Points 1–4 and 7–10 | Me |
+| Points 1, 2, 4 and 8 (point 3 done 16 Oct with ENG-13) | Me |
 | Run its check on the **test** server | The test server → [[Environments]] |
 
 ## How this connects

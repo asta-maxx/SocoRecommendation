@@ -61,6 +61,14 @@ class SourceItem:
     source: str
     source_score: float
     created_at: datetime | None = None  # for ties: newer first
+    #: ENG-30 point 3: the original a repost leads back to (the post itself if not a
+    #: repost); None for a repost whose chain broke. ENG-13 dedupes on it.
+    original_id: str | None = None
+
+    @property
+    def key(self) -> str:
+        """What a duplicate is judged by: a repost counts as its original (ENG-13)."""
+        return self.original_id or self.item_id
 
 
 @dataclass
@@ -77,7 +85,8 @@ def top_categories(shares: dict[str, float] | list[tuple[str, float]], n: int = 
 
 
 def _items(rows: list[dict[str, Any]], source: str, score: Callable[[dict[str, Any]], float]) -> list[SourceItem]:
-    return [SourceItem(r["post_id"], "post", source, float(score(r)), r.get("created_at")) for r in rows]
+    return [SourceItem(r["post_id"], "post", source, float(score(r)), r.get("created_at"),
+                       r.get("original_id", r["post_id"])) for r in rows]
 
 
 def _ordered(items: list[SourceItem]) -> list[SourceItem]:
@@ -139,7 +148,9 @@ async def run_sources(
         if not user_id:
             return []
         rows = await _similar_reader(settings, user_id)
-        return [SourceItem(str(r["post_id"]), "post", "similar", float(r["score"]), None) for r in rows[:limit]]
+        # ENG-14 leaves reposts out of its pool: each post is its own original.
+        return [SourceItem(str(r["post_id"]), "post", "similar", float(r["score"]), None, str(r["post_id"]))
+                for r in rows[:limit]]
 
     runs: dict[str, Callable[[], Awaitable[list[SourceItem]]]] = {
         "interest": interest, "follows": by_follows, "trending": trending, "popular": popular, "similar": similar}

@@ -345,6 +345,9 @@ class Commerce(_Section):
     #: ENG-30 point 7: the return-request copy is current when its last sync completed
     #: within this many hours and its last reconciliation passed (fixed for Wave 1A).
     return_request_current_hours: int = fixed(24)
+    #: ENG-30 point 3: a repost is followed to its original for at most this many
+    #: steps; a longer chain or a loop has no original and is logged (fixed for Wave 1A).
+    repost_chain_max_steps: int = fixed(10)
 
 
 # --- M9 fraud --------------------------------------------------------------------

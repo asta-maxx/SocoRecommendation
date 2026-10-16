@@ -252,6 +252,8 @@ class PostRecord(_Record):
     #: ENG-30 point 9: a post carrying _seedTag is test data, treated like a test account
     #: (left out of learning, measurement and fraud). The app's reads hide the field.
     is_seed: bool = False
+    #: ENG-30 point 3: on a repost, repostDetails.originalPostId, one level up the chain.
+    repost_of: str | None = None
 
 
 def parse_post(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None) -> PostRecord:
@@ -260,6 +262,7 @@ def parse_post(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map
     if doc.get("productId") and maybe_str(doc.get("productId")) not in product_ids:
         product_ids.insert(0, maybe_str(doc.get("productId")))
     compliance = doc.get("compliance") if isinstance(doc.get("compliance"), dict) else {}
+    repost = doc.get("repostDetails") if isinstance(doc.get("repostDetails"), dict) else {}
     return PostRecord(
         post_id=to_str(doc["_id"]),
         author_id=to_str(doc["userId"]),
@@ -275,6 +278,7 @@ def parse_post(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map
         age_group=doc.get("ageGroup"),
         is_repost=bool(doc.get("isRepost")),
         is_seed=bool(doc.get("_seedTag")),
+        repost_of=maybe_str(repost.get("originalPostId")),
         product_ids=product_ids,
     )
 

@@ -72,3 +72,11 @@ Points 1–4, 7–10, the daily report of unmatched history texts, and the engin
 2. **Own-post actions** (`is_self`) are excluded from the interest score under both methods, as well as from the five-action threshold, consistent with ENG-03. Fraud detection (ENG-21) still reads them.
 
 Applied: `copies.read_inputs` drops own-post actions before scoring (`skipped.own_post`); it keeps the qualifying set as distinct action ids per user and per category (`CopyInputs.qualified_ids`, `qualified_ids_by_category`). M1 check script: **17** (Kala's regression test: a user with no declared interests who only likes their own post has `qualified_actions = 0` and no score under either method) and **18** (every category-level action belongs to the user's qualifying set; the set's size is `qualified_actions`; each `event_count` is its category's share). Unit test `test_only_liking_your_own_post_scores_and_counts_nothing`. Result: **18 of 18**.
+
+## Point 3, 16 Oct 2026
+
+### 3. Repost chain — done (built with ENG-13)
+
+`reco/platform/reposts.py`: `original_of` / `resolve_originals` follow `repostDetails.originalPostId` (`PostRecord.repost_of`) to the first post with `isRepost` false, at most `commerce.repost_chain_max_steps` (10, new setting, fixed) steps. No original on a missing link, a missing post, a loop or too many steps; each break is logged (`reco.reposts`, `post_id`, `reason`). Parents are read one level at a time. The post index stores `original_id` (ENG-12); ENG-13 dedupes on it and replaces a repost with its original. ENG-16 and ENG-21 will call the same function for sales through reposts. Tests: `tests/test_quotas.py` (chain cases) and the post-index MongoDB test. Details in `docs/engineering/ENG-13.md`.
+
+Open now: points 1, 2, 4 and 8, the daily report of unmatched history texts, and the engine-login `findOne()` check.

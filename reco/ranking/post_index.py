@@ -16,6 +16,11 @@ number of people with a qualified view (dwell_ms >= events.qualified_view_second
 of it in the last 7 days, from the engine's copy of postevents, test accounts left
 out (ENG-29 item 3). Seed posts (_seedTag, ENG-30 point 9) are test data and are
 not indexed, so no source ever offers one.
+
+Each row also carries original_id (ENG-30 point 3, for ENG-13's "a repost counts
+as its original"): the post itself, or for a repost the original its chain leads
+to. A repost whose chain breaks keeps original_id None and is offered as itself
+(the break is logged); a repost of a seed post is not indexed.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ from typing import Any
 from reco.config import Settings, live
 from reco.config.accounts import test_account_ids
 from reco.platform.recent import read_recent_posts
+from reco.platform.reposts import resolve_originals
 from reco.store import item_state, writers
 
 #: The window of trending and popular (Build List ENG-12 sources 3 and 4).
@@ -44,21 +50,25 @@ async def build_post_index(settings: Settings, now: datetime, job_run_id: str) -
     pairs = await writers.read_qualified_views(
         settings, now - timedelta(days=VIEWS_WINDOW_DAYS), tunables.events.qualified_view_seconds * 1000)
     views = Counter(str(p["post_id"]) for p in pairs if str(p.get("user_id") or "").lower() not in tests)
+    originals, reposts, known = await resolve_originals(settings, posts)
     rows: list[dict[str, Any]] = []
     seed = 0
     for post in posts:
-        if post.is_seed:
+        original = originals.get(post.post_id)
+        if post.is_seed or getattr(known.get(original or ""), "is_seed", False):
             seed += 1
             continue
         rows.append({
             "_id": f"{job_run_id}:{post.post_id}", "kind": "post", "method": item_state.METHOD,
             "job_run_id": job_run_id, "computed_at": now, "config_version": tunables.config_version,
             "post_id": post.post_id, "author_id": post.author_id, "categories": post.categories,
-            "created_at": post.created_at, "is_repost": post.is_repost, "qualified_views_7d": views.get(post.post_id, 0),
+            "created_at": post.created_at, "is_repost": post.is_repost,
+            "original_id": original, "qualified_views_7d": views.get(post.post_id, 0),
         })
     written = await item_state.write_post_index(settings, rows)
     return written, {"posts_read": len(posts), "seed_posts_left_out": seed,
-                     "posts_with_views": sum(1 for r in rows if r["qualified_views_7d"])}
+                     "posts_with_views": sum(1 for r in rows if r["qualified_views_7d"]),
+                     "reposts": dict(reposts)}
 
 
 async def refresh(settings: Settings) -> dict[str, Any]:

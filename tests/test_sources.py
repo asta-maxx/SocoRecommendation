@@ -153,12 +153,15 @@ async def test_the_post_index_and_the_sources_on_a_database(store) -> None:
         await engine[name].delete_many({})
     await platform["posts"].delete_many({})
     author, other = ObjectId(), ObjectId()
-    fresh, pets, old, seed = ObjectId(), ObjectId(), ObjectId(), ObjectId()
+    fresh, pets, old, seed, repost = ObjectId(), ObjectId(), ObjectId(), ObjectId(), ObjectId()
     await platform["posts"].insert_many([
         {"_id": fresh, "userId": author, "timestamp": now - timedelta(days=1), "categories": [HOME]},
         {"_id": pets, "userId": other, "timestamp": now - timedelta(days=2), "categories": [PETS]},
         {"_id": old, "userId": author, "timestamp": now - timedelta(days=40), "categories": [HOME]},
         {"_id": seed, "userId": author, "timestamp": now - timedelta(days=1), "categories": [HOME], "_seedTag": "s"},
+        # ENG-30 point 3: a recent repost of a post older than the window leads to it
+        {"_id": repost, "userId": other, "timestamp": now - timedelta(days=3), "categories": [HOME],
+         "isRepost": True, "repostDetails": {"originalPostId": old}},
     ])
     tester = str(ObjectId())
     put_in_force({"lists.test_accounts": [{"account_id": tester, "reason": "t", "changed_by": "Allen",
@@ -169,14 +172,16 @@ async def test_the_post_index_and_the_sources_on_a_database(store) -> None:
          "created_at": now - timedelta(hours=3), "undone_at": None} for u, p in views])
     try:
         result = await post_index.refresh(settings)
-        assert result["posts"] == 2 and result["seed_posts_left_out"] == 1
+        assert result["posts"] == 3 and result["seed_posts_left_out"] == 1 and result["reposts"] == {"resolved": 1}
         rows = {r["post_id"]: r for r in await engine["ml_item_state"].find({"kind": "post"}).to_list(None)}
-        assert set(rows) == {str(fresh), str(pets)}
+        assert set(rows) == {str(fresh), str(pets), str(repost)}
+        assert rows[str(repost)]["original_id"] == str(old) and rows[str(fresh)]["original_id"] == str(fresh)
         assert rows[str(fresh)]["qualified_views_7d"] == 2  # the test account's view left out
 
         found = await run_sources(settings, "u1", [(HOME, 0.7)], frozenset({str(other)}), "req", now, time_limit_ms=5000)
-        assert [i.item_id for i in found.items["interest"]] == [str(fresh)]
-        assert [i.item_id for i in found.items["follows"]] == [str(pets)]
+        assert [i.item_id for i in found.items["interest"]] == [str(fresh), str(repost)]
+        assert [i.key for i in found.items["interest"]] == [str(fresh), str(old)]  # a repost counts as its original
+        assert [i.item_id for i in found.items["follows"]] == [str(pets), str(repost)]
         assert [i.item_id for i in found.items["trending"]] == [str(fresh)]
         assert [i.item_id for i in found.items["popular"]] == [str(fresh), str(pets)]
         assert not found.dropped and set(found.ms) == set(sources.SOURCES)

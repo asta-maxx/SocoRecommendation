@@ -23,7 +23,7 @@ Kala, 16 Oct (Q4): trending is a plain count of qualified views over the last 7 
 
 The sources must answer in 20 ms and never calculate (SD-17), but trending and popular need each post's 7-day qualified views, and source 1 needs each post's categories matched to the 23. So a job works them out ahead:
 
-- `reco/ranking/post_index.py`: `build_post_index` / `refresh`. One row per post created in the last `retrieval.post_age_days` (30): `post_id, author_id, categories` (one of the 23, via the category map), `created_at, is_repost, qualified_views_7d` (people with a qualified view, `dwell_ms ≥ events.qualified_view_seconds × 1000`, in the last 7 days, from `ml_events`, **test accounts' views left out**, ENG-29 item 3). **Seed posts are not indexed** (ENG-30 point 9: test data), so no source offers one.
+- `reco/ranking/post_index.py`: `build_post_index` / `refresh`. One row per post created in the last `retrieval.post_age_days` (30): `post_id, author_id, categories` (one of the 23, via the category map), `created_at, is_repost, original_id` (ENG-30 point 3, added 16 Oct with ENG-13: the post itself, the original for a repost, None for a broken chain), `qualified_views_7d` (people with a qualified view, `dwell_ms ≥ events.qualified_view_seconds × 1000`, in the last 7 days, from `ml_events`, **test accounts' views left out**, ENG-29 item 3). **Seed posts are not indexed** (ENG-30 point 9: test data), so no source offers one.
 - Written whole as an ENG-07 batch into **`ml_item_state`** (job `post_index`, method `post_index`); a request reads only the current batch. `ml_item_state` is the engine's "current state of posts, accounts and products" collection (ENG-01, ENG-27); ENG-27 later adds accounts, products and the eligibility fields there.
 - Refreshed every `filters.eligibility_refresh_minutes` (15) by the sync loop (`reco/sync/run.sync_forever`), and on demand: `python -m reco.jobs post_index`.
 - Platform read: `reco/platform/recent.read_recent_posts` (posts by `timestamp`, else the `_id` time; only the parser's fields).
@@ -68,7 +68,6 @@ python -m pytest -q tests/test_sources.py
 
 | What | Waits on |
 |---|---|
-| Wire the sources into the pool (top-5 from the profile; follows from the viewer) | ENG-13 |
 | The check on test load (each source within 20 ms) | The test server |
 | Posts in the last 30 days on dev, and views with dwell_ms | Platform data (APP-02 backfill) |
 

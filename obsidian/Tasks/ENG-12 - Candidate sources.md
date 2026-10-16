@@ -66,7 +66,6 @@ It's the first step of M2, finding posts for the feed. The quotas (ENG-13), the 
 ## Still to do
 | What | Waiting on |
 |---|---|
-| Put the sources together into the pool of 300 | [[ENG-13 - Quotas]] |
 | The 20 ms check on the test server | The test server → [[Environments]] |
 
 ## How this connects

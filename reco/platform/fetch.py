@@ -145,7 +145,7 @@ _EMPTY_INDEX = ProductCategoryIndex()
 _FIELDS: dict[str, dict[str, int]] = {
     "post": {f: 1 for f in ("userId", "userModel", "timestamp", "categories", "postType", "postTypeDetailed", "isHidden",
                             "visibility", "compliance", "Product_status", "ageGroup", "isRepost", "products", "productId",
-                            "_seedTag")},
+                            "_seedTag", "repostDetails.originalPostId")},
     "product": {f: 1 for f in ("createdBy", "createdAt", "status", "availability", "categoryPathIds", "basicInfo.categoryId",
                                "crossSellProducts")},
     "user": {f: 1 for f in ("status", "moderation.state", "city", "DOB", "accountIsPublic", "restriction_level", "interest",
