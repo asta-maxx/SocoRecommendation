@@ -92,6 +92,8 @@ class RefreshRun:
     skipped: dict[str, int] = field(default_factory=dict)
     #: Users with a category below 0 before the clip (Not interested / Hide).
     users_clipped: int = 0
+    #: ENG-30 point 7: "current", or why the return-request copy was not.
+    return_requests: str = "current"
     scores_written: int = 0
     stale_removed: int = 0
     duration_seconds: float = 0.0
@@ -119,7 +121,7 @@ class RefreshRun:
             f"({self.reversals_unaged} could not be aged). "
             f"Users with no score: {self.users_with_no_score}. "
             f"Source: {self.source}; left out before scoring: {self.skipped or 'nothing'}; "
-            f"users clipped at 0: {self.users_clipped}. "
+            f"users clipped at 0: {self.users_clipped}; return-request copy: {self.return_requests}. "
             f"Test accounts left out: {self.test_accounts_skipped}. "
             f"Stale rows removed: {self.stale_removed}. "
             f"Coherence failures: {len(self.coherence_failures)}."
@@ -176,6 +178,7 @@ async def refresh(
         events_by_user, run.read_stats = inputs.events_by_user, inputs.read_stats
         declared, orders, user_ids = inputs.declared, {}, inputs.user_ids
         run.skipped = dict(inputs.skipped)
+        run.return_requests = inputs.return_requests
 
     # ENG-29 item 3: test accounts are left out of learning.
     tests = test_account_ids()
@@ -221,6 +224,7 @@ async def refresh(
             run.users_with_no_score += 1
             continue
 
+        qualified = inputs.qualified_by_category.get(user_id, {}) if run.source == "copies" else None
         scores = [
             InterestScore(
                 user_id=user_id,
@@ -231,7 +235,11 @@ async def refresh(
                 # category. U02 has twenty views and eight that qualify; showing
                 # 20 beside a score built from 8 invites the exact question the
                 # number exists to answer.
-                event_count=stats.contributions.get(category, 0),
+                # Copies: the qualified actions in the last 90 days in this category
+                # (Kala, 16 Oct). Demo: the events that contributed, as before.
+                event_count=(qualified.get(category, 0) if qualified is not None
+                             else stats.contributions.get(category, 0)),
+                qualified_actions=inputs.qualified.get(user_id, 0) if run.source == "copies" else None,
                 method=method,
                 model_version=settings.model_version,
                 window=window,

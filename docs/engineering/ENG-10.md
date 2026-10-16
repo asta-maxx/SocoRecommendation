@@ -150,3 +150,15 @@ python scripts/check_m1.py        # the ENG-11 checks (throwaway databases)
 ## Update, 16 Oct 2026
 
 **16 Oct 2026:** Passed (Kala S1); view rule (most recent qualified) and author feedback confirmed.
+
+## Update, 16 Oct 2026: M1 completed to v1.4 (ENG-30 points 9, 10; Kala 2a)
+
+| Change | Where |
+|---|---|
+| **Open return request (ENG-30 point 10):** an order whose id has an open request in `ml_return_requests` (isActive true) contributes nothing; when the request ends without a return the order counts again at the next refresh (`skipped.order_open_return_request`). If the return-request copy is not current (point 7), M1 runs on the last good copy and logs why; the run summary records it (`return-request copy: …`) | `copies.read_inputs` |
+| **Seed posts (ENG-30 point 9):** actions on a post with `_seedTag`, and orders through one, are left out (`skipped.seed_post`) | `copies.read_inputs` (posts read once, with `is_seed`) |
+| **Qualified actions (Kala 2a):** per user, in the last `interest.personal_window_days` (90): a qualified view (one per post), click, like, save, comment, share, add-to-cart, a kept order (not Cancelled, Rejected, Returned, or with an open request), a business follow (even one whose business has no category in the 23). Not: Not interested / Hide, impressions, undone actions, own-post actions (`is_self`), seed posts, older actions. **The total, whatever the category, is stored on every score row as `qualified_actions`; `event_count` is the same set per category** (it was the events that contributed, all ages). The ladder counts with the same rules (ENG-09) | `copies.read_inputs` → `CopyInputs.qualified`, `qualified_by_category`; `refresh.refresh`; `InterestScore.qualified_actions` |
+
+Own-post actions still add weight to the score; only the count leaves them out. Whether they should stay in the score is back with Kala (`ANSWERS_2026-10-16.md` §6, point 1).
+
+Tests: `tests/test_m1_copies.py` +4 (open request out and back; a stale copy used and said; seed posts; the count, rule by rule). Unit suite 614 passed, 1 skipped.

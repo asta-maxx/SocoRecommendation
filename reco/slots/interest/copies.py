@@ -18,6 +18,22 @@ Each action is read from one place only, so nothing is counted twice (ENG-10):
     business follows    the platform's follows (followingReference businessRegister),
                         on the business's category, which must be one of the 23
 
+Open return request (ENG-30 point 10): an order with an open return request
+(ml_return_requests, isActive true) contributes nothing while it is open; when the
+request ends without a return, the order counts again at the next refresh. If the
+copy of returnrequests is not current, M1 runs on the last good copy and says so.
+
+Seed posts (ENG-30 point 9): actions on a post carrying _seedTag are test data and
+are left out, like a test account's.
+
+Qualified actions (Kala, 16 Oct, ENG-09 2a): per user, the actions in the last 90
+days that count towards the ladder's 5: a qualified view (one per post), click,
+like, save, comment, share, add-to-cart, a kept order, a business follow; never
+Not interested / Hide, impressions, undone actions, actions on your own post
+(is_self), or actions on seed posts. The total (whatever the category) is stored
+on every score row as qualified_actions; event_count is the same set, per category.
+The ladder counts with the same rules, so the two are equal.
+
 Undo: an undone action (undone_at set) and the undo row itself (undo_of) both
 contribute nothing. That is the pack's "the undo removes the weight of the action
 it undoes, aged from the original action's time", applied once: weight minus the
@@ -39,7 +55,7 @@ from __future__ import annotations
 import logging
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from reco.config import Settings, live
@@ -79,6 +95,11 @@ class CopyInputs:
     read_stats: ReadStats
     #: What was left out before scoring, and why (logged with the run).
     skipped: Counter = field(default_factory=Counter)
+    #: Qualified actions in the last 90 days: per user, and per user per category.
+    qualified: Counter = field(default_factory=Counter)
+    qualified_by_category: dict[str, Counter] = field(default_factory=dict)
+    #: Whether the return-request copy was current (ENG-30 point 7), and why not.
+    return_requests: str = "current"
 
 
 def _is_reversed(order: dict[str, Any]) -> bool:
@@ -105,11 +126,11 @@ def _latest_qualified_views(rows: list[dict[str, Any]], qualified_ms: float) -> 
     return list(best.values())
 
 
-async def _post_categories(settings: Settings, post_ids: set[str]) -> dict[str, list[str]]:
+async def _posts(settings: Settings, post_ids: set[str]) -> dict[str, Any]:
     ids = sorted(post_ids)
-    found: dict[str, list[str]] = {}
+    found: dict[str, Any] = {}
     for start in range(0, len(ids), _POSTS_PER_READ):
-        found |= await fetch.read_post_categories(settings, ids[start:start + _POSTS_PER_READ])
+        found |= await fetch.read_posts(settings, ids[start:start + _POSTS_PER_READ])
     return found
 
 
@@ -144,12 +165,22 @@ async def read_inputs(settings: Settings, anchor: datetime) -> CopyInputs:
     skipped["repeat_views"] += len(views) - len(deduped)
     kept += deduped
 
+    # ENG-30 points 7 and 10: orders with an open return request are left out.
+    current, why = await writers.return_requests_current(
+        settings, anchor, tunables.commerce.return_request_current_hours)
+    if not current:
+        logger.warning("return-request copy not current; M1 runs on the last good copy", extra={"why": why})
+    open_requests = await writers.read_open_return_orders(settings)
+
     orders = []
     for order in await writers.read_order_copies(settings):
+        order_id = to_str(order.get("order_id") or order["_id"])
         if order.get("buyer_actor") == "business" or to_str(order.get("buyer_id")) not in known:
             skipped["order_not_by_a_user"] += 1
         elif _is_reversed(order):
             skipped["order_reversed"] += 1  # +20 and -20 at the same age: exactly zero
+        elif order_id in open_requests:
+            skipped["order_open_return_request"] += 1  # out while the request is open (ENG-30 point 10)
         else:
             orders.append(order)
 
@@ -164,20 +195,32 @@ async def read_inputs(settings: Settings, anchor: datetime) -> CopyInputs:
 
     post_ids = {p for r in kept if (p := target(r, "post"))} | {to_str(o["post_id"]) for o in orders if o.get("post_id")}
     product_ids = {p for r in kept if (p := target(r, "product"))} | {to_str(o["product_id"]) for o in orders if o.get("product_id")}
-    by_post = await _post_categories(settings, post_ids)
+    posts = await _posts(settings, post_ids)
+    by_post = {pid: post.categories for pid, post in posts.items()}
+    seed = {pid for pid, post in posts.items() if post.is_seed}
     by_product = await fetch.read_product_categories(settings, sorted(product_ids))
     by_business = await fetch.read_business_categories(settings, sorted({f.followed_id for f in follows}))
 
     events: dict[str, list[Event]] = defaultdict(list)
+    window_start = anchor - timedelta(days=tunables.interest.personal_window_days)
+    qualified: Counter = Counter()
+    qualified_by_category: dict[str, Counter] = defaultdict(Counter)
 
-    def add(user_id: str, kind: EventType, categories: list[str], at: Any, **extra: Any) -> None:
+    def add(user_id: str, kind: EventType, categories: list[str], at: Any, counts: bool = False, **extra: Any) -> None:
         stats.read += 1
         when = as_utc(at)
         if when is None:
             stats.missing_timestamp += 1
-        elif when > anchor:
+            return
+        if when > anchor:
             stats.future_timestamp += 1
-        elif not categories:
+            return
+        if counts and when >= window_start:
+            # A qualified action (Kala 2a): counted whatever its category.
+            qualified[user_id] += 1
+            for category in categories:
+                qualified_by_category[user_id][category] += 1
+        if not categories:
             stats.unresolved_category += 1
         else:
             events[user_id].append(Event(user_id=user_id, event_type=kind, categories=categories, timestamp=when, **extra))
@@ -187,25 +230,39 @@ async def read_inputs(settings: Settings, anchor: datetime) -> CopyInputs:
             skipped["feedback_on_an_author"] += 1  # an author has no one category
             continue
         post, product = target(row, "post"), target(row, "product")
+        if post in seed:
+            skipped["seed_post"] += 1  # test data (ENG-30 point 9)
+            continue
         # A post card's categories are the post's; a product's, through the category tree.
         categories = by_post.get(post) if post else None
         if not categories and product and by_product.get(product):
             categories = [by_product[product]]
         extra = {}
-        if row["event_type"] == "view":
+        kind = row["event_type"]
+        if kind == "view":
             extra["view_duration_seconds"] = row["dwell_ms"] / 1000 if row.get("dwell_ms") is not None else None
-        add(to_str(row["user_id"]), ACTION[row["event_type"]], categories or [], row.get("created_at"), **extra)
+        counts = (kind != "feedback" and not row.get("is_self")
+                  and (kind != "view" or (row.get("dwell_ms") or 0) >= qualified_ms))
+        add(to_str(row["user_id"]), ACTION[kind], categories or [], row.get("created_at"), counts, **extra)
 
     for order in orders:
         product, post = order.get("product_id"), order.get("post_id")
+        if post and to_str(post) in seed:
+            skipped["seed_post"] += 1
+            continue
         categories = [by_product[to_str(product)]] if product and by_product.get(to_str(product)) else by_post.get(to_str(post), []) if post else []
-        add(to_str(order["buyer_id"]), EventType.PURCHASE, categories, order.get("created_at"), order_id=to_str(order.get("order_id") or order["_id"]))
+        add(to_str(order["buyer_id"]), EventType.PURCHASE, categories, order.get("created_at"), True,
+            order_id=to_str(order.get("order_id") or order["_id"]))
 
     for follow in follows:
         category = by_business.get(follow.followed_id)
         if category is None:
-            skipped["business_follow_no_category"] += 1  # "or the follow adds nothing"
+            # "Or the follow adds nothing" to the score; it is still a qualified action.
+            skipped["business_follow_no_category"] += 1
+            add(follow.follower_id, EventType.BUSINESS_FOLLOW, [], follow.created_at, True)
+            stats.unresolved_category -= 1  # not a dropped event: a follow that adds nothing
             continue
-        add(follow.follower_id, EventType.BUSINESS_FOLLOW, [category], follow.created_at)
+        add(follow.follower_id, EventType.BUSINESS_FOLLOW, [category], follow.created_at, True)
 
-    return CopyInputs(dict(events), declared, user_ids, stats, skipped)
+    return CopyInputs(dict(events), declared, user_ids, stats, skipped, qualified, dict(qualified_by_category),
+                      "current" if current else why)

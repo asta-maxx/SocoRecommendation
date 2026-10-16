@@ -29,7 +29,8 @@ def world(monkeypatch):
     from reco.platform import fetch
     from reco.store import writers
 
-    state = {"events": [], "orders": [], "follows": [], "users": ["u1", "u2"],
+    state = {"events": [], "orders": [], "follows": [], "users": ["u1", "u2"], "open_requests": set(), "seed": set(),
+             "current": (True, "current"),
              "posts": {"home": ["Home & Living"], "pets": ["Pets"], "cricket": []},
              "products": {"gadget": "Electronics"}, "businesses": {"shop": "Pets", "odd": None}}
 
@@ -38,8 +39,14 @@ def world(monkeypatch):
             return [SimpleNamespace(user_id=u, declared_interests=["Pets"] if u == "u2" else []) for u in state["users"]]
         return [SimpleNamespace(**f) for f in state["follows"]]
 
-    async def post_categories(settings, ids):
-        return {i: state["posts"].get(i, []) for i in ids}
+    async def posts(settings, ids):
+        return {i: SimpleNamespace(post_id=i, categories=state["posts"].get(i, []), is_seed=i in state["seed"]) for i in ids}
+
+    async def open_requests(settings):
+        return set(state["open_requests"])
+
+    async def current(settings, now, hours):
+        return state["current"]
 
     async def product_categories(settings, ids):
         return {i: state["products"].get(i) for i in ids}
@@ -54,7 +61,9 @@ def world(monkeypatch):
         return state["orders"]
 
     monkeypatch.setattr(fetch, "read_records", records)
-    monkeypatch.setattr(fetch, "read_post_categories", post_categories)
+    monkeypatch.setattr(fetch, "read_posts", posts)
+    monkeypatch.setattr(writers, "read_open_return_orders", open_requests)
+    monkeypatch.setattr(writers, "return_requests_current", current)
     monkeypatch.setattr(fetch, "read_product_categories", product_categories)
     monkeypatch.setattr(fetch, "read_business_categories", business_categories)
     monkeypatch.setattr(writers, "read_m1_event_copies", event_copies)
@@ -170,3 +179,59 @@ async def test_future_and_timeless_actions_are_dropped(world, settings) -> None:
 async def test_declared_interests_and_every_user_are_returned(world, settings) -> None:
     result = await inputs(settings)
     assert result.user_ids == ["u1", "u2"] and result.declared == {"u2": ["Pets"]}
+
+
+# --- pack v1.4 (ENG-30 points 9, 10) and Kala's count (16 Oct) ---------------------------------
+
+
+async def test_an_open_return_request_leaves_the_purchase_out_until_it_ends(world, settings) -> None:
+    """ENG-30 point 10: out while the request is open; back when it ends without a return."""
+    world["orders"] = [order("Delivered")]
+    world["open_requests"] = {"o1"}
+    result = await inputs(settings)
+    assert kinds(result) == [] and result.skipped["order_open_return_request"] == 1
+    world["open_requests"] = set()  # the request ended (isActive false), the order not Returned
+    assert kinds(await inputs(settings)) == [("purchase", ["Electronics"])]
+
+
+async def test_a_stale_return_request_copy_is_used_and_said(world, settings) -> None:
+    world["current"] = (False, "the last reconciliation of returnrequests (2026-10-15) did not pass")
+    world["orders"] = [order("Delivered")]
+    world["open_requests"] = {"o1"}
+    result = await inputs(settings)
+    assert kinds(result) == [] and "did not pass" in result.return_requests  # the last good copy, logged
+
+
+async def test_actions_on_seed_posts_are_left_out(world, settings) -> None:
+    """ENG-30 point 9: a _seedTag post is test data."""
+    world["seed"] = {"home"}
+    world["events"] = [ev("like"), ev("like", post="pets", days=2)]
+    world["orders"] = [order("Delivered", post_id="home", product_id=None)]
+    result = await inputs(settings)
+    assert kinds(result) == [("like", ["Pets"])] and result.skipped["seed_post"] == 2
+
+
+async def test_qualified_actions_are_counted_kalas_way(world, settings) -> None:
+    """Kala, 16 Oct (2a): views of 3 s+ (one per post), clicks, likes, saves, comments,
+    shares, add-to-carts, kept orders and business follows, in the last 90 days; not
+    feedback, impressions, undone actions, own-post actions or older ones. The total
+    counts whatever the category; event_count is the same set per category."""
+    world["events"] = [
+        ev("view", dwell_ms=3000), ev("view", dwell_ms=5000, days=2),  # one view per post: 1
+        ev("view", post="pets", dwell_ms=2999),  # under 3 s: no
+        ev("click"), ev("product_click", days=3), ev("save"), ev("comment"), ev("share"), ev("add_to_cart"),  # 6
+        ev("like", is_self=True),  # own post: scored, not counted
+        ev("like", undone_at=NOW),  # undone: no
+        ev("feedback", feedback_type="hide"),  # feedback: no
+        ev("like", days=91),  # outside 90 days: no
+        ev("like", post="cricket"),  # no category: still counted
+    ]
+    world["orders"] = [order("Delivered"), {**order("Cancelled"), "_id": "o2", "order_id": "o2"}]  # 1 kept
+    world["follows"] = [{"follower_id": "u1", "followed_id": "shop", "followed_kind": "business", "created_at": NOW - DAY},
+                        {"follower_id": "u1", "followed_id": "odd", "followed_kind": "business", "created_at": NOW - DAY}]
+    result = await inputs(settings)
+    assert result.qualified["u1"] == 1 + 6 + 1 + 1 + 2  # views, actions, uncategorised like, order, follows
+    by_category = result.qualified_by_category["u1"]
+    assert by_category == {"Home & Living": 7, "Electronics": 1, "Pets": 1}
+    assert ("like", ["Home & Living"]) in kinds(result)  # the own-post like still adds to the score
+

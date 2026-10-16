@@ -294,6 +294,11 @@ async def read_post_categories(settings: Settings, post_ids: list[str]) -> dict[
     return {post.post_id: post.categories for post in await read_where(settings, "post", "_id", post_ids)}
 
 
+async def read_posts(settings: Settings, post_ids: list[str]) -> dict[str, records.PostRecord]:
+    """The posts, parsed (categories matched to the 23; is_seed for ENG-30 point 9)."""
+    return {post.post_id: post for post in await read_where(settings, "post", "_id", post_ids)}
+
+
 # --- M1 on the engine's copies (ENG-10) ------------------------------------------------------
 
 

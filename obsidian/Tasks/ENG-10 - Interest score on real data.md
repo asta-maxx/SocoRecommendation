@@ -15,6 +15,11 @@ owner: Allen
 > [!tip] Pack v1.4 (15 Oct 2026)
 > A purchase now comes off the score only when the order's **status** is Cancelled, Rejected or Returned. The history lines no longer decide it, and "Return Requested" doesn't exist. Taking a purchase off *while a return request is open* is the next step, in [[ENG-30 - Adapting to the October platform facts]]. On dev: 8 of 16 people scored; 2 orders taken back (one returned, one rejected).
 
+> [!tip] 16 Oct 2026: M1 finished to pack v1.4
+> - A purchase now comes off **while its return request is open**, and comes back if the request ends without a return. → [[ENG-30 - Adapting to the October platform facts]]
+> - Actions on **seed posts** (test data) are left out.
+> - Each person's **qualified actions** (last 90 days; not hides, not likes on your own post) are counted once, the same way the ladder counts them, and kept with the score, as Kala asked. Likes on your own posts still count towards *what you're into*; whether they should is a question back to Kala.
+
 **In one line:** every night, work out what each person is into, as a share per category, from everything they did on SOCO, counting each thing once and in the right way.
 
 ## Why this task
