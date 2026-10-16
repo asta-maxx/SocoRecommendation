@@ -3,6 +3,7 @@
     post_type_of(detailed, post_type, listed)       the post's type, or "other"
     post_vector(categories, post_type, days_old, ...) one post's unit vector
     post_is_eligible(post, author)                  None, or why the post is left out
+    kept_purchases(orders, ...)                     purchases made from a post, as engagement
     engaged_by_user(rows, ...)                      each user's engaged posts, weighted
     user_profile(engaged, vectors, ...)             the user's unit profile, or None
     top_similar(profile, pool, limit)               the most similar posts, ranked
@@ -22,10 +23,15 @@ The profile (step 2): the weighted average of the vectors of the user's last 50
 engaged posts, scaled to length 1. A post's weight is the sum, over the user's
 qualifying actions on it, of the ENG-10 action weight times the 30-day decay
 2 ** (-age_days / half_life_days). Fewer than 3 engaged posts: no profile.
+Purchases (Nisha, 16 Oct 2026): a kept order made from a post adds the ENG-10
+purchase weight (20) to that post, aged from the order time, under ENG-10's rules
+(read from the order; Cancelled, Rejected or Returned, or an open return request,
+add nothing). The postevents purchase row is never read (ENG-10: one place only).
 
 Similarity (step 3): cosine, which for two unit vectors is their dot product.
 Every coordinate is 0 or more, so it lies in 0..1. Ties: the newer post first,
-then the post id.
+then the post id. The posts the profile was built from are left off the user's
+list, and the next most similar posts fill their places (Nisha, 16 Oct 2026).
 """
 
 from __future__ import annotations
@@ -162,6 +168,46 @@ class EngagedRead:
     skipped: Counter = field(default_factory=Counter)
 
 
+def kept_purchases(
+    orders: Iterable[Mapping[str, Any]],
+    *,
+    anchor: datetime,
+    reversed_statuses: Sequence[str],
+    open_requests: set[str] | frozenset[str] = frozenset(),
+    users: set[str] | frozenset[str] | None = None,
+    seed_posts: set[str] | frozenset[str] = frozenset(),
+    test_accounts: set[str] | frozenset[str] = frozenset(),
+) -> tuple[list[tuple[str, str, datetime]], Counter]:
+    """(buyer, post, order time) for each purchase that counts, from the engine's copy
+    of orders. Counted (ENG-10's rules, as M1): an order made from a post, by a person,
+    not Cancelled, Rejected or Returned (order_status), with no open return request
+    (ENG-30 point 10), not on a seed post, not by a test account, not after `anchor`."""
+    skipped: Counter = Counter()
+    out: list[tuple[str, str, datetime]] = []
+    for order in orders:
+        order_id = str(order.get("order_id") or order.get("_id") or "")
+        buyer, post_id, at = order.get("buyer_id"), order.get("post_id"), as_utc(order.get("created_at"))
+        if not post_id:
+            skipped["order_not_from_a_post"] += 1
+        elif not buyer or at is None:
+            skipped["order_incomplete"] += 1
+        elif order.get("buyer_actor") == "business" or (users is not None and str(buyer) not in users):
+            skipped["order_not_by_a_user"] += 1
+        elif any(status_is(order.get("status"), s) for s in reversed_statuses):
+            skipped["order_reversed"] += 1  # its positive weight is lost (Nisha, 16 Oct)
+        elif order_id in open_requests:
+            skipped["order_open_return_request"] += 1
+        elif str(post_id) in seed_posts:
+            skipped["order_seed_post"] += 1
+        elif str(buyer).strip().lower() in test_accounts:
+            skipped["order_test_account"] += 1
+        elif at > anchor:
+            skipped["order_future"] += 1
+        else:
+            out.append((str(buyer), str(post_id), at))
+    return out, skipped
+
+
 def engaged_by_user(
     rows: Iterable[Mapping[str, Any]],
     *,
@@ -171,6 +217,7 @@ def engaged_by_user(
     qualified_view_ms: float,
     seed_posts: set[str] | frozenset[str] = frozenset(),
     test_accounts: set[str] | frozenset[str] = frozenset(),
+    purchases: Iterable[tuple[str, str, datetime]] = (),
 ) -> EngagedRead:
     """Each user's engaged posts from the engine's copy of postevents.
 
@@ -180,7 +227,8 @@ def engaged_by_user(
     action on the user's own post (is_self), an action on a seed post, an action
     by a test account or a business account, or one after `anchor`.
 
-    `weights` maps the ENG-10 names (qualified_view, click, ...) to their weights."""
+    `weights` maps the ENG-10 names (qualified_view, click, ...) to their weights.
+    `purchases` (kept_purchases) each add weights["purchase"], aged from the order."""
     skipped: Counter = Counter()
     #: (user_id, post_id, event_type, at) per counted action.
     views: dict[tuple[str, str], tuple[str, str, str, datetime]] = {}
@@ -218,8 +266,9 @@ def engaged_by_user(
             actions.append((str(user_id), str(post_id), event_type, at))
 
     by_user: dict[str, dict[str, Engagement]] = {}
-    for user_id, post_id, event_type, at in [*actions, *views.values()]:
-        weight = weights[ACTION_WEIGHT_FIELD[event_type]]
+    bought = [(user_id, post_id, "purchase", at) for user_id, post_id, at in purchases]
+    for user_id, post_id, event_type, at in [*actions, *views.values(), *bought]:
+        weight = weights["purchase"] if event_type == "purchase" else weights[ACTION_WEIGHT_FIELD[event_type]]
         decay = 2 ** (-days_between(at, anchor) / half_life_days)
         held = by_user.setdefault(user_id, {}).setdefault(post_id, Engagement())
         held.weight += weight * decay
@@ -283,12 +332,15 @@ def cosine(a: Sequence[float], b: Sequence[float]) -> float:
     return min(1.0, max(0.0, sum(x * y for x, y in zip(a, b))))
 
 
-def top_similar(profile: Sequence[float], pool: Sequence[PoolPost], limit: int) -> list[tuple[str, float]]:
+def top_similar(
+    profile: Sequence[float], pool: Sequence[PoolPost], limit: int, exclude: set[str] | frozenset[str] = frozenset()
+) -> list[tuple[str, float]]:
     """The `limit` pool posts most similar to `profile`, best first, as (post_id,
-    score). Ties: newer post first, then post id."""
+    score). Ties: newer post first, then post id. Posts in `exclude` (the ones the
+    profile was built from) are skipped, so the next ones fill their places."""
     scored = (
         (min(1.0, max(0.0, sum(profile[i] * x for i, x in post.nonzero))), post.created_ts, post.post_id)
-        for post in pool
+        for post in pool if post.post_id not in exclude
     )
     best = heapq.nsmallest(limit, scored, key=lambda s: (-s[0], -s[1], s[2]))
     return [(post_id, score) for score, _, post_id in best]
