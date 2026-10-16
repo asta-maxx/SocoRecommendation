@@ -180,11 +180,23 @@ async def check_lag(settings: Settings, now: datetime | None = None) -> list[dic
 
 async def sync_forever(settings: Settings) -> None:
     """A pass every sync_interval_minutes. Settings are re-read before each pass, so a
-    changed interval takes effect with no restart."""
+    changed interval takes effect with no restart. Every filters.eligibility_refresh_minutes
+    (15) the post index the candidate sources read is refreshed too (ENG-12)."""
+    from reco.ranking import post_index
+
+    last_index: datetime | None = None
     while True:
         await config_sync.reload(settings)
         try:
             await sync_once(settings)
         except Exception:
             pass  # already alerted and logged; the next pass restarts from the checkpoints
+        every = timedelta(minutes=live.current().filters.eligibility_refresh_minutes)
+        if last_index is None or utc_now() - last_index >= every:
+            try:
+                result = await post_index.refresh(settings)
+                last_index = utc_now()
+                logger.info("post index refreshed", extra=result)
+            except Exception:
+                logger.exception("post index refresh failed; the previous index stays in use")
         await asyncio.sleep(live.current().events.sync_interval_minutes * 60)

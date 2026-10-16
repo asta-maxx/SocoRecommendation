@@ -5,6 +5,7 @@ exits. Nothing here serves a request, so a failed job never touches the feed.
 
     python -m reco.jobs interest            # M1, both Wave 1A methods
     python -m reco.jobs popularity          # platform popularity, ladder rung 3 (ENG-09)
+    python -m reco.jobs post_index          # recent posts and 7-day views, for the candidate sources (ENG-12)
     python -m reco.jobs sync                # one engine sync pass (ENG-04)
     python -m reco.jobs sync_loop           # a pass every sync_interval_minutes
     python -m reco.jobs sync_check          # the sync lag alert, on its own
@@ -100,6 +101,15 @@ async def _popularity(settings: Settings) -> None:
                                                       "categories": record["rows_written"], **detail["counts"]})
 
 
+async def _post_index(settings: Settings) -> None:
+    """ENG-12: the post index the candidate sources read (also run by the sync loop)."""
+    from reco.ranking import post_index
+
+    async with job_run("post_index"):
+        result = await post_index.refresh(settings)
+        job_logger.info("post index", extra={"job": "post_index", **result})
+
+
 async def _sync(settings: Settings) -> None:
     """ENG-04: one pass over postevents, orders and recommendationrequests."""
     async with job_run("sync"):
@@ -156,6 +166,7 @@ async def _scheduler(settings: Settings) -> None:
 JOBS: dict[str, Callable[[Settings], Awaitable[None]]] = {
     "interest": _interest,
     "popularity": _popularity,
+    "post_index": _post_index,
     "sync": _sync,
     "sync_loop": _sync_loop,
     "sync_check": _sync_check,

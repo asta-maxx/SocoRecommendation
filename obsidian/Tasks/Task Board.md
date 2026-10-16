@@ -14,7 +14,7 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 - [ ] [[ENG-20 - Speed test|ENG-20 (part 1)]]: Time today's feed: **in progress** (13 Oct: timer built and tested; the real run waits on the feed's address and a test login from Aravinth)
 
 > [!success] M1 (the interest score) complete, 16 Oct 2026
-> ENG-09, ENG-10 and ENG-11, finished to pack v1.4 with Kala's answers: 16 of 16 interest-score checks pass, and the earlier tasks' checks pass again on the new code. Next: M2 (ENG-12 to ENG-15).
+> ENG-09, ENG-10 and ENG-11, finished to pack v1.4 with Kala's answers: 18 of 18 interest-score checks pass, and the earlier tasks' checks pass again on the new code. Next: M2 (ENG-12 to ENG-15).
 
 ## Step 2: serving lists
 - [ ] [[ENG-06 - Serve a recommendation list]]: **built** (16 Oct, Kala S2; passed once checked on the test server) (1 Oct: serving, record, modes, exploration and errors work; interim newest-first lists until ENG-08, ENG-09, ENG-17, ENG-19 and ENG-29) · [[Demo - ENG-06|demo]]
@@ -27,7 +27,8 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 - [x] [[ENG-11 - Interest score checks]]: **passed** (16 Oct, Kala: dev run counts) · was built (14 Oct: all 11 checks pass; output saved; re-run on the test server later) · [[Demo - ENG-11|demo]]
 
 ## Step 3: finding and scoring
-- [ ] ENG-12 to ENG-15: Finding candidate posts
+- [ ] [[ENG-12 - Candidate sources]]: **built** (16 Oct, dev: the post index and five sources, each within 20 ms or dropped and logged; timed on the test server later)
+- [ ] ENG-13 to ENG-15: quotas, similar posts, merge (in progress)
 - [ ] ENG-16: Promoter score
 - [ ] ENG-17: Product "you might also like"
 

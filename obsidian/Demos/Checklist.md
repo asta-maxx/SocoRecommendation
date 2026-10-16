@@ -141,6 +141,13 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 11.2 | The interest-score check script: all 11 checks on the made-up users (the official check of both tasks) |
 | 11.3 | The interest score runs on SOCO's real data, from the engine's copy |
 
+### 12. ENG-12: candidate sources → [[ENG-12 - Candidate sources]]
+| Line | Checks |
+|---|---|
+| 12.1 | Each source's rule; a source that's too slow is skipped and logged (tests) |
+| 12.2 | On a real database: the list of recent posts, and every source reading it |
+| 12.3 | The list of recent posts builds from SOCO's real posts |
+
 ### Last line: clean up
 | Line | Checks |
 |---|---|
