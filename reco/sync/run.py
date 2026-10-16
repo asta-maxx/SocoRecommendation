@@ -107,12 +107,13 @@ async def incremental(settings: Settings, source: SyncSource) -> int:
     overlap = timedelta(minutes=live.current().events.sync_overlap_minutes)
     since = checkpoint - overlap if checkpoint else _EARLIEST
     position, copied = None, 0
-    while docs := await fetch.read_page_by_updated_at(settings, source.kind, since, position, PAGE_SIZE):
+    key = source.updated_field
+    while docs := await fetch.read_page_by_updated_at(settings, source.kind, since, position, PAGE_SIZE, key):
         copied += await write_page(settings, source, docs, utc_now())
         last = docs[-1]
-        position = (last["updated_at"], last["_id"])
-        if checkpoint is None or last["updated_at"] > checkpoint:
-            checkpoint = last["updated_at"]
+        position = (last[key], last["_id"])
+        if checkpoint is None or last[key] > checkpoint:
+            checkpoint = last[key]
             await writers.write_sync_state(settings, source.collection, {"checkpoint": checkpoint})
     return copied
 

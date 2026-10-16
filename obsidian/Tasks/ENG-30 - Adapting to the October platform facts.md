@@ -42,7 +42,17 @@ v1.4 keeps the words of ENG-01 to ENG-11 and ENG-29, and puts every correction h
 - **What we did:** tests for ok, review, fix requested and no mark at all.
 - **Status:** done. → [[ENG-08 - Filters]]
 
-### 1–4 and 7–10. Still to build ⏳
+### 7. Return requests copied ✅ (16 Oct)
+- **What it asks:** copy SOCO's return requests every 5 minutes, like the activity log, but **without** any personal details (address, phone, photos, comments, refund details). Treat the copy as reliable only if it was refreshed in the last 24 hours and its daily check passed.
+- **What we did:** a new drawer, `ml_return_requests`. The engine only ever reads the request's status and dates; everything else stays in SOCO. A test plants an address, phone number, photo and refund detail and shows none of them arrives.
+- **Why it matters:** an open return request means the shopper may not be happy, so the interest score and the promoter score must know about it, but nobody's address should ever be in the engine.
+- **Status:** done. → [[Engine sync]], [[Collections]]
+
+### 9. Seed posts ✅ (16 Oct, recognised)
+- **What it asks:** posts marked as seed data are test data, like a test account.
+- **What we did:** the engine now recognises them; the interest score and the ladder leave them out (next step).
+
+### 1–4, 8 and 10. Still to build ⏳
 | # | In plain words |
 |---|---|
 | 1 | Who promoted an order: the order says; if not, the post's author |

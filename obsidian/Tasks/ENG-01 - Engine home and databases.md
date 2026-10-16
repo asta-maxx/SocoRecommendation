@@ -31,6 +31,9 @@ Every other task needs somewhere to run and somewhere to save things. This task 
 > | How a copy is labelled | by its `event_id` | by SOCO's own label for that row (its `_id`) |
 > | How long copies are kept | no auto-delete | auto-deleted **365 days after the event really happened** |
 
+> [!note] 16 Oct 2026: 17 drawers
+> Pack v1.4 adds one drawer, `ml_return_requests`, for copies of SOCO's return requests (status and dates only). → [[ENG-30 - Adapting to the October platform facts]]
+
 ## Subtasks, one by one
 The Build List splits ENG-01 into four numbered parts (1–4). We added three small extras (A–C) that make them safe and easy to check.
 

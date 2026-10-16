@@ -66,6 +66,13 @@ async def read_records(
 # drops or repeats a row.
 
 
+#: Raw reads for the sync keep the whole row, except where a collection holds personal
+#: fields the engine must never read (returnrequests, ENG-30 point 7).
+_SYNC_FIELDS: dict[str, dict[str, int] | None] = {
+    "return_request": {f: 1 for f in records.RETURN_REQUEST_FIELDS},
+}
+
+
 def _oid(value: Any) -> Any:
     """A stored id as the type the platform uses for _id (ObjectId where it parses)."""
     from bson import ObjectId
@@ -76,25 +83,25 @@ def _oid(value: Any) -> Any:
 async def read_page_by_id(settings: Settings, kind: str, after_id: Any, limit: int) -> list[dict[str, Any]]:
     """Backfill: rows in _id order, after `after_id` (None = from the start)."""
     query = {"_id": {"$gt": _oid(after_id)}} if after_id is not None else {}
-    cursor = app_db(settings)[PLATFORM_COLLECTIONS[kind]].find(query).sort("_id", 1).limit(limit)
+    cursor = app_db(settings)[PLATFORM_COLLECTIONS[kind]].find(query, _SYNC_FIELDS.get(kind)).sort("_id", 1).limit(limit)
     return await cursor.to_list(None)
 
 
 async def read_page_by_updated_at(
-    settings: Settings, kind: str, since: Any, after: tuple[Any, Any] | None, limit: int
+    settings: Settings, kind: str, since: Any, after: tuple[Any, Any] | None, limit: int, field: str = "updated_at"
 ) -> list[dict[str, Any]]:
     """Incremental: rows with updated_at >= since, ordered by (updated_at, _id), after the
     keyset position `after` = (updated_at, _id). Two rows with the same updated_at
     across a page boundary are both read (ENG-04 check d)."""
     if after is None:
-        query: dict[str, Any] = {"updated_at": {"$gte": since}}
+        query: dict[str, Any] = {field: {"$gte": since}}
     else:
         at, last_id = after
-        query = {"$or": [{"updated_at": {"$gt": at}}, {"updated_at": at, "_id": {"$gt": _oid(last_id)}}]}
+        query = {"$or": [{field: {"$gt": at}}, {field: at, "_id": {"$gt": _oid(last_id)}}]}
     cursor = (
         app_db(settings)[PLATFORM_COLLECTIONS[kind]]
-        .find(query)
-        .sort([("updated_at", 1), ("_id", 1)])
+        .find(query, _SYNC_FIELDS.get(kind))
+        .sort([(field, 1), ("_id", 1)])
         .limit(limit)
     )
     return await cursor.to_list(None)
@@ -102,11 +109,13 @@ async def read_page_by_updated_at(
 
 async def read_by_ids(settings: Settings, kind: str, ids: list[Any]) -> list[dict[str, Any]]:
     """Specific platform rows, for the reconciliation's re-read."""
-    cursor = app_db(settings)[PLATFORM_COLLECTIONS[kind]].find({"_id": {"$in": [_oid(i) for i in ids]}})
+    cursor = app_db(settings)[PLATFORM_COLLECTIONS[kind]].find({"_id": {"$in": [_oid(i) for i in ids]}}, _SYNC_FIELDS.get(kind))
     return await cursor.to_list(None)
 
 
-async def read_touched(settings: Settings, kind: str, time_fields: tuple[str, ...], start: Any, end: Any) -> list[dict[str, Any]]:
+async def read_touched(
+    settings: Settings, kind: str, time_fields: tuple[str, ...], start: Any, end: Any, updated_field: str = "updated_at"
+) -> list[dict[str, Any]]:
     """Rows created or changed in [start, end): the reconciliation's day.
 
     Created: any of `time_fields` in the day, or, for a row without them, its _id
@@ -116,10 +125,10 @@ async def read_touched(settings: Settings, kind: str, time_fields: tuple[str, ..
     window = {"$gte": start, "$lt": end}
     query = {"$or": [
         *({field: window} for field in time_fields),
-        {"updated_at": window},
+        {updated_field: window},
         {"_id": {"$gte": ObjectId.from_datetime(start), "$lt": ObjectId.from_datetime(end)}},
     ]}
-    return await app_db(settings)[PLATFORM_COLLECTIONS[kind]].find(query).to_list(None)
+    return await app_db(settings)[PLATFORM_COLLECTIONS[kind]].find(query, _SYNC_FIELDS.get(kind)).to_list(None)
 
 
 # --- reads for serving (ENG-06) ---------------------------------------------------------
@@ -135,7 +144,8 @@ _EMPTY_INDEX = ProductCategoryIndex()
 #: carry images, specifications and policies; reading them whole is most of the time.
 _FIELDS: dict[str, dict[str, int]] = {
     "post": {f: 1 for f in ("userId", "userModel", "timestamp", "categories", "postType", "postTypeDetailed", "isHidden",
-                            "visibility", "compliance", "Product_status", "ageGroup", "isRepost", "products", "productId")},
+                            "visibility", "compliance", "Product_status", "ageGroup", "isRepost", "products", "productId",
+                            "_seedTag")},
     "product": {f: 1 for f in ("createdBy", "createdAt", "status", "availability", "categoryPathIds", "basicInfo.categoryId",
                                "crossSellProducts")},
     "user": {f: 1 for f in ("status", "moderation.state", "city", "DOB", "accountIsPublic", "restriction_level", "interest",

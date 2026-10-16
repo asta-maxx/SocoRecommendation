@@ -249,6 +249,9 @@ class PostRecord(_Record):
     age_group: str | None  # E-11
     is_repost: bool
     product_ids: list[str]
+    #: ENG-30 point 9: a post carrying _seedTag is test data, treated like a test account
+    #: (left out of learning, measurement and fraud). The app's reads hide the field.
+    is_seed: bool = False
 
 
 def parse_post(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None) -> PostRecord:
@@ -271,6 +274,7 @@ def parse_post(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map
         product_status=doc.get("Product_status"),
         age_group=doc.get("ageGroup"),
         is_repost=bool(doc.get("isRepost")),
+        is_seed=bool(doc.get("_seedTag")),
         product_ids=product_ids,
     )
 
@@ -715,7 +719,44 @@ def parse_category(doc: dict[str, Any], vocabulary: CategoryVocabulary, category
 
 
 #: Every record kind, for the readers and the ENG-03 check.
+# --- return requests (ENG-30 point 7) -------------------------------------------------------
+
+#: The only returnrequests fields the engine reads or keeps (ENG-30 point 7). Never the
+#: pickup address, phone, photos, comment or refund destination.
+RETURN_REQUEST_FIELDS: tuple[str, ...] = ("orderId", "returnNumber", "status", "isActive", "createdAt", "completedAt",
+                                          "updatedAt", "windowEndsAt", "policySnapshot.windowDays")
+
+
+class ReturnRequestRecord(_Record):
+    request_id: str
+    order_id: str | None
+    return_number: str | None
+    status: str | None
+    is_active: bool  # an open request (ENG-30 point 7)
+    created_at: datetime | None
+    completed_at: datetime | None
+    updated_at: datetime | None
+    window_ends_at: datetime | None
+    window_days: float | None  # policySnapshot.windowDays: a cross-check only (point 8)
+
+
+def parse_return_request(doc: dict[str, Any]) -> ReturnRequestRecord:
+    snapshot = doc.get("policySnapshot") if isinstance(doc.get("policySnapshot"), dict) else {}
+    return ReturnRequestRecord(
+        request_id=to_str(doc["_id"]),
+        order_id=maybe_str(doc.get("orderId")),
+        return_number=doc.get("returnNumber") if isinstance(doc.get("returnNumber"), str) else None,
+        status=doc.get("status"),
+        is_active=doc.get("isActive") is True,
+        created_at=time_of(doc, "createdAt"),
+        completed_at=as_utc(doc.get("completedAt")),
+        updated_at=as_utc(doc.get("updatedAt")),
+        window_ends_at=as_utc(doc.get("windowEndsAt")),
+        window_days=_number(snapshot.get("windowDays")),
+    )
+
+
 RECORD_KINDS: tuple[str, ...] = (
     "user", "business", "post", "postevent", "follow", "order", "cart_line",
-    "product", "variant", "category", "served_list", "serve_log",
+    "product", "variant", "category", "served_list", "serve_log", "return_request",
 )

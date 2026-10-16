@@ -109,8 +109,9 @@ def test_refusal_does_not_print_the_password() -> None:
 
 
 def test_engine_collections_are_the_sixteen_in_eng01() -> None:
-    """Build List v1.3, ENG-01 item 2."""
+    """Build List ENG-01 item 2's sixteen, and ml_return_requests (ENG-30 point 7; SDA v1.7)."""
     assert set(ENGINE_COLLECTIONS) == {
+        "ml_return_requests",
         "ml_events",
         "ml_orders",
         "ml_sync_state",
@@ -128,7 +129,7 @@ def test_engine_collections_are_the_sixteen_in_eng01() -> None:
         "ml_config_changes",
         "ml_measurements",
     }
-    assert len(ENGINE_COLLECTIONS) == 16
+    assert len(ENGINE_COLLECTIONS) == 17
     assert all(name.startswith("ml_") for name in ENGINE_COLLECTIONS)
 
 

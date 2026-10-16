@@ -341,10 +341,10 @@ def test_every_record_kind_has_a_parser_and_a_collection() -> None:
 
 
 def test_platform_collections_are_exactly_db_02s_read_list() -> None:
-    """DB-02 (v1.3 Waits sheet; DS-017 v2.5 section 7): the login can read only these."""
+    """The read list (DS-017 v2.6 section 7) and ENG-30's addition, returnrequests (v1.4)."""
     assert set(PLATFORM_COLLECTIONS.values()) == {
         "postevents", "orders", "recommendationrequests", "rec_serve_log", "posts", "users", "businessregisters",
-        "products", "productvariants", "categories", "follows", "followers", "carts"}
+        "products", "productvariants", "categories", "follows", "followers", "carts", "returnrequests"}
 
 
 # --- one source per kind of data; no event source switch -----------------------------------

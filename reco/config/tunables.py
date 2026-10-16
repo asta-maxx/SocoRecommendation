@@ -338,6 +338,9 @@ class Commerce(_Section):
     """A completed sale is Delivered with no return requested in the window (fixed)."""
 
     pending_open_days: int = between(14, 7, 45)  # ENG-16
+    #: ENG-30 point 7: the return-request copy is current when its last sync completed
+    #: within this many hours and its last reconciliation passed (fixed for Wave 1A).
+    return_request_current_hours: int = fixed(24)
 
 
 # --- M9 fraud --------------------------------------------------------------------

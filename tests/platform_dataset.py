@@ -211,6 +211,22 @@ def build_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[str,
          "page": 2, "origin": "cache", "outcome": "ok", "elapsed_ms": 3, "time": ago(minutes=9)},
     ]
 
+    # --- return requests (ENG-30 point 7): one closed, one open; personal fields included
+    # here on purpose, so a test can show they never reach the engine.
+    c["return_closed"], c["return_open"] = _id(), _id()
+    personal = {"pickupAddress": {"line1": "12 Test Street", "phone": "+91 90000 00000"}, "comment": "box was torn",
+                "photos": ["https://example.test/p.jpg"], "refund": {"destination": "UPI test@upi", "amount": 799}}
+    returnrequests = [
+        {"_id": c["return_closed"], "returnNumber": "RET-TEST0001", "orderId": c["order_returned"], "buyerId": c["buyer"],
+         "status": "completed", "isActive": False, "createdAt": ago(hours=45), "completedAt": ago(hours=40),
+         "updatedAt": ago(hours=40), "windowEndsAt": ago(hours=-200), "policySnapshot": {"windowDays": 7, "source": "product"},
+         **personal},
+        {"_id": c["return_open"], "returnNumber": "RET-TEST0002", "orderId": c["order_delivered"], "buyerId": c["buyer"],
+         "status": "requested", "isActive": True, "createdAt": ago(hours=20), "completedAt": None,
+         "updatedAt": ago(hours=20), "windowEndsAt": ago(hours=-100), "policySnapshot": {"windowDays": 7, "source": "product"},
+         **personal},
+    ]
+
     return {
         "users": users,
         "businessregisters": businesses,
@@ -225,4 +241,5 @@ def build_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[str,
         "carts": carts,
         "recommendationrequests": recommendationrequests,
         "rec_serve_log": rec_serve_log,
+        "returnrequests": returnrequests,
     }, c

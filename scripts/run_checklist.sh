@@ -111,7 +111,7 @@ check "0.4 database tests pass (Atlas awake)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -
 
 echo "== 1. ENG-01: the engine's home and databases"
 proof_to ENG-01
-check "1.1 environment, own database, 16 collections" "$PY scripts/setup_engine_db.py" "16 of 16 collections present"
+check "1.1 environment, own database, 17 collections (16, and ml_return_requests from ENG-30)" "$PY scripts/setup_engine_db.py" "17 of 17 collections present"
 check "1.2 platform login is read-only" "$PY scripts/check_platform_access.py" "NONE (read-only)"
 check "1.3 safety lock refuses engine = platform" "$PY -c \"
 from reco.config import Settings

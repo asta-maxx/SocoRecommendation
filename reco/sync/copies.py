@@ -45,6 +45,8 @@ class SyncSource:
     #: Written once, never changed (rec_serve_log): no updated_at is needed; new
     #: rows are read by _id, carrying on from the backfill's position.
     append_only: bool = False
+    #: The platform row's change time, the sync key (returnrequests spells it updatedAt).
+    updated_field: str = "updated_at"
 
     @property
     def collection(self) -> str:
@@ -62,6 +64,11 @@ SYNC_SOURCES: tuple[SyncSource, ...] = (
     # has no updated_at: new rows are read by _id (append_only).
     SyncSource("serve_log", "ml_events", ("at", "time", "timestamp", "created_at"), ("origin", "outcome", "elapsed_ms"),
                append_only=True),
+    # ENG-30 point 7 (SDA v1.7): open return requests, status and dates only. Read by
+    # updatedAt, which moves when a request changes; the reconciliation compares status
+    # and isActive too, so a change that didn't move updatedAt is still caught.
+    SyncSource("return_request", "ml_return_requests", ("createdAt",), ("status", "isActive", "updatedAt"),
+               updated_field="updatedAt"),
 )
 
 
@@ -93,6 +100,16 @@ def make_copy(source: SyncSource, doc: dict[str, Any], statuses: OrderStatusValu
             "scored": False,
             "seen_ids": [to_str(i) for i in doc.get("seen_ids") or []],
         }
+    elif source.kind == "return_request":
+        fields = records.parse_return_request(doc).model_dump()
+        # The record's own created_at is its createdAt: the retention runs from it.
+        fields |= {"event_type": "return_request", "created_at": fields["created_at"]}
+        # Only the allowed fields ever reach the engine (the read is limited to them too).
+        kept = {k: v for k, v in doc.items() if k == "_id" or k in records.RETURN_REQUEST_FIELDS}
+        snapshot = doc.get("policySnapshot")
+        if isinstance(snapshot, dict) and "windowDays" in snapshot:
+            kept["policySnapshot"] = {"windowDays": snapshot["windowDays"]}
+        doc = kept
     elif source.kind == "serve_log":
         fields = records.parse_serve_log(doc).model_dump() | {"event_type": "serve_log", "event_code": None, "scored": False}
     else:  # pragma: no cover - SYNC_SOURCES lists only these

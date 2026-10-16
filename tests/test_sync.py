@@ -93,7 +93,25 @@ def test_status_history_adds_only_a_new_status() -> None:
 
 
 def test_the_sync_reads_the_four_sources() -> None:
-    assert [s.collection for s in SYNC_SOURCES] == [POSTEVENTS, ORDERS, SERVED, "rec_serve_log"]
+    """ENG-04's three, rec_serve_log (ENG-29) and returnrequests (ENG-30 point 7)."""
+    assert [s.collection for s in SYNC_SOURCES] == [POSTEVENTS, ORDERS, SERVED, "rec_serve_log", "returnrequests"]
+
+
+def test_a_return_request_copy_keeps_status_and_dates_only() -> None:
+    """ENG-30 point 7: never the pickup address, phone, photos, comment or refund destination."""
+    from reco.sync.copies import make_copy, source_named
+    from tests.platform_dataset import build_dataset
+
+    data, cases = build_dataset()
+    doc = next(d for d in data["returnrequests"] if d["_id"] == cases["return_open"])
+    copy = make_copy(source_named("returnrequests"), doc, OrderStatusValues())
+    flat = repr(copy)
+    for secret in ("pickupAddress", "Test Street", "+91 90000", "comment", "box was torn", "photos", "refund", "UPI"):
+        assert secret not in flat, secret
+    assert copy["is_active"] and copy["order_id"] == str(cases["order_delivered"]) and copy["return_number"] == "RET-TEST0002"
+    assert copy["platform"] == {k: doc[k] for k in ("orderId", "returnNumber", "status", "isActive", "createdAt",
+                                                    "completedAt", "updatedAt", "windowEndsAt")} | {"policySnapshot": {"windowDays": 7}}
+    assert copy["created_at"] == doc["createdAt"]  # the retention runs from it
 
 
 def test_retention_is_the_setting() -> None:
@@ -118,8 +136,9 @@ async def synced(settings):
     engine = store_conn.ml_db(settings)
 
     async def clear() -> None:
-        for name in (POSTEVENTS, ORDERS, SERVED, "rec_serve_log"):
+        for name in (POSTEVENTS, ORDERS, SERVED, "rec_serve_log", "returnrequests"):
             await platform[name].drop()
+        await engine["ml_return_requests"].drop()
         for name in ENGINE:
             await engine[name].drop()
 
@@ -311,8 +330,9 @@ async def test_reconciliation_passes_when_ids_and_fields_match(synced) -> None:
     results = await reconcile.reconcile_day(settings, today)
 
     assert all(r["passed"] for r in results), results
-    assert {r["source"]: r["platform_ids"] for r in results} == {POSTEVENTS: 2, ORDERS: 1, SERVED: 1, "rec_serve_log": 0}
-    assert await engine["ml_measurements"].count_documents({"measure": "sync_reconciliation", "day": today}) == 4
+    assert {r["source"]: r["platform_ids"] for r in results} == {POSTEVENTS: 2, ORDERS: 1, SERVED: 1, "rec_serve_log": 0,
+                                                                 "returnrequests": 0}
+    assert await engine["ml_measurements"].count_documents({"measure": "sync_reconciliation", "day": today}) == 5
 
 
 @pytest.mark.mongo
@@ -389,3 +409,44 @@ def test_an_order_history_entry_with_no_stage_is_logged(caplog) -> None:
         copy = make_copy(source_named(ORDERS), doc, OrderStatusValues())
     assert copy["tracking"][-1]["stage"] is None  # stored, never rejected (DS-017 6.4)
     assert any("no stage" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.mongo
+async def test_return_requests_are_copied_by_updatedat_without_personal_fields(synced) -> None:
+    """ENG-30 point 7: copied under the ENG-04 rules (read by updatedAt, upsert); only the
+    status and date fields reach the engine; a closed request updates its copy."""
+    from datetime import datetime, timezone
+
+    from reco.sync import reconcile
+
+    settings, platform, engine = synced
+    now = utc_now()
+    order_id = ObjectId()
+    request = {"_id": ObjectId(), "returnNumber": "RET-T1", "orderId": order_id, "status": "requested", "isActive": True,
+               "createdAt": now - timedelta(hours=2), "updatedAt": now - timedelta(hours=2), "windowEndsAt": now,
+               "policySnapshot": {"windowDays": 7, "source": "product"}, "comment": "secret comment",
+               "pickupAddress": {"phone": "+91 99999 99999"}, "photos": ["x.jpg"], "refund": {"destination": "UPI a@b"}}
+    await platform["returnrequests"].insert_one(request)
+
+    await run.sync_once(settings)
+    copy = await engine["ml_return_requests"].find_one({"_id": request["_id"]})
+    assert copy["is_active"] and copy["order_id"] == str(order_id)
+    assert not {"comment", "pickupAddress", "photos", "refund"} & set(copy["platform"]) and "secret" not in repr(copy)
+    assert await writers.read_open_return_orders(settings) == {str(order_id)}
+
+    # The request ends without a return: its updatedAt moves, and the copy follows.
+    await platform["returnrequests"].update_one({"_id": request["_id"]},
+                                                {"$set": {"isActive": False, "status": "rejected", "updatedAt": utc_now()}})
+    await run.sync_once(settings)
+    assert await writers.read_open_return_orders(settings) == set()
+    assert await engine["ml_return_requests"].count_documents({}) == 1
+
+    # Current only after a completed sync within 24 hours AND a passed reconciliation.
+    current, why = await writers.return_requests_current(settings, utc_now(), 24)
+    assert not current and "reconciliation" in why
+    day = utc_now().astimezone(reconcile.IST).date().isoformat()
+    [result] = [r for r in await reconcile.reconcile_day(settings, day) if r["source"] == "returnrequests"]
+    assert result["passed"]
+    assert (await writers.return_requests_current(settings, utc_now(), 24))[0]
+    assert not (await writers.return_requests_current(settings, utc_now() + timedelta(hours=25), 24))[0]
+

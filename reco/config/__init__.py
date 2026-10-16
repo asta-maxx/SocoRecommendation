@@ -49,6 +49,7 @@ ENGINE_COLLECTIONS: tuple[str, ...] = (
     "ml_job_runs",
     "ml_config_changes",
     "ml_measurements",
+    "ml_return_requests",  # copies of returnrequests, status and dates only (ENG-30 point 7; SDA v1.7)
 )
 
 #: ENG-03: the platform collections the engine reads, by record kind. Read-only,
@@ -68,6 +69,7 @@ PLATFORM_COLLECTIONS: dict[str, str] = {
     "category": "categories",
     "served_list": "recommendationrequests",
     "serve_log": "rec_serve_log",  # SOCO_BE's serve log (APP-15, ENG-29)
+    "return_request": "returnrequests",  # open return requests, no personal fields (ENG-30 point 7)
 }
 
 #: ENG-03 "Ignored" (v1.3): platform data the engine must not read, and the only

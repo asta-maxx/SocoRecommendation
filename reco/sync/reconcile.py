@@ -54,7 +54,8 @@ def _differences(source: SyncSource, platform: dict[str, Any], held: dict[str, A
 
 
 async def reconcile_source(settings: Settings, source: SyncSource, day: str, start: datetime, end: datetime) -> dict[str, Any]:
-    on_platform = {doc["_id"]: doc for doc in await fetch.read_touched(settings, source.kind, source.time_fields, start, end)}
+    on_platform = {doc["_id"]: doc for doc in await fetch.read_touched(
+        settings, source.kind, source.time_fields, start, end, source.updated_field)}
     touched = {doc["_id"] for doc in await writers.read_copies_touched(settings, source.target, source.collection, start, end)}
     held = await writers.read_copies(settings, source.target, list(on_platform))
 

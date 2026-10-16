@@ -11,7 +11,7 @@ something a test can catch rather than something a reviewer has to notice.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from pymongo import DESCENDING, UpdateOne
@@ -73,7 +73,7 @@ async def _ensure_index(collection: AsyncCollection, keys: list[tuple[str, int]]
 async def ensure_engine_collections(settings: Settings) -> list[str]:
     """Create every engine collection that does not exist yet, with its indexes. Idempotent.
 
-    ENG-01: the sixteen ml_ collections. Indexes:
+    ENG-01: the sixteen ml_ collections, and ml_return_requests (ENG-30 point 7). Indexes:
 
       ml_events, ml_orders  keyed on the platform _id (the document _id), as the
                             engine sync requires (ENG-04, DS-017 section 7);
@@ -121,6 +121,10 @@ async def ensure_engine_collections(settings: Settings) -> list[str]:
 
     # ENG-02 item 4: one record per settings version. Unique, so when the API and
     # a job both see the same new version, only one records it.
+    returns = _collection(database, "ml_return_requests")
+    await _ensure_index(returns, [("order_id", 1), ("is_active", 1)], "order_open")
+    await _ensure_index(returns, [("created_at", 1)], "retention", expireAfterSeconds=retention)
+
     changes = _collection(database, "ml_config_changes")
     # Kala F5 (16 Oct): one entry per transition, so a rollback to a version used
     # before is recorded too. The old one-entry-per-version index is replaced.
@@ -638,3 +642,34 @@ async def delete_unnamed_scores(settings: Settings) -> int:
         {"$or": [{"method": {"$exists": False}}, {"method": None}, {"method": ""}]}
     )
     return result.deleted_count
+
+
+# --- return requests (ENG-30 point 7) ----------------------------------------------------------
+
+
+async def read_open_return_orders(settings: Settings) -> set[str]:
+    """Orders with an open return request (a copy with isActive true)."""
+    cursor = ml_db(settings)["ml_return_requests"].find({"is_active": True}, {"order_id": 1})
+    return {row["order_id"] async for row in cursor if row.get("order_id")}
+
+
+async def return_requests_current(settings: Settings, now: datetime, hours: int) -> tuple[bool, str]:
+    """ENG-30 point 7: the copy is current when its last sync completed within `hours`
+    and its last reconciliation passed. Returns (current, why). A missing record is
+    never proof that no request exists, so 'not current' is said out loud."""
+    state = await ml_db(settings)["ml_sync_state"].find_one({"_id": "returnrequests"}) or {}
+    last = state.get("last_run") or {}
+    if last.get("outcome") != "succeeded" or not last.get("finished_at"):
+        return False, "no completed sync of returnrequests"
+    finished = last["finished_at"] if last["finished_at"].tzinfo else last["finished_at"].replace(tzinfo=timezone.utc)
+    if now - finished > timedelta(hours=hours):
+        return False, f"last sync of returnrequests finished {finished.isoformat()}, over {hours} h ago"
+    check = await ml_db(settings)["ml_measurements"].find_one(
+        {"measure": "sync_reconciliation", "source": "returnrequests"}, sort=[("day", DESCENDING)]
+    )
+    if not check:
+        return False, "returnrequests has no reconciliation yet"
+    if not check.get("passed"):
+        return False, f"the last reconciliation of returnrequests ({check.get('day')}) did not pass"
+    return True, "current"
+

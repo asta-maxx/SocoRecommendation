@@ -51,3 +51,17 @@ Points 1–4, 7–10, the daily report of unmatched history texts, and the engin
 ## Update, 16 Oct 2026
 
 **16 Oct 2026:** history map adds the app's other texts (Order placed, Rejected by buyer, Replacement / Exchange delivered → `replacement`). Point 4 defaults confirmed (enabled true, poolPercent 10, minOrderAmount 0). Passed only when the ENG-03, 04, 10, 11, 29 checks re-run on the ENG-30 code (F7). See `ANSWERS_2026-10-16.md`.
+
+## Points 7 and 9, 16 Oct 2026
+
+### 7. Return requests copied — done
+
+- `PLATFORM_COLLECTIONS["return_request"] = "returnrequests"`; engine collection **`ml_return_requests`** (17th, SDA v1.7), indexes `order_open` (order_id, is_active) and `retention` (365 days on created_at = the request's createdAt).
+- Sync source (`reco/sync/copies.py`): read by **`updatedAt`** (`SyncSource.updated_field`), then _id, with the 2-minute overlap; upsert on _id; checkpoint after each page; daily reconciliation compares `status`, `isActive`, `updatedAt` as well as ids. Same code path as ENG-04, so items (a)–(g) hold.
+- **Personal fields never read or kept:** every platform read of returnrequests is limited to `records.RETURN_REQUEST_FIELDS` (orderId, returnNumber, status, isActive, createdAt, completedAt, updatedAt, windowEndsAt, policySnapshot.windowDays), and `make_copy` keeps only those (of policySnapshot only windowDays). On dev the record also holds pickupAddress, comment, photos, refund and more; none reaches the engine.
+- **Freshness:** `writers.return_requests_current(settings, now, hours)` is true only when the last sync of returnrequests completed within `commerce.return_request_current_hours` (24, fixed) and its last reconciliation passed; otherwise it says why. `writers.read_open_return_orders` gives the orders with an open request (isActive true).
+- Tests: `test_a_return_request_copy_keeps_status_and_dates_only`; `test_return_requests_are_copied_by_updatedat_without_personal_fields` (MongoDB: copied, closed request updates the copy, not current before a passed reconciliation, current after, not current 25 h later).
+
+### 9. Seed posts — record done
+
+`PostRecord.is_seed` from `posts._seedTag` (read directly; `_FIELDS["post"]` includes it). Used by M1 and the ladder (ENG-10, ENG-09) and popularity: actions on a seed post are left out like a test account's.
