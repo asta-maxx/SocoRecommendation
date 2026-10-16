@@ -51,6 +51,7 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[ENG-11 - Interest score checks]]: built, 14 Oct; all 11 checks pass
 - [[ENG-30 - Adapting to the October platform facts]]: new in pack v1.4; in progress, 15 Oct
 - [[ENG-12 - Candidate sources]]: built on dev, 16 Oct; the first step of finding posts (M2)
+- [[ENG-14 - Similar posts]]: built on dev, 16 Oct; each person's 200 most similar recent posts, stored nightly
 - [[ENG-20 - Speed test]]: part 1 timer built, 13 Oct; waits on the feed address and a test login
 
 ## Demos

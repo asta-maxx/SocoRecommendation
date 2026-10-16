@@ -69,7 +69,6 @@ python -m pytest -q tests/test_sources.py
 | What | Waits on |
 |---|---|
 | Wire the sources into the pool (top-5 from the profile; follows from the viewer) | ENG-13 |
-| The method-two list itself | ENG-14 (in parallel) |
 | The check on test load (each source within 20 ms) | The test server |
 | Posts in the last 30 days on dev, and views with dwell_ms | Platform data (APP-02 backfill) |
 
@@ -80,7 +79,7 @@ python -m pytest -q tests/test_sources.py
 | `reco/platform/recent.py` | New: recent posts |
 | `reco/store/item_state.py` | New: the post index (write, reads, indexes) |
 | `reco/ranking/post_index.py` | New: the index job |
-| `reco/ranking/sources.py` | New: the five sources |
+| `reco/ranking/sources.py` | New: the five sources; `similar` reads `reco.store.candidates.read_user_candidates` (ENG-14, merged 16 Oct) |
 | `reco/jobs/__main__.py`, `reco/sync/run.py` | The `post_index` job; refreshed every 15 min by the sync loop |
 | `tests/test_sources.py` | New |
 | `scripts/run_checklist.sh` | Section 12 |

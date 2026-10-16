@@ -28,6 +28,7 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 
 ## Step 3: finding and scoring
 - [ ] [[ENG-12 - Candidate sources]]: **built** (16 Oct, dev: the post index and five sources, each within 20 ms or dropped and logged; timed on the test server later)
+- [ ] [[ENG-14 - Similar posts]]: **built** (16 Oct: nightly job similar_posts stores each person's top 200 similar recent posts as a batch; 31 tests pass; a list reads in 0 ms in the database, about 5 ms beyond the network; timed on the test server later)
 - [ ] ENG-13 to ENG-15: quotas, similar posts, merge (in progress)
 - [ ] ENG-16: Promoter score
 - [ ] ENG-17: Product "you might also like"

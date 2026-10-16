@@ -46,7 +46,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable
 
 from reco.config import Settings, live
-from reco.store import item_state
+from reco.store import candidates, item_state
 
 logger = logging.getLogger("reco.retrieval")
 
@@ -88,11 +88,7 @@ def _ordered(items: list[SourceItem]) -> list[SourceItem]:
 
 async def _similar_reader(settings: Settings, user_id: str) -> list[dict[str, Any]]:
     """The user's stored method-two list (ENG-14), current batch only."""
-    try:
-        from reco.store.candidates import read_user_candidates
-    except ImportError:  # pragma: no cover - ENG-14 not present
-        return []
-    return await read_user_candidates(settings, user_id)
+    return await candidates.read_user_candidates(settings, user_id)
 
 
 async def run_sources(

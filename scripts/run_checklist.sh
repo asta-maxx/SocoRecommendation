@@ -284,6 +284,9 @@ proof_to ENG-12
 check "12.1 each source's rule; a source over its limit is dropped and logged (the ENG-12 check, without the timing)" "$PY -m pytest -q tests/test_sources.py -p no:cacheprovider -m 'not mongo'" "9 passed"
 check "12.2 on a database: the post index (recent, no seed posts, no test-account views) and every source reading it" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_sources.py -p no:cacheprovider -m mongo" "1 passed"
 check "12.3 the post index builds from SOCO's real posts (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs post_index" '"outcome": "succeeded"'
+check "12.4 ENG-14 vectors, post type, pool rules, profile, cosine top 200 (no database)" "$PY -m pytest -q tests/test_similar.py -p no:cacheprovider -m 'not mongo'" "30 passed"
+check "12.5 ENG-14 the job writes a current batch; one list reads within 20 ms beyond the network (the ENG-14 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_similar.py -p no:cacheprovider -m mongo" "1 passed"
+check "12.6 ENG-14 similar posts runs on SOCO's real data (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs similar_posts" '"outcome": "succeeded"'
 
 cleanup
 trap - EXIT

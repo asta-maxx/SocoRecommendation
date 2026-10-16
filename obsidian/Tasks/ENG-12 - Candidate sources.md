@@ -49,7 +49,7 @@ It's the first step of M2, finding posts for the feed. The quotas (ENG-13), the 
 
 ### 5. The "similar posts" list ✅ (read)
 - **What it asks:** read the person's stored list of similar posts at the same time.
-- **What we did:** read in parallel; the list itself is ENG-14, built alongside.
+- **What we did:** read in parallel; the list itself is [[ENG-14 - Similar posts]], built 16 Oct; the source now reads it directly.
 
 ### 6. Too slow? Skip it, and note it ✅
 - **What it asks:** a source over its 20 ms is dropped for that request and logged.
@@ -67,7 +67,6 @@ It's the first step of M2, finding posts for the feed. The quotas (ENG-13), the 
 | What | Waiting on |
 |---|---|
 | Put the sources together into the pool of 300 | [[ENG-13 - Quotas]] |
-| The similar-posts list | [[ENG-14 - Similar posts]] (in progress) |
 | The 20 ms check on the test server | The test server → [[Environments]] |
 
 ## How this connects

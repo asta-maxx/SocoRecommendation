@@ -314,3 +314,23 @@ async def read_product_categories(settings: Settings, product_ids: list[str]) ->
 async def read_business_categories(settings: Settings, business_ids: list[str]) -> dict[str, str | None]:
     """Each business's category (businessregisters.category), matched to the 23 by name, or None."""
     return {b.business_id: b.category for b in await read_where(settings, "business", "_id", business_ids)}
+
+
+# --- M2 method two (ENG-14) ------------------------------------------------------------------
+
+
+async def read_posts_since(settings: Settings, since: Any) -> list[records.PostRecord]:
+    """Every post created at or after `since` (posts.timestamp, else the _id's time,
+    ENG-03), parsed, newest first (ties: post id). ENG-14's nightly pool; the caller
+    applies eligibility."""
+    from bson import ObjectId
+
+    query = {"$or": [
+        {"timestamp": {"$gte": since}},
+        {"timestamp": None, "_id": {"$gte": ObjectId.from_datetime(since)}},
+    ]}
+    parse = await _parser(settings, "post")
+    cursor = app_db(settings)[PLATFORM_COLLECTIONS["post"]].find(query, _FIELDS["post"])
+    posts = [post async for doc in cursor if (post := parse(doc)).created_at is not None and post.created_at >= since]
+    posts.sort(key=lambda p: (-p.created_at.timestamp(), p.post_id))
+    return posts

@@ -147,6 +147,9 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 12.1 | Each source's rule; a source that's too slow is skipped and logged (tests) |
 | 12.2 | On a real database: the list of recent posts, and every source reading it |
 | 12.3 | The list of recent posts builds from SOCO's real posts |
+| 12.4 | ENG-14: the similar-posts maths (post type, which posts count, the person's taste, the top 200) |
+| 12.5 | ENG-14: the nightly job writes a batch; one person's list reads within 20 ms beyond the network |
+| 12.6 | ENG-14: the similar-posts job runs on SOCO's real data |
 
 ### Last line: clean up
 | Line | Checks |
