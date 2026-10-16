@@ -13,6 +13,9 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 - [x] [[ENG-05 - Same method for each user]]: **passed** (16 Oct, Kala: dev run counts) · was built (1 Oct, laptop; re-run on the test server later) · [[Demo - ENG-05|demo]]
 - [ ] [[ENG-20 - Speed test|ENG-20 (part 1)]]: Time today's feed: **in progress** (13 Oct: timer built and tested; the real run waits on the feed's address and a test login from Aravinth)
 
+> [!success] M1 (the interest score) complete, 16 Oct 2026
+> ENG-09, ENG-10 and ENG-11, finished to pack v1.4 with Kala's answers: 16 of 16 interest-score checks pass, and the earlier tasks' checks pass again on the new code. Next: M2 (ENG-12 to ENG-15).
+
 ## Step 2: serving lists
 - [ ] [[ENG-06 - Serve a recommendation list]]: **built** (16 Oct, Kala S2; passed once checked on the test server) (1 Oct: serving, record, modes, exploration and errors work; interim newest-first lists until ENG-08, ENG-09, ENG-17, ENG-19 and ENG-29) · [[Demo - ENG-06|demo]]
 - [x] [[ENG-07 - Nightly jobs]]: **passed** (16 Oct, Kala: dev run counts) · was built (1 Oct, laptop: batches, run diary, 2 AM scheduler, M1; other jobs join with their tasks) · [[Demo - ENG-07|demo]]

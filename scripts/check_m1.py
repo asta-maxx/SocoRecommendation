@@ -117,7 +117,8 @@ async def main(keep: bool) -> int:
     settings = get_settings()
     say(f"# ENG-11: M1 check script, {date.today().isoformat()}")
     say()
-    say("Checks 1 to 11 are the Build List's ENG-11 row; 12 and 13 come from the ENG-29 rework.")
+    say("Checks 1 to 11 are the Build List's ENG-11 row; 12 and 13 come from the ENG-29 rework; 14 to 16 from")
+    say("pack v1.4 (ENG-30 points 7, 9, 10) and Kala's answers of 16 Oct (the count, 2a).")
     say()
     say(f"Engine database {ENGINE_DB}, platform database {PLATFORM_DB} (both throwaway, engine cluster); "
         f"model_version {settings.model_version}.")
@@ -229,6 +230,45 @@ async def main(keep: bool) -> int:
               first == second and all(gap <= 2 for gap in splits.values()),
               f"two separate processes, 10,000 ids: {'identical' if first == second else 'DIFFERENT'}; "
               + ", ".join(f"{s} {g:.2f} points from the split" for s, g in splits.items()))
+        # 14 (ENG-30 points 7 and 10): out while the request is open, back when it ends
+        held = decay.get("returner", {})
+        out_while_open = ELEC not in held or held[ELEC]["raw"] == 0
+        await client[PLATFORM_DB]["returnrequests"].update_one(
+            {"_id": expect["return_request_id"]},
+            {"$set": {"isActive": False, "status": "rejected", "updatedAt": datetime.now(timezone.utc)}})
+        job("sync")
+        job("interest")
+        after = {r["category"]: r for r in await engine["ml_user_interest_scores"].find(
+            {"user_id": users["returner"], "method": Method.RECENCY_DECAY}).to_list(None)}
+        back = after.get(ELEC, {}).get("raw", 0) > 0
+        copied = await engine["ml_return_requests"].find_one({})
+        private = copied is not None and not ({"comment", "pickupAddress"} & set(copied.get("platform", {})))
+        check(14, "An open return request leaves the purchase out; it comes back when the request ends", out_while_open and back and private,
+              f"while open: Electronics raw {held.get(ELEC, {}).get('raw', 0)}; after the request ended without a return: "
+              f"{after.get(ELEC, {}).get('raw', 0):.2f}; personal fields copied: {'none' if private else 'SOME'}")
+        # re-read the scores: the refresh above replaced the batch
+        rows = await engine["ml_user_interest_scores"].find({}).to_list(None)
+        scores = {m: {} for m in (Method.RECENCY_DECAY, Method.TIME_WINDOWS)}
+        for r in rows:
+            if r["method"] in scores:
+                scores[r["method"]].setdefault(name_of.get(r["user_id"], r["user_id"]), {})[r["category"]] = r
+        decay = scores[Method.RECENCY_DECAY]
+        # 15 (Kala 2a): the ladder's count equals the stored count
+        unequal = {}
+        for name, cats in decay.items():
+            stored = {r.get("qualified_actions") for r in cats.values()}
+            counted = await read_path.count_qualified_actions(settings, users[name])
+            if stored != {counted}:
+                unequal[name] = (sorted(stored), counted)
+        check(15, "The ladder's count of qualified actions equals the count stored with the score", not unequal and bool(decay),
+              f"{len(decay)} scored users, all equal" if not unequal else f"different: {unequal}")
+        # 16 (Kala 2a; ENG-30 point 9): own-post and seed-post actions don't count
+        ss = decay.get("selfseed", {})
+        total = {r.get("qualified_actions") for r in ss.values()}
+        own_scores = ss.get(HOME, {}).get("raw", 0) > 2 * 3 * 0.97  # two ordinary likes and three own-post likes
+        check(16, "Actions on your own post or on a seed post are not counted; seed posts don't score", total == {expect["selfseed_qualified"]} and own_scores,
+              f"qualified_actions {sorted(total)} (2 ordinary likes; 3 own-post and 3 seed-post likes left out); "
+              f"Home & Living raw {ss.get(HOME, {}).get('raw', 0):.2f}: the 5 likes not on the seed post")
         # 12 (ENG-29 rework)
         tester = expect["test_account"]
         in_rows = [m for m in scores if tester in scores[m]]
@@ -254,7 +294,7 @@ async def main(keep: bool) -> int:
     out = ROOT / "Tracing" / "checks" / f"ENG-11_{date.today().isoformat()}.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"Saved {out.relative_to(ROOT)}")
-    return 0 if all(results) and len(results) == 13 else 1
+    return 0 if all(results) and len(results) == 16 else 1
 
 
 def _vocabulary(settings) -> list[str]:

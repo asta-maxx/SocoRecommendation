@@ -28,6 +28,9 @@ owner: Allen
 > - The health check now really **reads** from each database instead of just knocking on the door. → part 5
 > - The database connections never retry by themselves, and are opened ahead of time. → extra D
 
+> [!success] 16 Oct 2026: F5 shown
+> A new checklist line (2.10) rolls the settings back on the running engine and shows the diary writing it down as a rollback. That was Kala's last condition: ENG-02 can now be marked Passed once the checklist runs. → [[Answers 16 Oct]]
+
 **In one line:** tidy the engine into 12 clearly labelled parts, give it two ways to run, a health check that tells the truth, clear logs, and one settings file that can change without a restart.
 
 ## Why this task

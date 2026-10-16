@@ -139,6 +139,8 @@ def test_to_document_writes_enums_as_plain_strings() -> None:
         "config_version",
         "data_window",
         "job_run_id",
+        # Kala 2a (16 Oct): the user's qualified actions
+        "qualified_actions",
     }
 
 

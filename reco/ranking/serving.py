@@ -96,7 +96,9 @@ async def interim_candidates(
         read += len(rows)
         for row in await eligible(settings, rows, viewer, request_id, cache):
             item_id, item_type, post_id, product_id = card(row)
-            if item_id != context_item_id:
+            # The context product, and on a product list every product already in the
+            # viewer's cart (Kala, 16 Oct), never appear.
+            if item_id != context_item_id and not (kind == "product" and item_id in viewer.in_cart):
                 found.append(Candidate(item_id, item_type, post_id, product_id, rank=len(found) + 1))
         if len(found) >= wanted or len(rows) < _READ_PAGE or read >= MAX_SCAN_ROWS:
             break

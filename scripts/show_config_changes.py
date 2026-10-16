@@ -33,6 +33,7 @@ async def main() -> int:
             print(
                 f"\n{when}  version {record['previous_version']} -> {record['config_version']}"
                 f"  by {record['changed_by']}"
+                + ("  ROLLBACK" if record.get("rollback") else "")
             )
             for change in record.get("changes") or []:
                 print(f"    {change['key']}: {change['old']} -> {change['new']}")

@@ -15,6 +15,9 @@ owner: Allen
 > [!tip] Pack v1.4 (15 Oct 2026)
 > Two more checks, from the rework list: **12, a test account is left out** (a made-up user with six likes, on the test-account list, gets no score) and **13, an unmapped category is reported** ("Cricket"). **13 of 13 pass.**
 
+> [!tip] 16 Oct 2026: 16 checks, all pass
+> Three more, for pack v1.4 and Kala's answers: **14**, a purchase is out while its return request is open and comes back when the request ends; **15**, the ladder and the score count a person's actions the same; **16**, likes on your own post or on a seed post don't count. Check 15 found a real bug on its first run (the score was counting own-post likes), now fixed.
+
 **In one line:** a single command that proves the interest score (M1) does what the pack says, end to end.
 
 ## Why this task

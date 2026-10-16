@@ -623,7 +623,7 @@ M1_EVENT_TYPES = ("view", "click", "product_click", "like", "save", "comment", "
 
 _M1_EVENT_FIELDS = {f: 1 for f in ("user_id", "actor", "event_type", "post_id", "product_id", "dwell_ms",
                                    "feedback_type", "target_id", "target_type", "undone_at", "undo_of",
-                                   "created_at")}
+                                   "is_self", "created_at")}
 _M1_ORDER_FIELDS = {f: 1 for f in ("order_id", "buyer_id", "buyer_actor", "product_id", "post_id", "status",
                                    "cancelled_at", "is_returned", "created_at")}
 

@@ -40,13 +40,16 @@ async def viewer_context(settings: Settings, user_id: str | None) -> Viewer:
         return Viewer(user_id=None)
     # One round trip for the usual viewer: blocks are read for the user id at the
     # same time; a second read only when the viewer also owns businesses.
-    users, businesses, follows, blocks, feedback = await asyncio.gather(
+    users, businesses, follows, blocks, feedback, cart = await asyncio.gather(
         fetch.read_where(settings, "user", "_id", [user_id]),
         fetch.read_where(settings, "business", "user_id", [user_id]),
         fetch.read_where(settings, "follow", "userId", [user_id]),
         fetch.read_blocks(settings, [user_id]),
         # E-03's window is the setting filters.feedback_hide_days (90; 30 to 365).
         writers.read_viewer_feedback(settings, user_id, utc_now() - timedelta(days=live.current().filters.feedback_hide_days)),
+        # Kala, 16 Oct (ENG-17 Q7): every product already in the user's cart is left out
+        # of every product list; the engine reads the cart itself.
+        fetch.read_where(settings, "cart_line", "user_id", [user_id]),
     )
     own = {user_id, *(b.business_id for b in businesses)}
     if len(own) > 1:
@@ -74,6 +77,7 @@ async def viewer_context(settings: Settings, user_id: str | None) -> Viewer:
         user_id=user_id,
         own_ids=frozenset(own),
         follows=frozenset(f.followed_id for f in follows),
+        in_cart=frozenset(line.product_id for line in cart if line.product_id),
         blocked=frozenset(blocked),
         muted=frozenset(muted),
         dismissed=frozenset(dismissed),

@@ -398,3 +398,26 @@ def test_the_request_budget_is_soco_be_timeout_off_dev() -> None:
     assert api.request_budget_seconds(Settings(engine_env="test"), t) == t.serving.soco_be_timeout_ms / 1000 == 0.25
     assert api.request_budget_seconds(Settings(engine_env="dev"), t) == 2.0
     assert api.request_budget_seconds(Settings(engine_env="production", request_budget_ms=300), t) == 0.3
+
+
+async def test_a_product_in_the_viewers_cart_is_never_on_a_product_list(monkeypatch) -> None:
+    """Kala, 16 Oct (ENG-17 Q7, every product request): the context product and every
+    product already in the viewer's cart are left out."""
+    from types import SimpleNamespace
+
+    from reco.config import Settings
+
+    async def viewer(settings, user_id):
+        return Viewer(user_id=user_id, in_cart=frozenset({"p2"}))
+
+    async def newest(settings, kind, limit, skip=0):
+        return [SimpleNamespace(product_id=f"p{n}") for n in range(1, 6)][skip:skip + limit]
+
+    async def keep_all(settings, rows, viewer, request_id, cache):
+        return rows
+
+    monkeypatch.setattr(serving, "viewer_context", viewer)
+    monkeypatch.setattr(serving.fetch, "read_newest", newest)
+    monkeypatch.setattr(serving, "eligible_products", keep_all)
+    built = await serving.interim_candidates(Settings(), "product", 1, 5, "p1", USER)
+    assert [c.item_id for c in built.candidates] == ["p3", "p4", "p5"]

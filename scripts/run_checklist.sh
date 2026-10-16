@@ -170,6 +170,13 @@ sed 's/pool_size = 300 /pool_size = 250 /' "$WORK/good.toml" >"$SETTINGS_COPY"
 if wait_for "grep -q 'raise config_version' '$LOG'" 60; then pass "2.9 change without a new version refused"
   proof "2.9 change without a new version refused" "wait for the engine log line refusing a change without a new config_version" 0 "$(grep 'raise config_version' "$LOG" | tail -2)" PASS
 else fail "2.9 change without a new version refused"; fi
+# 2.10 (Kala F5): going back to the earlier version is put in force AND written in the diary as a rollback.
+cp "$WORK/good.toml" "$WORK/before.toml"
+sedi "s/config_version = \"$NEXT\"/config_version = \"$V\"/; s/popularity_window_days = 45 /popularity_window_days = 30 /" "$SETTINGS_COPY"
+sed 's/pool_size = 250 /pool_size = 300 /' "$SETTINGS_COPY" > "$WORK/rollback.toml" && cp "$WORK/rollback.toml" "$SETTINGS_COPY"
+if wait_for "grep -q '\"settings changed\".*\"config_version\": \"$V\".*\"previous_version\": \"$NEXT\"' '$LOG'" 60; then
+  check "2.10 a rollback to the earlier version is recorded in the diary (Kala F5)" "ML_MONGO_DB=reco_demo $PY scripts/show_config_changes.py" "ROLLBACK"
+else fail "2.10 a rollback to the earlier version is recorded in the diary (Kala F5)" "the rollback was not picked up"; fi
 stop 8190
 
 echo "== 3. ENG-03: reading SOCO's data correctly"
@@ -183,7 +190,7 @@ check "3.5 every real platform document reads cleanly" "$PY scripts/check_platfo
 echo "== 4. ENG-04: the engine sync"
 proof_to ENG-04
 T="$PY -m pytest -q tests/test_sync.py -p no:cacheprovider"
-check "4.1 copies keep source, ids, undo fields, E code; order history" "$T -k 'copy or e1 or history or four_sources'" "7 passed"
+check "4.1 copies keep source, ids, undo fields, E code; order history" "$T -k 'copy or e1 or history or four_sources'" "8 passed"
 check "4.2 backfill keyed on the platform _id, restartable" "TEST_MONGO_TIMEOUT_MS=15000 $T -k backfill" "2 passed"
 check "4.3 (a) reconciliation: ids and field values, mismatches re-read" "TEST_MONGO_TIMEOUT_MS=15000 $T -k reconciliation" "3 passed"
 check "4.4 (b) a like undone after copying updates the copy" "TEST_MONGO_TIMEOUT_MS=15000 $T -k undo" "1 passed"
@@ -206,7 +213,7 @@ check "5.5 the real settings file splits within 2 points" "$PY scripts/show_assi
 
 echo "== 6. ENG-06: serve a list and record it (throwaway reco_demo, port 8192)"
 proof_to ENG-06
-check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "26 passed"
+check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "27 passed"
 check "6.2 constructed data: eligible newest first; record matches the response" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m mongo" "2 passed"
 sed 's/^surface_mode_feed = "off"/surface_mode_feed = "live"/; s/^surface_mode_product = "off"/surface_mode_product = "live"/' settings/engine.toml >"$WORK/serve.toml"
 SERVE_TOKEN="checklist-$RANDOM$RANDOM"
@@ -260,15 +267,15 @@ check "9.5 the rules run on SOCO's real data" "$PY scripts/show_exclusions.py" "
 echo "== 10. ENG-09: the fallback ladder"
 proof_to ENG-09
 check "10.1 each rung is reported on the response and the record (the ENG-09 check)" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -k each_rung" "8 passed"
-check "10.2 one test user per rung; first match wins; 4 and 5 fall to 3; rung 3 empty" "$PY -m pytest -q tests/test_read_path.py -p no:cacheprovider" "20 passed"
+check "10.2 one test user per rung; first match wins; 4 falls to 3; 5 with no old score is an error; rung 3 empty" "$PY -m pytest -q tests/test_read_path.py -p no:cacheprovider" "21 passed"
 check "10.3 on a database: the 5 qualified actions, the nightly popularity, one user per rung" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_ladder_store.py -p no:cacheprovider" "4 passed"
 check "10.4 the ladder walks SOCO's real users (reads only)" "$PY scripts/show_ladder.py" "users by step"
 
 echo "== 11. ENG-10 and ENG-11: M1 on the engine's copies, and its check script"
 proof_to ENG-10
-check "11.1 each action read from one place: weights, undo, reversal, one view per post, categories" "$PY -m pytest -q tests/test_m1_copies.py -p no:cacheprovider" "15 passed"
+check "11.1 each action read from one place: weights, undo, reversal, open return request, seed posts, Kala's count" "$PY -m pytest -q tests/test_m1_copies.py -p no:cacheprovider" "19 passed"
 proof_to ENG-11
-check "11.2 the M1 check script: the 11 checks plus the two from the ENG-29 rework, on the constructed users (the ENG-10 and ENG-11 check)" "$PY scripts/check_m1.py" "Result: 13 of 13 passed"
+check "11.2 the M1 check script: 16 checks on the constructed users (ENG-11's 11, ENG-29's 2, pack v1.4's 3)" "$PY scripts/check_m1.py" "Result: 16 of 16 passed"
 proof_to ENG-10
 check "11.3 M1 runs on SOCO's real data from the copies (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs interest" '"outcome": "succeeded"'
 

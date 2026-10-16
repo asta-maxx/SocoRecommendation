@@ -656,3 +656,5 @@ The live demo script, in plain language, is the Obsidian note
 ## Update, 16 Oct 2026
 
 **Built** (Kala S2): all its dependencies are built; Passed once its check runs on the test server. Kala F6: if the product surface still misses 200 ms there, read eligibility from ml_item_state (ENG-27).
+
+**16 Oct 2026 (Kala Q7, every product request):** the viewer's cart is read with their follows and blocks (`Viewer.in_cart`, from `carts` by user_id), and every product already in it is left off the product list, as is the context product (`serving.interim_candidates`). Test `test_a_product_in_the_viewers_cart_is_never_on_a_product_list`. ENG-17's product ranker keeps the same rule.

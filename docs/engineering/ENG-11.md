@@ -76,3 +76,25 @@ The ENG-29 rework adds two checks to the script: **12. A test account is left ou
 ## Update, 16 Oct 2026
 
 **16 Oct 2026:** Passed (Kala S1).
+
+## Update, 16 Oct 2026: 16 checks (pack v1.4 and Kala's answers)
+
+Three checks added to `scripts/check_m1.py`, with constructed users in `tests/m1_dataset.py`:
+
+| # | Check | How |
+|---|---|---|
+| 14 | An open return request leaves the purchase out; it comes back when the request ends (ENG-30 points 7, 10) | `returner`: a Delivered Electronics order with an open returnrequests record (with a comment and a phone number planted). After sync + interest: Electronics raw 0, and no personal field in `ml_return_requests`. The request is then set inactive (rejected) with a new updatedAt; after sync + interest the purchase is back (raw 18.23) |
+| 15 | The ladder's count of qualified actions equals the count stored with the score (Kala 2a) | For every scored user, `read_path.count_qualified_actions` equals `qualified_actions` on its rows |
+| 16 | Actions on your own post or on a seed post are not counted; seed posts don't score (Kala 2a; ENG-30 point 9) | `selfseed`: 3 own-post likes, 3 seed-post likes, 2 ordinary: qualified_actions 2; the seed likes add nothing; the own-post likes still score (Home & Living raw 14.66 = 5 likes) |
+
+Check 7's unmappable label is now "Fishing": since the category map (16 Oct) "Cricket" maps to Sports & Outdoors. Check 13 reports "Fishing".
+
+**Found by check 15 and fixed:** M1's read of the event copies didn't include `is_self`, so own-post likes were counted in `qualified_actions` (5 against the ladder's 2). `writers._M1_EVENT_FIELDS` now reads it.
+
+Result, 16 Oct 2026: **16 of 16 passed** (`Tracing/checks/ENG-11_2026-10-16.md`). Checklist 11.2 expects 16 of 16.
+
+## M1 complete (16 Oct 2026)
+
+Kala's F7 ("ENG-30 is Passed only when the ENG-03, 04, 10, 11 and 29 checks re-run on the ENG-30 code and still pass"): the full checklist ran on the new code on 16 Oct. Every ENG-03 (3.1–3.5), ENG-04 (4.2–4.11), ENG-29 (8.1–8.9), ENG-10 and ENG-11 (11.2, 11.3) line passed. The other failures were test counts that the new tests raised (4.1, 10.2, 11.1, now updated), one test pinning the score's fields (now includes `qualified_actions`), the known laptop speed lines (6.3, 6.4) and the kill demo on a slow link (7.5). Record: `Tracing/checks/Checklist_2026-10-16_F7.md`.
+
+M1 (ENG-09, ENG-10, ENG-11, with ENG-30 points 5, 6, 7, 9, 10 and Kala's answers) is complete on dev.

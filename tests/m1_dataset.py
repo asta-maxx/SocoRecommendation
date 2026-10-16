@@ -12,7 +12,7 @@ is built for one check of ENG-11:
                    exactly the floor, 10, undecayed (5)
     cancelled      an Electronics order that was cancelled, one that was returned, and a
                    Pets view: Electronics nets to exactly zero (6)
-    unmappable     actions on a "Cricket" post and on posts with malformed categories,
+    unmappable     actions on a "Fishing" post and on posts with malformed categories,
                    and one Home & Living like: only Home & Living is scored (7)
     views          Pets views of 2.0 s, 2.999 s, 4 s and 5 s (the last two on one post):
                    event_count for Pets is 1 (8)
@@ -27,7 +27,18 @@ is built for one check of ENG-11:
     tester         a test account (in the settings' test_accounts) with six Home & Living likes:
                    left out of scoring (12)
 
-The "Cricket" post is also the unmapped category the daily check reports (13).
+The "Fishing" post is also the unmapped category the daily check reports (13).
+
+Pack v1.4 and Kala's answers of 16 Oct:
+
+    returner       a Delivered Electronics order with an OPEN return request, and a
+                   Pets like: the purchase is out while the request is open (14);
+                   when the request ends without a return it comes back
+    selfseed       three likes on their own post (is_self) and three on a seed post
+                   (_seedTag), two Home & Living likes on others' posts: the seed likes
+                   are left out entirely, the own-post likes still score but don't
+                   count; qualified_actions is 2 (16)
+    every user     the ladder's count equals the stored qualified_actions (15)
 
 `expect` holds what the checks compare against.
 """
@@ -47,7 +58,7 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
     ago = lambda **kw: now - timedelta(**kw)  # noqa: E731
 
     names = ("decay", "floor", "cancelled", "unmappable", "views", "negative", "undo",
-             "rung1", "rung2", "rung3", "rung4", "rung5", "nothing", "author", "tester")
+             "rung1", "rung2", "rung3", "rung4", "rung5", "nothing", "author", "tester", "returner", "selfseed")
     uid = {n: ObjectId() for n in names}
     declared = {"floor": [PETS], "rung2": [PETS]}
     delivered = {"rung4": {FASHION: 7, "Cricket": 3}, "rung5": {PETS: 3}}
@@ -67,7 +78,13 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
         return pid
 
     home, home2, elec, pets, pets2, pets3, fashion = (post([c]) for c in (HOME, HOME, ELEC, PETS, PETS, PETS, FASHION))
-    cricket, malformed = post(["Cricket"]), post([None, 5, "", {"x": 1}])
+    own = post([HOME])
+    posts[-1]["userId"] = uid["selfseed"]  # selfseed's own post
+    seeded = post([HOME])
+    posts[-1]["_seedTag"] = "soco-seed-2024"  # test data (ENG-30 point 9)
+    # "Fishing" has no match in the 23 or in the category map (the app's own map gives it
+    # none), so it stays unmapped. ("Cricket" maps to Sports & Outdoors since 16 Oct.)
+    cricket, malformed = post(["Fishing"]), post([None, 5, "", {"x": 1}])
 
     # --- products, through the category tree -------------------------------------------
     cat_elec = ObjectId()
@@ -118,6 +135,14 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
             event(who, "like", ago(days=1), post_id=fashion)
         event(who, "view", ago(days=1), post_id=fashion, dwell_ms=6000)
     event("rung2", "like", ago(days=1), post_id=pets)
+    # (14) returner: a Pets like (the purchase is below, with its open return request)
+    event("returner", "like", ago(days=1), post_id=pets)
+    # (16) selfseed: likes on their own post and on a seed post, and two ordinary ones
+    for _ in range(3):
+        event("selfseed", "like", ago(days=1), post_id=own, is_self=True)
+        event("selfseed", "like", ago(days=1), post_id=seeded)
+    for target in (home, home2):
+        event("selfseed", "like", ago(days=1), post_id=target)
     # (12) a test account: plenty of activity, never scored
     for _ in range(6):
         event("tester", "like", ago(days=1), post_id=home)
@@ -133,6 +158,14 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
                 "created_at": ago(hours=hours), "updated_at": ago(hours=hours - 1)}
 
     orders = [order("cancelled", "Cancelled", 72), order("cancelled", "Returned", 48)]
+    # (14) a Delivered order with an open return request (ENG-30 points 7, 10)
+    returned_order = order("returner", "Delivered", 96)
+    orders.append(returned_order)
+    request_id = ObjectId()
+    returnrequests = [{"_id": request_id, "returnNumber": "RET-CHECK1", "orderId": returned_order["_id"],
+                       "status": "requested", "isActive": True, "createdAt": ago(hours=20), "updatedAt": ago(hours=20),
+                       "windowEndsAt": ago(hours=-100), "policySnapshot": {"windowDays": 7},
+                       "comment": "never copied", "pickupAddress": {"phone": "+91 90000 00000"}}]
 
     # --- a business follow, for rung 2 (an action, and Pets) ------------------------------
     pet_shop = ObjectId()
@@ -142,12 +175,15 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
 
     dataset = {"users": users, "posts": posts, "products": products, "categories": categories,
                "businessregisters": businesses, "follows": follows, "postevents": postevents, "orders": orders,
-               "recommendationrequests": []}
+               "recommendationrequests": [], "returnrequests": returnrequests}
     expect = {
-        "scored": {"decay", "floor", "cancelled", "unmappable", "views", "negative", "undo", "rung1", "rung2", "rung4"},
+        "scored": {"decay", "floor", "cancelled", "unmappable", "views", "negative", "undo", "rung1", "rung2", "rung4",
+                   "returner", "selfseed"},
         "not_scored": {"rung3", "rung5", "nothing", "author", "tester"},
         "test_account": "tester",
-        "unmapped": "Cricket",
+        "unmapped": "Fishing",
+        "return_request_id": request_id,
+        "selfseed_qualified": 2,
         "rungs": {"rung1": None, "rung2": "rung_2", "rung3": "rung_3", "rung4": "rung_4", "rung5": "rung_5"},
     }
     return dataset, {n: str(i) for n, i in uid.items()}, expect

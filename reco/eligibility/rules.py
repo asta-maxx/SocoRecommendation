@@ -75,6 +75,7 @@ class Viewer:
     blocked: frozenset[str] = frozenset()  # accounts blocked either way (E-01)
     muted: frozenset[str] = frozenset()  # authors they muted (E-02)
     dismissed: frozenset[str] = frozenset()  # items: not interested, hide, report, last 90 days (E-03)
+    in_cart: frozenset[str] = frozenset()  # products in their cart: never on a product list (Kala, 16 Oct)
     date_of_birth: date | None = None
     today: date = field(default_factory=date.today)
 

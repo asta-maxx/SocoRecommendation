@@ -214,6 +214,8 @@ class InterestScore(BaseModel):
             "config_version": self.config_version,
             "data_window": self.data_window,
             "job_run_id": self.job_run_id,
+            # Kala 2a (16 Oct): the user's qualified actions, the ladder's count.
+            "qualified_actions": self.qualified_actions,
         }
 
     @classmethod

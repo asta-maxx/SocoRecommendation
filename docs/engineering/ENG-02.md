@@ -586,3 +586,5 @@ rejected. `reco_demo` dropped afterwards.
 ## Update, 16 Oct 2026
 
 **16 Oct 2026 (Kala F5):** rollbacks are recorded; one diary entry per transition (`uniq_transition`). Passed once shown. See `ANSWERS_2026-10-16.md`.
+
+**16 Oct 2026, F5 shown:** checklist line **2.10** puts the earlier version back on the running engine and checks the diary records it as a rollback (`scripts/show_config_changes.py` prints `ROLLBACK`). Unit test `test_a_rollback_is_recorded_too`.

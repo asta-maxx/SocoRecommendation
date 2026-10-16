@@ -14,6 +14,9 @@ owner: Allen
 > [!tip] Built (16 Oct 2026, Kala S2)
 > Everything it waits on is built (the ladder since 14 Oct), and newest-first is the stand-in the pack allows until ENG-17 and ENG-19. It becomes **Passed** once its check (200 ms, one record matching the list, off gives 503) runs on the test server. → [[Answers 16 Oct]]
 
+> [!tip] 16 Oct 2026: the cart
+> Kala: a product already in your cart should never be suggested to you. The product rail now reads your cart and leaves those products out (and the product you're looking at, as before).
+
 **In one line:** when SOCO's app needs a For You feed or a "you may also like" rail, it asks the engine; the engine answers with a list, and keeps a receipt of exactly what it answered.
 
 ## Why this task
