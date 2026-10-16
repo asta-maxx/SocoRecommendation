@@ -45,7 +45,7 @@ async def dbs(store):
     """The engine and platform test databases, emptied before and after."""
     client = AsyncMongoClient(_test_uri())
     engine, platform = client[TEST_DB], client[TEST_PLATFORM_DB]
-    names = ("ml_events", "ml_orders", "ml_measurements", "ml_job_runs")
+    names = ("ml_events", "ml_orders", "ml_measurements", "ml_job_runs", "ml_return_requests")
     for name in names:
         await engine[name].delete_many({})
     for name in ("users", "posts", "follows"):
@@ -73,17 +73,22 @@ async def test_qualified_actions_count_what_the_pack_counts(dbs) -> None:
         event("u", "feedback"),  # lowers a score; not an action that builds one
         event("u", "impression"),  # M1 doesn't use impressions
         event("u", "click", days_ago=91),  # outside 90 days
+        event("u", "like", is_self=True),  # own post: not counted (Kala, 16 Oct)
         event("someone else", "click"),
     ])
+    open_order = order("u", order_id="o-open")
     await engine["ml_orders"].insert_many([
         order("u"),  # 3
         order("u", status="Cancelled"),  # cancelled: nets to zero
         order("u", status="Returned"),  # returned: nets to zero
+        open_order,  # an open return request: out (ENG-30 point 10)
     ])
-    assert await writers.count_qualified_actions(settings, "u", since, 3000, 5) == 3
+    await engine["ml_return_requests"].insert_one({"_id": ObjectId(), "order_id": "o-open", "is_active": True})
+    count = lambda limit=None: writers.qualified_action_rows(settings, "u", since, 3000, limit)  # noqa: E731
+    assert len(await count()) == 3
 
     await engine["ml_events"].insert_many([event("u", c) for c in ("save", "share", "comment", "add_to_cart")])
-    assert await writers.count_qualified_actions(settings, "u", since, 3000, 5) == 5  # stops at 5
+    assert len(await count()) == 7 and len(await count(5)) == 5  # stops at the limit
 
 
 async def test_popularity_is_a_nightly_batch_without_test_accounts(dbs) -> None:

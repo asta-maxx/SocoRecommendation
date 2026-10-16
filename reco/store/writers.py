@@ -532,48 +532,54 @@ POPULARITY_MEASURE = "category_popularity"
 POPULARITY_METHOD = "platform_popularity"
 
 
-async def count_qualified_actions(
-    settings: Settings, user_id: str, since: datetime, view_ms: float, enough: int
-) -> int:
-    """ENG-09 rung 1: the user's qualified actions since `since`, from the engine's own
-    copies (ENG-04), counted up to `enough` (no need to count past the threshold).
+async def qualified_action_rows(
+    settings: Settings, user_id: str, since: datetime, view_ms: float, limit: int | None = None
+) -> list[dict[str, Any]]:
+    """ENG-09 rung 1, Kala's rules (16 Oct, 2a): the user's qualified actions since
+    `since` from the engine's own copies, one row each ({"post_id"}), at most `limit`.
 
     postevents: a view with dwell_ms of at least `view_ms` (one per post), or one of
-    QUALIFYING_EVENT_TYPES; never an undo row, nor an action later undone.
-    Orders: one per order placed, unless its order_status is Cancelled, Rejected or
-    Returned (its purchase then nets to zero, ENG-10, ENG-30 point 6). Business follows come from the platform
-    (reco.platform.fetch) and are added by the caller.
+    QUALIFYING_EVENT_TYPES; never an undo row, an action later undone, or an action
+    on the user's own post (is_self). Orders: one per order placed, unless its
+    order_status is Cancelled, Rejected or Returned, or it has an open return request
+    (ENG-30 points 6, 10). Seed posts are left out by the caller (they are known from
+    the platform), and business follows are added by the caller. ENG-10 counts
+    with the same rules (reco.slots.interest.copies), so the totals are equal.
     """
-    events = ml_db(settings)["ml_events"].aggregate([
+    pipeline: list[dict[str, Any]] = [
         {"$match": {
             "kind": "postevent", "user_id": user_id, "created_at": {"$gte": since},
-            "undone_at": None, "undo_of": None,
+            "undone_at": None, "undo_of": None, "is_self": {"$ne": True},
             "$or": [{"event_type": {"$in": list(QUALIFYING_EVENT_TYPES)}},
                     {"event_type": "view", "dwell_ms": {"$gte": view_ms}}],
         }},
         # A qualified view counts once per post; every other action counts once.
-        {"$group": {"_id": {"$cond": [{"$eq": ["$event_type", "view"]},
-                                      {"$concat": ["view:", {"$ifNull": ["$post_id", ""]}]},
-                                      {"$toString": "$_id"}]}}},
-        {"$limit": enough},
-        {"$count": "n"},
-    ])
-    counted = await (await events).to_list(None)
-    found = counted[0]["n"] if counted else 0
-    if found >= enough:
-        return found
-    # A user's orders in 90 days are few: read their state and test it as M1 does
-    # (order_status Cancelled, Rejected or Returned nets to zero; ENG-10, ENG-30 point 6).
+        {"$group": {"_id": {"$cond": [{"$and": [{"$eq": ["$event_type", "view"]}, {"$ne": [{"$ifNull": ["$post_id", None]}, None]}]},
+                                      {"$concat": ["view:", "$post_id"]},
+                                      {"$toString": "$_id"}]},
+                    "post_id": {"$first": "$post_id"}}},
+    ]
+    if limit:
+        pipeline.append({"$limit": limit})
+    rows = [{"post_id": row.get("post_id")} async for row in await ml_db(settings)["ml_events"].aggregate(pipeline)]
+    if limit and len(rows) >= limit:
+        return rows
+    # A user's orders in 90 days are few: read their state and test it as M1 does.
     from reco.config import live
     from reco.platform.records import status_is
 
     statuses = live.current().lists.order_status
     reversed_ = (statuses.cancelled, statuses.rejected, statuses.returned)
-    rows = await ml_db(settings)["ml_orders"].find(
-        {"buyer_id": user_id, "created_at": {"$gte": since}}, {"status": 1}
+    orders = await ml_db(settings)["ml_orders"].find(
+        {"buyer_id": user_id, "created_at": {"$gte": since}}, {"status": 1, "order_id": 1, "post_id": 1}
     ).to_list(None)
-    kept = sum(1 for r in rows if not any(status_is(r.get("status"), s) for s in reversed_))
-    return found + min(kept, enough - found)
+    ids = [str(o.get("order_id") or o["_id"]) for o in orders]
+    open_ids = {r["order_id"] async for r in ml_db(settings)["ml_return_requests"].find(
+        {"order_id": {"$in": ids}, "is_active": True}, {"order_id": 1})} if ids else set()
+    for order_id, order in zip(ids, orders):
+        if not any(status_is(order.get("status"), s) for s in reversed_) and order_id not in open_ids:
+            rows.append({"post_id": order.get("post_id")})
+    return rows[:limit] if limit else rows
 
 
 async def read_qualified_views(settings: Settings, since: datetime, view_ms: float) -> list[dict[str, Any]]:

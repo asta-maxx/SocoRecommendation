@@ -46,11 +46,15 @@ def world(monkeypatch):
             raise ConnectionError("engine store unreachable")
         return list(state["scores"])
 
-    async def actions(settings, user_id, since, view_ms, enough):
+    async def actions(settings, user_id, since, view_ms, limit=None):
         if state["store_down"]:
             raise ConnectionError("engine store unreachable")
-        state["asked"] = {"since": since, "view_ms": view_ms, "enough": enough}
-        return min(state["actions"], enough)
+        state["asked"] = {"since": since, "view_ms": view_ms, "limit": limit}
+        rows = [{"post_id": "seedpost"}] * state.get("seed_actions", 0) + [{"post_id": None}] * state["actions"]
+        return rows[:limit] if limit else rows
+
+    async def posts(settings, ids):
+        return {i: SimpleNamespace(is_seed=i == "seedpost") for i in ids}
 
     async def user_with(settings, user_id, extra=()):
         if state["platform_down"]:
@@ -65,7 +69,8 @@ def world(monkeypatch):
         return list(state["popularity"])
 
     monkeypatch.setattr(read_path, "read_user_scores", scores)
-    monkeypatch.setattr(writers, "count_qualified_actions", actions)
+    monkeypatch.setattr(writers, "qualified_action_rows", actions)
+    monkeypatch.setattr(fetch, "read_posts", posts)
     monkeypatch.setattr(writers, "read_popularity", popularity)
     monkeypatch.setattr(fetch, "read_user_with", user_with)
     monkeypatch.setattr(fetch, "read_business_follows", follows)
@@ -104,7 +109,17 @@ async def test_the_count_is_over_90_days_with_3_second_views_and_stops_at_5(worl
 
     await get_profile(settings, "u1", reference_date=NOW)
 
-    assert world["asked"] == {"since": NOW - timedelta(days=90), "view_ms": 3000, "enough": 5}
+    assert world["asked"] == {"since": NOW - timedelta(days=90), "view_ms": 3000, "limit": 15}
+
+
+async def test_actions_on_seed_posts_do_not_count(world, settings) -> None:
+    """ENG-30 point 9: four real actions and twenty on a seed post are not five."""
+    world["actions"], world["seed_actions"] = 4, 20
+    world["scores"] = [score("Books", 1.0)]
+    world["declared"] = ["Books"]
+    assert (await get_profile(settings, "u1", reference_date=NOW)).rung is Rung.DECLARED_ONLY
+    world["actions"] = 5
+    assert (await get_profile(settings, "u1", reference_date=NOW)).rung is Rung.PERSONALISED
 
 
 async def test_business_follows_count_towards_the_five(world, settings) -> None:

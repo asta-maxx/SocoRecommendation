@@ -186,13 +186,35 @@ async def _delivered_or_popularity(
     return await _popularity(settings, user_id, fell_through_from=rung, store_readable=store_readable)
 
 
+#: Extra rows read beyond the threshold, so a few seed-post actions can be dropped
+#: without a second read.
+_SLACK = 10
+
+
 async def _engine_side(
-    settings: Settings, user_id: str, method: Method, since: datetime, view_ms: float, enough: int
-) -> tuple[list[InterestScore], int]:
+    settings: Settings, user_id: str, method: Method, since: datetime, view_ms: float, limit: int | None
+) -> tuple[list[InterestScore], list[dict[str, Any]]]:
     return await asyncio.gather(
         read_user_scores(settings, user_id, method),
-        writers.count_qualified_actions(settings, user_id, since, view_ms, enough),
+        writers.qualified_action_rows(settings, user_id, since, view_ms, limit),
     )
+
+
+async def _without_seed_posts(settings: Settings, rows: list[dict[str, Any]]) -> int:
+    """ENG-30 point 9: actions on a seed post are test data and don't count."""
+    post_ids = sorted({str(r["post_id"]) for r in rows if r.get("post_id")})
+    posts = await fetch.read_posts(settings, post_ids) if post_ids else {}
+    return sum(1 for r in rows if not (r.get("post_id") and getattr(posts.get(str(r["post_id"])), "is_seed", False)))
+
+
+async def count_qualified_actions(settings: Settings, user_id: str, now: datetime | None = None) -> int:
+    """The user's qualified actions, every one (Kala 2a): the number the ladder compares
+    with 5 and ENG-10 stores as qualified_actions. Used by the M1 check script."""
+    now = now or datetime.now(timezone.utc)
+    tunables = live.current()
+    since = now - timedelta(days=tunables.interest.personal_window_days)
+    rows = await writers.qualified_action_rows(settings, user_id, since, tunables.events.qualified_view_seconds * 1000)
+    return await _without_seed_posts(settings, rows) + await fetch.read_business_follows(settings, user_id, since)
 
 
 async def get_profile(
@@ -214,8 +236,9 @@ async def get_profile(
     view_ms = tunables.events.qualified_view_seconds * 1000
     enough = interest.personal_min_actions
 
+    limit = enough + _SLACK
     engine, platform = await asyncio.gather(
-        _engine_side(settings, user_id, method, since, view_ms, enough),
+        _engine_side(settings, user_id, method, since, view_ms, limit),
         asyncio.gather(
             fetch.read_user_with(settings, user_id, (DELIVERED_SCORE_FIELD,)),
             fetch.read_business_follows(settings, user_id, since),
@@ -233,8 +256,17 @@ async def get_profile(
         return await _delivered_or_popularity(
             settings, user_id, Rung.UNAVAILABLE, delivered, "the engine store could not be read", store_readable=False
         )
-    stored, actions = engine
-    actions += business_follows
+    stored, rows = engine
+    actions = await _without_seed_posts(settings, rows) + business_follows
+    if actions < enough and len(rows) >= limit:
+        # Seed posts took the count below 5 within the first rows read: count them all.
+        try:
+            rows = await writers.qualified_action_rows(settings, user_id, since, view_ms)
+        except Exception as exc:
+            logger.error("engine store unreadable for %s: %r", user_id, exc)
+            return await _delivered_or_popularity(
+                settings, user_id, Rung.UNAVAILABLE, delivered, "the engine store could not be read", store_readable=False)
+        actions = await _without_seed_posts(settings, rows) + business_follows
     problem = score_problem(stored, now, interest.stale_after_hours)
 
     if actions >= enough:

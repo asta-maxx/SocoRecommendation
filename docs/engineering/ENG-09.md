@@ -180,3 +180,12 @@ Checklist section 10 (`scripts/run_checklist.sh`): 10.1 the ENG-09 check through
 ## Update, 16 Oct 2026
 
 **16 Oct 2026:** Passed (Kala S1). Step strings confirmed; rung 5 with no delivered score raises `EngineStoreUnavailable` (503), no `rung_5_to_3`. The 5-action count's definition is back with Kala (`ANSWERS_2026-10-16.md` §6).
+
+## Update, 16 Oct 2026: the count, Kala's way (2a), equal to ENG-10's
+
+- `writers.qualified_action_rows(settings, user, since, view_ms, limit)` replaces `count_qualified_actions`: one row per qualified action from the engine's copies, with Kala's rules: a qualified view once per post (a view with no post counts on its own), click, product_click, like, save, comment, share, add-to-cart; never an undo row, an undone action, or **an action on your own post (`is_self`)**; orders unless Cancelled, Rejected, Returned **or with an open return request** (ENG-30 point 10).
+- `read_path` leaves out **actions on seed posts** (ENG-30 point 9, from the platform's posts) and adds business follows. It reads `5 + 10` rows first and counts all of them only if seed posts took the count below 5.
+- `read_path.count_qualified_actions(settings, user, now)`: the full count, the number ENG-10 stores on each score row as `qualified_actions`. ENG-11 checks the two are equal.
+- Read errors keep their meaning: the engine store failing is rung 5; the platform failing is a 503.
+
+Tests: `test_actions_on_seed_posts_do_not_count`; `tests/test_ladder_store.py::test_qualified_actions_count_what_the_pack_counts` now also leaves out an own-post like and an order with an open request. 53 ladder and serving tests pass (with MongoDB).

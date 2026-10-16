@@ -12,6 +12,9 @@ owner: Allen
 > [!success] Passed (16 Oct 2026)
 > Kala: this task's check names no environment, so the run on my laptop is the evidence. Each rung reported for its test user (14 Oct; re-run 15 Oct). Kala confirmed the step names on 16 Oct; rung 5 with no old score now answers with an error. It covers this task's own check, not the later ENG-30 changes. → [[Answers 16 Oct]]
 
+> [!tip] 16 Oct 2026: the 5-action count, Kala's way
+> The ladder now counts exactly as the interest score does: likes on your own posts, actions on seed posts (test data) and orders with an open return request don't count. The two numbers are now the same, as Kala asked, and the interest-score check proves it (ENG-11). → [[ENG-10 - Interest score on real data]]
+
 **In one line:** when the engine doesn't know someone well enough yet, or its own data is old or out of reach, decide what to use instead of their interest score, and say on every list which choice was made.
 
 ## Why this task

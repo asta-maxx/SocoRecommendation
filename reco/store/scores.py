@@ -106,7 +106,7 @@ class InterestScore(BaseModel):
     slot: Literal["interest"] = "interest"
     confidence: float | None = None  # the interest methods have none
     #: Kala, 16 Oct (ENG-09 2a): the user's qualified actions in the last 90 days, the
-    #: same count the ladder makes (reco.store.writers.count_qualified_actions).
+    #: same count the ladder makes (reco.fallback.read_path.count_qualified_actions).
     qualified_actions: int | None = None
     data_window: dict[str, datetime | None] | None = None  # {"from": ..., "to": ...}
 
