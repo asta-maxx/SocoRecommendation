@@ -31,7 +31,7 @@ Kala settled the open questions for the next tasks: what "trending" means (ENG-1
 ## Still open
 | What | With |
 |---|---|
-| "The 5-action count must equal the interest score's count": the two count differently today; a definition is needed | Kala |
+| ~~"The 5-action count must equal the interest score's count"~~ | Answered later on 16 Oct: one definition, as built; own-post likes now left out of the score too |
 | Three app interests outside the 23 (Watches, Appliances, Tools & Home Improvement), and 4 unmatched labels | Kala |
 | Run the two catch-up scripts on dev, so views and change times appear | Aravinth → [[Aravinth's tasks]] |
 | Delete the catimp test stores on dev | Aravinth |

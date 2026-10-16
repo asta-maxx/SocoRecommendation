@@ -65,3 +65,10 @@ Points 1–4, 7–10, the daily report of unmatched history texts, and the engin
 ### 9. Seed posts — record done
 
 `PostRecord.is_seed` from `posts._seedTag` (read directly; `_FIELDS["post"]` includes it). Used by M1 and the ladder (ENG-10, ENG-09) and popularity: actions on a seed post are left out like a test account's.
+
+## Clarification from Kala, 16 Oct 2026 (ENG-09 / ENG-10)
+
+1. **Qualified actions** (confirmed): one common definition. The ladder counts `qualified_actions` as distinct actions over the last 90 days; `event_count` counts the same qualifying actions per category, so an action in two categories appears in both. The 90-day limit applies to the count and to method two; method one keeps scoring all retained history with its decay.
+2. **Own-post actions** (`is_self`) are excluded from the interest score under both methods, as well as from the five-action threshold, consistent with ENG-03. Fraud detection (ENG-21) still reads them.
+
+Applied: `copies.read_inputs` drops own-post actions before scoring (`skipped.own_post`); it keeps the qualifying set as distinct action ids per user and per category (`CopyInputs.qualified_ids`, `qualified_ids_by_category`). M1 check script: **17** (Kala's regression test: a user with no declared interests who only likes their own post has `qualified_actions = 0` and no score under either method) and **18** (every category-level action belongs to the user's qualifying set; the set's size is `qualified_actions`; each `event_count` is its category's share). Unit test `test_only_liking_your_own_post_scores_and_counts_nothing`. Result: **18 of 18**.

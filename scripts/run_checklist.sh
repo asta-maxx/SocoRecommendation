@@ -273,9 +273,9 @@ check "10.4 the ladder walks SOCO's real users (reads only)" "$PY scripts/show_l
 
 echo "== 11. ENG-10 and ENG-11: M1 on the engine's copies, and its check script"
 proof_to ENG-10
-check "11.1 each action read from one place: weights, undo, reversal, open return request, seed posts, Kala's count" "$PY -m pytest -q tests/test_m1_copies.py -p no:cacheprovider" "19 passed"
+check "11.1 each action read from one place: weights, undo, reversal, open return request, seed posts, Kala's count" "$PY -m pytest -q tests/test_m1_copies.py -p no:cacheprovider" "20 passed"
 proof_to ENG-11
-check "11.2 the M1 check script: 16 checks on the constructed users (ENG-11's 11, ENG-29's 2, pack v1.4's 3)" "$PY scripts/check_m1.py" "Result: 16 of 16 passed"
+check "11.2 the M1 check script: 18 checks on the constructed users (ENG-11's 11, ENG-29's 2, pack v1.4's 3, Kala's 2)" "$PY scripts/check_m1.py" "Result: 18 of 18 passed"
 proof_to ENG-10
 check "11.3 M1 runs on SOCO's real data from the copies (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs interest" '"outcome": "succeeded"'
 

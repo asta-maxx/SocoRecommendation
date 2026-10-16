@@ -218,6 +218,10 @@ class Retrieval(_Section):
     similar_top_stored: int = fixed(200)
     similar_max_posts: int = fixed(5000)
     similar_min_engaged: int = fixed(3)
+    #: ENG-14 (Kala, 16 Oct): a post's type is postTypeDetailed where filled, else postType;
+    #: empty gives "normal"; anything not listed goes to "other" and is reported daily.
+    #: Adding a type is a model_version change.
+    post_types: list[str] = Field(default_factory=lambda: ["photo", "video", "normal", "other"])
 
 
 # --- Ranking --------------------------------------------------------------------

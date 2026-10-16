@@ -26,6 +26,10 @@ copy of returnrequests is not current, M1 runs on the last good copy and says so
 Seed posts (ENG-30 point 9): actions on a post carrying _seedTag are test data and
 are left out, like a test account's.
 
+Own-post actions (Kala, 16 Oct): an action on the user's own post (is_self) is left
+out of the interest score under both methods, as well as the count, consistent
+with ENG-03. Fraud (ENG-21) still reads them from the copies.
+
 Qualified actions (Kala, 16 Oct, ENG-09 2a): per user, the actions in the last 90
 days that count towards the ladder's 5: a qualified view (one per post), click,
 like, save, comment, share, add-to-cart, a kept order, a business follow; never
@@ -98,6 +102,10 @@ class CopyInputs:
     #: Qualified actions in the last 90 days: per user, and per user per category.
     qualified: Counter = field(default_factory=Counter)
     qualified_by_category: dict[str, Counter] = field(default_factory=dict)
+    #: The same, as the set of distinct action ids (Kala, 16 Oct: the check proves every
+    #: category-level action belongs to the user's set, and the set's size is the count).
+    qualified_ids: dict[str, set] = field(default_factory=dict)
+    qualified_ids_by_category: dict[str, dict[str, set]] = field(default_factory=dict)
     #: Whether the return-request copy was current (ENG-30 point 7), and why not.
     return_requests: str = "current"
 
@@ -205,8 +213,11 @@ async def read_inputs(settings: Settings, anchor: datetime) -> CopyInputs:
     window_start = anchor - timedelta(days=tunables.interest.personal_window_days)
     qualified: Counter = Counter()
     qualified_by_category: dict[str, Counter] = defaultdict(Counter)
+    qualified_ids: dict[str, set] = defaultdict(set)
+    qualified_ids_by_category: dict[str, dict[str, set]] = defaultdict(lambda: defaultdict(set))
 
-    def add(user_id: str, kind: EventType, categories: list[str], at: Any, counts: bool = False, **extra: Any) -> None:
+    def add(user_id: str, kind: EventType, categories: list[str], at: Any, counts: bool = False,
+            action_id: str | None = None, **extra: Any) -> None:
         stats.read += 1
         when = as_utc(at)
         if when is None:
@@ -216,10 +227,13 @@ async def read_inputs(settings: Settings, anchor: datetime) -> CopyInputs:
             stats.future_timestamp += 1
             return
         if counts and when >= window_start:
-            # A qualified action (Kala 2a): counted whatever its category.
+            # A qualified action (Kala 2a): counted once, whatever its category; in each
+            # of its categories for event_count.
             qualified[user_id] += 1
+            qualified_ids[user_id].add(action_id)
             for category in categories:
                 qualified_by_category[user_id][category] += 1
+                qualified_ids_by_category[user_id][category].add(action_id)
         if not categories:
             stats.unresolved_category += 1
         else:
@@ -233,6 +247,9 @@ async def read_inputs(settings: Settings, anchor: datetime) -> CopyInputs:
         if post in seed:
             skipped["seed_post"] += 1  # test data (ENG-30 point 9)
             continue
+        if row.get("is_self"):
+            skipped["own_post"] += 1  # never scored or counted (Kala, 16 Oct); fraud still reads it
+            continue
         # A post card's categories are the post's; a product's, through the category tree.
         categories = by_post.get(post) if post else None
         if not categories and product and by_product.get(product):
@@ -243,7 +260,8 @@ async def read_inputs(settings: Settings, anchor: datetime) -> CopyInputs:
             extra["view_duration_seconds"] = row["dwell_ms"] / 1000 if row.get("dwell_ms") is not None else None
         counts = (kind != "feedback" and not row.get("is_self")
                   and (kind != "view" or (row.get("dwell_ms") or 0) >= qualified_ms))
-        add(to_str(row["user_id"]), ACTION[kind], categories or [], row.get("created_at"), counts, **extra)
+        add(to_str(row["user_id"]), ACTION[kind], categories or [], row.get("created_at"), counts,
+            action_id=f"event:{to_str(row['_id'])}", **extra)
 
     for order in orders:
         product, post = order.get("product_id"), order.get("post_id")
@@ -251,18 +269,23 @@ async def read_inputs(settings: Settings, anchor: datetime) -> CopyInputs:
             skipped["seed_post"] += 1
             continue
         categories = [by_product[to_str(product)]] if product and by_product.get(to_str(product)) else by_post.get(to_str(post), []) if post else []
+        order_id = to_str(order.get("order_id") or order["_id"])
         add(to_str(order["buyer_id"]), EventType.PURCHASE, categories, order.get("created_at"), True,
-            order_id=to_str(order.get("order_id") or order["_id"]))
+            action_id=f"order:{order_id}", order_id=order_id)
 
     for follow in follows:
         category = by_business.get(follow.followed_id)
         if category is None:
             # "Or the follow adds nothing" to the score; it is still a qualified action.
             skipped["business_follow_no_category"] += 1
-            add(follow.follower_id, EventType.BUSINESS_FOLLOW, [], follow.created_at, True)
+            add(follow.follower_id, EventType.BUSINESS_FOLLOW, [], follow.created_at, True,
+                action_id=f"follow:{follow.follower_id}:{follow.followed_id}")
             stats.unresolved_category -= 1  # not a dropped event: a follow that adds nothing
             continue
-        add(follow.follower_id, EventType.BUSINESS_FOLLOW, [category], follow.created_at, True)
+        add(follow.follower_id, EventType.BUSINESS_FOLLOW, [category], follow.created_at, True,
+            action_id=f"follow:{follow.follower_id}:{follow.followed_id}")
 
     return CopyInputs(dict(events), declared, user_ids, stats, skipped, qualified, dict(qualified_by_category),
+                      {u: set(ids) for u, ids in qualified_ids.items()},
+                      {u: {c: set(ids) for c, ids in cats.items()} for u, cats in qualified_ids_by_category.items()},
                       "current" if current else why)

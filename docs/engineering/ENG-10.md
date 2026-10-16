@@ -162,3 +162,5 @@ python scripts/check_m1.py        # the ENG-11 checks (throwaway databases)
 Own-post actions still add weight to the score; only the count leaves them out. Whether they should stay in the score is back with Kala (`ANSWERS_2026-10-16.md` §6, point 1).
 
 Tests: `tests/test_m1_copies.py` +4 (open request out and back; a stale copy used and said; seed posts; the count, rule by rule). Unit suite 614 passed, 1 skipped.
+
+**16 Oct 2026 (Kala):** own-post actions are now left out of the score under both methods, not only the count. See ENG-30 'Clarification from Kala'. Method one keeps all retained history; the 90-day limit is the count's and method two's.

@@ -118,7 +118,8 @@ async def main(keep: bool) -> int:
     say(f"# ENG-11: M1 check script, {date.today().isoformat()}")
     say()
     say("Checks 1 to 11 are the Build List's ENG-11 row; 12 and 13 come from the ENG-29 rework; 14 to 16 from")
-    say("pack v1.4 (ENG-30 points 7, 9, 10) and Kala's answers of 16 Oct (the count, 2a).")
+    say("pack v1.4 (ENG-30 points 7, 9, 10) and Kala's answers of 16 Oct (the count, 2a); 17 and 18 from her")
+    say("follow-up of 16 Oct (own-post actions; the qualifying set).")
     say()
     say(f"Engine database {ENGINE_DB}, platform database {PLATFORM_DB} (both throwaway, engine cluster); "
         f"model_version {settings.model_version}.")
@@ -265,10 +266,32 @@ async def main(keep: bool) -> int:
         # 16 (Kala 2a; ENG-30 point 9): own-post and seed-post actions don't count
         ss = decay.get("selfseed", {})
         total = {r.get("qualified_actions") for r in ss.values()}
-        own_scores = ss.get(HOME, {}).get("raw", 0) > 2 * 3 * 0.97  # two ordinary likes and three own-post likes
-        check(16, "Actions on your own post or on a seed post are not counted; seed posts don't score", total == {expect["selfseed_qualified"]} and own_scores,
-              f"qualified_actions {sorted(total)} (2 ordinary likes; 3 own-post and 3 seed-post likes left out); "
-              f"Home & Living raw {ss.get(HOME, {}).get('raw', 0):.2f}: the 5 likes not on the seed post")
+        home_raw = ss.get(HOME, {}).get("raw", 0)
+        only_two = 2 * 3 * 0.97 < home_raw <= 2 * 3  # the two ordinary likes, a day old; not the 6 others
+        check(16, "Actions on your own post or on a seed post are neither scored nor counted", total == {expect["selfseed_qualified"]} and only_two,
+              f"qualified_actions {sorted(total)}; Home & Living raw {home_raw:.2f} = the 2 ordinary likes only "
+              f"(3 own-post and 3 seed-post likes left out of score and count)")
+        # 17 (Kala's regression test, 16 Oct)
+        own_rows = [m for m in scores if "ownonly" in scores[m]]
+        own_count = await read_path.count_qualified_actions(settings, users["ownonly"])
+        check(17, "Only liking your own post: qualified_actions 0 and no score under either method", not own_rows and own_count == 0,
+              f"no declared interests, two likes on their own post: score rows under {own_rows or 'neither method'}; "
+              f"the ladder counts {own_count}")
+        # 18 (Kala, 16 Oct): each category-level action belongs to the qualifying set; the set's size is the count
+        recheck = await copies.read_inputs(settings, datetime.now(timezone.utc))
+        bad = {}
+        for name, cats in decay.items():
+            uid_ = users[name]
+            ids = recheck.qualified_ids.get(uid_, set())
+            by_cat = recheck.qualified_ids_by_category.get(uid_, {})
+            stored = {r.get("qualified_actions") for r in cats.values()}
+            counts_ok = all(r.get("event_count") == len(by_cat.get(c, set())) for c, r in cats.items())
+            if not (all(s <= ids for s in by_cat.values()) and stored == {len(ids)} and counts_ok):
+                bad[name] = (sorted(stored), len(ids))
+        check(18, "Every category-level action is in the user's qualifying set; the set's size is qualified_actions",
+              not bad and bool(decay),
+              f"{len(decay)} scored users: each event_count is its category's share of the set, the set's size is the stored count"
+              if not bad else f"different: {bad}")
         # 12 (ENG-29 rework)
         tester = expect["test_account"]
         in_rows = [m for m in scores if tester in scores[m]]
@@ -294,7 +317,7 @@ async def main(keep: bool) -> int:
     out = ROOT / "Tracing" / "checks" / f"ENG-11_{date.today().isoformat()}.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"Saved {out.relative_to(ROOT)}")
-    return 0 if all(results) and len(results) == 16 else 1
+    return 0 if all(results) and len(results) == 18 else 1
 
 
 def _vocabulary(settings) -> list[str]:

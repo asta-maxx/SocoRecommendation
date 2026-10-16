@@ -13,7 +13,7 @@
 # config_version is rejected: the engine keeps the last good version and logs
 # the fault. "fixed" means the sheet fixes the value for Wave 1A.
 
-config_version = "5"
+config_version = "6"
 changed_by = "Allen"
 
 [serving]
@@ -104,6 +104,7 @@ similar_engaged_posts = 50               # fixed. ENG-14 method two inputs
 similar_top_stored = 200                 # fixed
 similar_max_posts = 5000                 # fixed
 similar_min_engaged = 3                  # fixed
+post_types = ["photo", "video", "normal", "other"]  # ENG-14 (Kala, 16 Oct): postTypeDetailed, else postType; unlisted -> "other"
 
 [retrieval.source_shares]                # fixed for Wave 1A; sum to 1
 interest = 0.4

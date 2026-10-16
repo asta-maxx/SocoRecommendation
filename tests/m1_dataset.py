@@ -35,9 +35,11 @@ Pack v1.4 and Kala's answers of 16 Oct:
                    Pets like: the purchase is out while the request is open (14);
                    when the request ends without a return it comes back
     selfseed       three likes on their own post (is_self) and three on a seed post
-                   (_seedTag), two Home & Living likes on others' posts: the seed likes
-                   are left out entirely, the own-post likes still score but don't
-                   count; qualified_actions is 2 (16)
+                   (_seedTag), two Home & Living likes on others' posts: both the own-post
+                   and the seed likes are left out of the score and the count
+                   (Kala, 16 Oct); qualified_actions is 2 (16)
+    ownonly        no declared interests, only likes on their own post: qualified_actions
+                   0 and no score under either method (Kala's regression test, 17)
     every user     the ladder's count equals the stored qualified_actions (15)
 
 `expect` holds what the checks compare against.
@@ -58,7 +60,8 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
     ago = lambda **kw: now - timedelta(**kw)  # noqa: E731
 
     names = ("decay", "floor", "cancelled", "unmappable", "views", "negative", "undo",
-             "rung1", "rung2", "rung3", "rung4", "rung5", "nothing", "author", "tester", "returner", "selfseed")
+             "rung1", "rung2", "rung3", "rung4", "rung5", "nothing", "author", "tester", "returner", "selfseed",
+             "ownonly")
     uid = {n: ObjectId() for n in names}
     declared = {"floor": [PETS], "rung2": [PETS]}
     delivered = {"rung4": {FASHION: 7, "Cricket": 3}, "rung5": {PETS: 3}}
@@ -82,6 +85,8 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
     posts[-1]["userId"] = uid["selfseed"]  # selfseed's own post
     seeded = post([HOME])
     posts[-1]["_seedTag"] = "soco-seed-2024"  # test data (ENG-30 point 9)
+    own_only = post([PETS])
+    posts[-1]["userId"] = uid["ownonly"]
     # "Fishing" has no match in the 23 or in the category map (the app's own map gives it
     # none), so it stays unmapped. ("Cricket" maps to Sports & Outdoors since 16 Oct.)
     cricket, malformed = post(["Fishing"]), post([None, 5, "", {"x": 1}])
@@ -143,6 +148,9 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
         event("selfseed", "like", ago(days=1), post_id=seeded)
     for target in (home, home2):
         event("selfseed", "like", ago(days=1), post_id=target)
+    # (17) ownonly: likes only their own post
+    for days in (1, 2):
+        event("ownonly", "like", ago(days=days), post_id=own_only, is_self=True)
     # (12) a test account: plenty of activity, never scored
     for _ in range(6):
         event("tester", "like", ago(days=1), post_id=home)
@@ -179,7 +187,7 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
     expect = {
         "scored": {"decay", "floor", "cancelled", "unmappable", "views", "negative", "undo", "rung1", "rung2", "rung4",
                    "returner", "selfseed"},
-        "not_scored": {"rung3", "rung5", "nothing", "author", "tester"},
+        "not_scored": {"rung3", "rung5", "nothing", "author", "tester", "ownonly"},
         "test_account": "tester",
         "unmapped": "Fishing",
         "return_request_id": request_id,

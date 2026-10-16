@@ -220,7 +220,7 @@ async def test_qualified_actions_are_counted_kalas_way(world, settings) -> None:
         ev("view", dwell_ms=3000), ev("view", dwell_ms=5000, days=2),  # one view per post: 1
         ev("view", post="pets", dwell_ms=2999),  # under 3 s: no
         ev("click"), ev("product_click", days=3), ev("save"), ev("comment"), ev("share"), ev("add_to_cart"),  # 6
-        ev("like", is_self=True),  # own post: scored, not counted
+        ev("like", is_self=True),  # own post: neither scored nor counted (Kala, 16 Oct)
         ev("like", undone_at=NOW),  # undone: no
         ev("feedback", feedback_type="hide"),  # feedback: no
         ev("like", days=91),  # outside 90 days: no
@@ -233,5 +233,17 @@ async def test_qualified_actions_are_counted_kalas_way(world, settings) -> None:
     assert result.qualified["u1"] == 1 + 6 + 1 + 1 + 2  # views, actions, uncategorised like, order, follows
     by_category = result.qualified_by_category["u1"]
     assert by_category == {"Home & Living": 7, "Electronics": 1, "Pets": 1}
-    assert ("like", ["Home & Living"]) in kinds(result)  # the own-post like still adds to the score
+    assert kinds(result).count(("like", ["Home & Living"])) == 1  # only the 91-day-old like: the own-post one isn't scored
+    # Every category-level action belongs to the user's set, and the set's size is the count.
+    ids = result.qualified_ids["u1"]
+    assert len(ids) == result.qualified["u1"]
+    assert all(cat_ids <= ids and len(cat_ids) == by_category[c] for c, cat_ids in result.qualified_ids_by_category["u1"].items())
+
+
+async def test_only_liking_your_own_post_scores_and_counts_nothing(world, settings) -> None:
+    """Kala's regression test (16 Oct): no declared interests, only likes on their own post:
+    qualified_actions 0, and no M1 score contribution under either method."""
+    world["events"] = [ev("like", is_self=True), ev("like", is_self=True, days=2)]
+    result = await inputs(settings)
+    assert result.qualified["u1"] == 0 and kinds(result) == [] and result.skipped["own_post"] == 2
 

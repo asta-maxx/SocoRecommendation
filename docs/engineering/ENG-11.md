@@ -98,3 +98,5 @@ Result, 16 Oct 2026: **16 of 16 passed** (`Tracing/checks/ENG-11_2026-10-16.md`)
 Kala's F7 ("ENG-30 is Passed only when the ENG-03, 04, 10, 11 and 29 checks re-run on the ENG-30 code and still pass"): the full checklist ran on the new code on 16 Oct. Every ENG-03 (3.1–3.5), ENG-04 (4.2–4.11), ENG-29 (8.1–8.9), ENG-10 and ENG-11 (11.2, 11.3) line passed. The other failures were test counts that the new tests raised (4.1, 10.2, 11.1, now updated), one test pinning the score's fields (now includes `qualified_actions`), the known laptop speed lines (6.3, 6.4) and the kill demo on a slow link (7.5). Record: `Tracing/checks/Checklist_2026-10-16_F7.md`.
 
 M1 (ENG-09, ENG-10, ENG-11, with ENG-30 points 5, 6, 7, 9, 10 and Kala's answers) is complete on dev.
+
+**16 Oct 2026:** checks 17 (own-post only: count 0, no score) and 18 (the qualifying set) added from Kala's follow-up. **18 of 18 passed.**

@@ -20,6 +20,9 @@ owner: Allen
 > - Actions on **seed posts** (test data) are left out.
 > - Each person's **qualified actions** (last 90 days; not hides, not likes on your own post) are counted once, the same way the ladder counts them, and kept with the score, as Kala asked. Likes on your own posts still count towards *what you're into*; whether they should is a question back to Kala.
 
+> [!tip] 16 Oct 2026 (later): likes on your own posts
+> Kala decided: they don't count towards what you're into at all, not just towards the 5 actions. Done; a person who only likes their own posts now gets no score from it.
+
 **In one line:** every night, work out what each person is into, as a share per category, from everything they did on SOCO, counting each thing once and in the right way.
 
 ## Why this task
