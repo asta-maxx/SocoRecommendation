@@ -1,7 +1,7 @@
 ---
 tags: [task, step-2]
 task: ENG-06
-status: In progress
+status: Built
 owner: Allen
 ---
 # ENG-06: Serve a recommendation list
@@ -10,6 +10,9 @@ owner: Allen
 > The engine now has its serving door. SOCO's backend can ask it for a list, gets one back in well under a fifth of a second, and every list is written down first. Since 1 Oct the **full safety rules** (ENG-08) decide what may be shown, and every item is checked once more just before the answer leaves. But the order is still a **stand-in**: the newest suitable posts (or products), not yet a ranked list. The real ordering and the "plan B" ladder are later tasks. Until then, both surfaces stay **off** in production.
 >
 > **On SOCO's dev data today:** the feed gives 3 posts; the product rail gives **none**, because every seller on dev has no status, and the rules treat that as "not active". That's a question for Aravinth (question 17), not an engine bug.
+
+> [!tip] Built (16 Oct 2026, Kala S2)
+> Everything it waits on is built (the ladder since 14 Oct), and newest-first is the stand-in the pack allows until ENG-17 and ENG-19. It becomes **Passed** once its check (200 ms, one record matching the list, off gives 503) runs on the test server. → [[Answers 16 Oct]]
 
 **In one line:** when SOCO's app needs a For You feed or a "you may also like" rail, it asks the engine; the engine answers with a list, and keeps a receipt of exactly what it answered.
 

@@ -34,6 +34,7 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[Nightly batches]]: the 2 AM recompute, and why a half-written batch is never read
 
 ## Tasks
+- [[Answers 16 Oct]]: Kala's and the app team's answers; eight tasks Passed
 - [[Audit 1 Oct]]: every task so far checked line by line against the pack, and what was fixed
 - [[Task Board]]: every task and where it stands
 - [[ENG-01 - Engine home and databases]]: laptop part done (16 drawers); test server being set up (14 Oct), production later

@@ -14,9 +14,10 @@ first matching rung produces, together with WHICH rung produced it:
     5  the engine's own store cannot be read          the old delivered score
 
 If the engine's own store cannot be read, rung 5 applies at once. Where no old
-delivered score exists, rungs 4 and 5 fall back to rung 3, each logged
-separately. When rung 3 has nothing either, the profile is empty and named
-"rung 3 empty": the list is eligible posts newest first. No rung returns nothing.
+delivered score exists, rung 4 falls back to rung 3; rung 5 does not (rung 3
+needs the engine store too): the request is an error at once and SOCO_BE shows
+its own ordering (Kala, 16 Oct; SD-26). When rung 3 has nothing either, the
+profile is empty and named "rung 3 empty": the list is eligible posts newest first.
 
 Every read comes from the engine's copies (ENG-04) or the platform's own records,
 through reco.store and reco.platform. Nothing is calculated that a nightly job
@@ -48,6 +49,10 @@ from reco.fallback.profile import (
 from reco.store.scores import InterestScore, Method
 
 logger = logging.getLogger(__name__)
+
+class EngineStoreUnavailable(RuntimeError):
+    """Rung 5 with no delivered score: the request answers 503 at once (SD-26)."""
+
 
 #: The old delivered interest score on the platform's user record (ENG-03: read only
 #: here, as the old score in the ladder). A map of category name -> number.
@@ -170,6 +175,12 @@ async def _delivered_or_popularity(
         logger.warning("RUNG %d for %s: %s (a %s problem); serving the old delivered score",
                        int(rung), user_id, reason, kind)
         return _profile(settings, user_id, shares, rung)
+    if rung is Rung.UNAVAILABLE:
+        # Kala, 16 Oct (2d): rung 3 needs the engine store too, so with no delivered
+        # score the request is an error at once and SOCO_BE shows its own ordering
+        # (SD-26). There is no rung_5_to_3.
+        logger.error("RUNG 5 for %s: %s and no delivered score; answering with an error", user_id, reason)
+        raise EngineStoreUnavailable(reason)
     logger.warning("RUNG %d for %s: %s (a %s problem); no delivered score, so rung 3",
                    int(rung), user_id, reason, kind)
     return await _popularity(settings, user_id, fell_through_from=rung, store_readable=store_readable)

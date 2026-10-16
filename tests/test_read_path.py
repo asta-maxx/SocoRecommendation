@@ -243,14 +243,17 @@ async def test_rung_5_an_unreadable_store_serves_the_delivered_score_at_once(wor
     assert "SERVING" in caplog.text
 
 
-async def test_rung_5_without_a_delivered_score_is_rung_3_empty(world, settings) -> None:
-    """The popularity batch lives in the unreadable store too, so it isn't tried."""
+async def test_rung_5_without_a_delivered_score_is_an_error_at_once(world, settings) -> None:
+    """Kala, 16 Oct (2d): rung 3 needs the engine store too, so there is no rung_5_to_3.
+    The request answers 503 and SOCO_BE shows its own ordering (SD-26)."""
+    from reco.fallback.read_path import EngineStoreUnavailable
+
     world["store_down"] = True
     world["popularity"] = popular(Books=1)
 
-    p = await get_profile(settings, "u5", reference_date=NOW)
-
-    assert p.fallback_step == "rung_5_to_3_empty" and world["popularity_reads"] == 0
+    with pytest.raises(EngineStoreUnavailable):
+        await get_profile(settings, "u5", reference_date=NOW)
+    assert world["popularity_reads"] == 0
 
 
 async def test_a_platform_fault_is_not_a_rung(world, settings) -> None:

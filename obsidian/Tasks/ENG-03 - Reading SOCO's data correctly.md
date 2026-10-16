@@ -1,13 +1,16 @@
 ---
 tags: [task, step-1]
 task: ENG-03
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-03: Reading SOCO's data correctly
 
 > [!note] Status: **Built** (realigned 1 Oct 2026)
 > First built on 29 Sep. The pack's v1.3 rewrote this task, so on 1 Oct it was rebuilt to the new row. All 10 parts are built, and the check **passed again on my laptop** on 1 Oct. It becomes **Passed** once the same check runs on the test server.
+
+> [!success] Passed (16 Oct 2026)
+> Kala: this task's check names no environment, so the run on my laptop is the evidence. Its own check passed on dev (29 Sep / 1 Oct; re-run 15 Oct). It covers this task's own check, not the later ENG-30 changes. → [[Answers 16 Oct]]
 
 > [!tip] Pack v1.4 (15 Oct 2026)
 > An order's history is now read the v1.4 way: each line of its history ("Delivered", "Refund of ₹…", "Returned to seller") becomes an event, and the order's **status** alone says whether it was returned. There is no "Return Requested" status any more. The test that read "an order with a status log and a return request" now reads a returned order with a request, a refund and a return in its history. → [[ENG-30 - Adapting to the October platform facts]]

@@ -47,3 +47,7 @@ Points 1–4, 7–10, the daily report of unmatched history texts, and the engin
 |---|---|
 | Points 1–4, 7–10 | Me |
 | Run the check on test | The test server |
+
+## Update, 16 Oct 2026
+
+**16 Oct 2026:** history map adds the app's other texts (Order placed, Rejected by buyer, Replacement / Exchange delivered → `replacement`). Point 4 defaults confirmed (enabled true, poolPercent 10, minOrderAmount 0). Passed only when the ENG-03, 04, 10, 11, 29 checks re-run on the ENG-30 code (F7). See `ANSWERS_2026-10-16.md`.

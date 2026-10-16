@@ -146,3 +146,7 @@ python scripts/check_m1.py        # the ENG-11 checks (throwaway databases)
 - ENG-30 point 10 (leave a purchase out while a return request is open; restore it when the request ends without a return) is ENG-30 work, not yet built.
 - Category map (including a followed business's category) and test accounts: already in place (ENG-29).
 - Dev, 15 Oct (after `sync` and `interest`): 8 of 16 users scored; 2 orders reversed (one Returned, one Rejected).
+
+## Update, 16 Oct 2026
+
+**16 Oct 2026:** Passed (Kala S1); view rule (most recent qualified) and author feedback confirmed.

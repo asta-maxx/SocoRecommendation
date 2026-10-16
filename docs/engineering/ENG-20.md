@@ -101,3 +101,7 @@ Then copy `Tracing/checks/ENG-20_<date>.md` to the shared "Wave1A checks" folder
 |---|---|
 | `scripts/time_dashboard_feed.py` | New: part 1's timing script |
 | `docs/engineering/ENG-20.md` | New |
+
+## Update, 16 Oct 2026
+
+**16 Oct 2026 (app team Q12):** the feed is `POST /feed/dashboard-feed`, body `{"user_id": ...}` (optional page, limit ≤ 20, feedType, surface…), header `Authorization: Bearer <app token>` on the latest build. Run with `SOCO_FEED_METHOD=POST SOCO_FEED_BODY='{"user_id":"<test user>"}'`.

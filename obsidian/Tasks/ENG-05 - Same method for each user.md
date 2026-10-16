@@ -1,13 +1,16 @@
 ---
 tags: [task, step-1]
 task: ENG-05
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-05: Same method for each user
 
 > [!note] Status: **Built** (1 Oct 2026, on my laptop)
 > All four parts work, and the three checks pass. It counts as finished once the same checks are re-run on the **test** server, which doesn't exist yet. → [[Environments]]
+
+> [!success] Passed (16 Oct 2026)
+> Kala: this task's check names no environment, so the run on my laptop is the evidence. Its three checks passed on dev (1 Oct; re-run 15 Oct). It covers this task's own check, not the later ENG-30 changes. → [[Answers 16 Oct]]
 
 **In one line:** in each of three places where the engine has two ways of doing something, decide which way each user gets, and give them the same one every single time.
 

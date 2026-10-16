@@ -1,13 +1,16 @@
 ---
 tags: [task, step-2]
 task: ENG-10
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-10: Interest score on real data
 
 > [!note] Status: **Built** (14 Oct 2026, on my laptop)
 > The interest score (M1) now learns from the engine's **own copy** of what people did, using every action and weight in the pack, for both methods. Its official check (all of ENG-11's checks) passes, 11 of 11. It becomes **Passed** once that runs on the test server.
+
+> [!success] Passed (16 Oct 2026)
+> Kala: this task's check names no environment, so the run on my laptop is the evidence. Its check is ENG-11's, which passes. It covers this task's own check, not the later ENG-30 changes. → [[Answers 16 Oct]]
 
 > [!tip] Pack v1.4 (15 Oct 2026)
 > A purchase now comes off the score only when the order's **status** is Cancelled, Rejected or Returned. The history lines no longer decide it, and "Return Requested" doesn't exist. Taking a purchase off *while a return request is open* is the next step, in [[ENG-30 - Adapting to the October platform facts]]. On dev: 8 of 16 people scored; 2 orders taken back (one returned, one rejected).

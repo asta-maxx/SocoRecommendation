@@ -83,7 +83,7 @@ async def ensure_engine_collections(settings: Settings) -> list[str]:
                             and an update never moves created_at.
       ml_events             user and time; request_id; E code and time.
       ml_orders             buyer and time; checkout_id.
-      ml_config_changes     unique config_version (ENG-02).
+      ml_config_changes     unique per transition: previous, new, the entry it follows (ENG-02, F5).
 
     The 22 Sep design's unique index on event_id is dropped if present: copies
     are keyed on the platform _id, and event_id is an opaque platform value.
@@ -122,8 +122,12 @@ async def ensure_engine_collections(settings: Settings) -> list[str]:
     # ENG-02 item 4: one record per settings version. Unique, so when the API and
     # a job both see the same new version, only one records it.
     changes = _collection(database, "ml_config_changes")
+    # Kala F5 (16 Oct): one entry per transition, so a rollback to a version used
+    # before is recorded too. The old one-entry-per-version index is replaced.
+    if "uniq_config_version" in await changes.index_information():
+        await changes.drop_index("uniq_config_version")
     await changes.create_index(
-        [("config_version", 1)], unique=True, name="uniq_config_version"
+        [("previous_version", 1), ("config_version", 1), ("follows", 1)], unique=True, name="uniq_transition"
     )
     await changes.create_index([("changed_at", -1)], name="changed_at")
 
@@ -345,8 +349,8 @@ async def delete_user_scores(
 async def record_config_change(settings: Settings, record: dict[str, Any]) -> bool:
     """Write one settings change to ml_config_changes. ENG-02 item 4.
 
-    Returns False when this config_version is already recorded -- another process
-    got there first, which is expected, not a fault.
+    Returns False when this transition is already recorded (same versions, after
+    the same entry) -- another process got there first, which is expected.
     """
     changes = _collection(ml_db(settings), "ml_config_changes")
     try:

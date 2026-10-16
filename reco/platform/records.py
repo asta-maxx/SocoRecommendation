@@ -133,7 +133,8 @@ class _Record(BaseModel):
 class UserRecord(_Record):
     user_id: str
     status: str | None
-    is_active: bool  # users.status, ignoring case (E-08)
+    is_active: bool  # users.moderation.state missing or 'active' (E-08; the app's own rule, 16 Oct)
+    moderation_state: str | None  # active / suspended / banned
     city: str | None
     date_of_birth: date | None  # users.DOB (E-11)
     account_is_public: bool  # accountIsPublic (E-05)
@@ -142,11 +143,20 @@ class UserRecord(_Record):
     created_at: datetime | None
 
 
+def _moderation_state(doc: dict[str, Any]) -> str | None:
+    moderation = doc.get("moderation") if isinstance(doc.get("moderation"), dict) else {}
+    state = moderation.get("state")
+    return _spelled(state) if isinstance(state, str) and state.strip() else None
+
+
 def parse_user(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None) -> UserRecord:
     return UserRecord(
         user_id=to_str(doc["_id"]),
         status=doc.get("status"),
-        is_active=status_is(doc.get("status"), "active"),
+        # users.status is not used by the app; visibility is moderation.state, and a
+        # missing state means active (question 17, answered 16 Oct 2026).
+        is_active=_moderation_state(doc) in (None, "active"),
+        moderation_state=_moderation_state(doc),
         city=doc.get("city") or None,
         date_of_birth=_date(doc.get("DOB")),
         account_is_public=doc.get("accountIsPublic") is not False,
@@ -209,8 +219,9 @@ def parse_follow(doc: dict[str, Any]) -> FollowRecord:
 
 class BlockRecord(_Record):
     """A followers row with status blocked (E-01, DB-06: "the existing status blocked in
-    followers"). ASSUMED shape -- followers is empty on dev and its field names are
-    not documented (Kala question 16): userId blocked followerId."""
+    followers"). Shape confirmed from the app's code (question 16, answered 16 Oct
+    2026): follower_id is the account that blocked (ObjectId), user_id the blocked
+    account (text); either can be a person or a store. Unblock deletes the row."""
 
     blocker_id: str
     blocked_id: str
@@ -218,9 +229,9 @@ class BlockRecord(_Record):
 
 def parse_block(doc: dict[str, Any]) -> BlockRecord | None:
     """The block in a followers row, or None if the row is not a block."""
-    if not status_is(doc.get("status"), "blocked") or doc.get("userId") is None or doc.get("followerId") is None:
+    if not status_is(doc.get("status"), "blocked") or doc.get("follower_id") is None or doc.get("user_id") is None:
         return None
-    return BlockRecord(blocker_id=to_str(doc["userId"]), blocked_id=to_str(doc["followerId"]))
+    return BlockRecord(blocker_id=to_str(doc["follower_id"]), blocked_id=to_str(doc["user_id"]))
 
 
 class PostRecord(_Record):

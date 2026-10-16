@@ -8,7 +8,17 @@ Everything Aravinth builds (tasks starting **APP-** and **DB-**), and what my ta
 > [!important] Statuses are tracked **here**, not in the pack
 > The pack in `docs/updated/` is final and never edited, so its Status column stays as it was on 29 Sep. This note holds the real, current state. "Pack says" is what the pack's Status column shows; "What we see" is what SOCO's database actually shows.
 
-*Last checked: 15 Oct 2026, against pack v1.4.*
+*Last checked: 16 Oct 2026, with the app team's answers.* → [[Answers 16 Oct]]
+
+> [!note] App team's answers (16 Oct)
+> - **Change times and on-screen times** are in the app's code since 28 Sep. Dev runs an older build, or two catch-up scripts weren't run. **Ask:** which build dev runs; run the two scripts on dev.
+> - **Blocks** and **"active"** explained: the engine now reads them the app's way.
+> - **The catimp categories and stores are test data.** **Ask:** delete them on dev.
+> - **Test accounts** are known only by email address (@soco.test and others). **Ask:** their ids, reason, until when.
+> - **Staff:** SOCO's own account is marked in the app; staff never act as app users.
+> - **Serve log and restriction fields:** not built. **Ask:** dates.
+> - **Speed test:** the feed is `POST /feed/dashboard-feed` with a sign-in token. **Ask:** dev URL and a token, privately.
+> - A script (`ml-demo-activity`) can make real test views, likes and an order on dev.
 
 > [!note] Pack v1.4 (14 Oct)
 > **DB-02 is removed**: the engine keeps its current read-only login, which can also read the two new collections v1.4 needs (`returnrequests`, `commissionconfigs`; checked 15 Oct). **APP-16** is now Built. **DB-03, APP-08 and APP-10** were corrected: there is no "Return Requested" status; the return button creates a return-request record, and only the seller's return sets "Returned". None of this asks Aravinth to change anything. (APP-02 is listed under Built, as the pack says, but see its note.)

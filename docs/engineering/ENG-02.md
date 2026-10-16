@@ -582,3 +582,7 @@ rejected. `reco_demo` dropped afterwards.
 
 - **Start-up with an outdated recorded copy (fix).** `reco/config/sync.load_at_start` validated the last settings recorded in `ml_config_changes` without a guard. After v1.4 changed the order-history map's values, the copy recorded at version 3 no longer validated and every start (API and jobs) crashed. Now a recorded copy that no longer fits the model is logged ("the last recorded settings no longer match the settings model; not used as a fallback") and skipped; the file loads as usual. Test: `test_a_recorded_version_in_an_older_shape_does_not_stop_the_start`.
 - `settings/engine.toml` is at **config_version 4** (history-text map, spelling map, `return_requested` removed). The settings tests compare everything except the four lists Allen maintains (category map, spellings, exemptions, test accounts).
+
+## Update, 16 Oct 2026
+
+**16 Oct 2026 (Kala F5):** rollbacks are recorded; one diary entry per transition (`uniq_transition`). Passed once shown. See `ANSWERS_2026-10-16.md`.

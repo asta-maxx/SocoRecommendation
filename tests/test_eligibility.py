@@ -117,11 +117,16 @@ def test_e07_product_not_sellable() -> None:
 
 
 def test_e08_author_or_seller_not_active() -> None:
-    assert post_rule(P("inactive_author_post"), U("inactive_author"), VIEWER) == "E-08"
-    assert post_rule(P("post"), U("author", status=None), VIEWER) == "E-08"  # no status is not 'active' (question 17)
+    """Question 17, answered 16 Oct: a person is active unless moderation.state says
+    otherwise (users.status is not used); a store only when its status is 'active'."""
+    assert post_rule(P("inactive_author_post"), U("inactive_author"), VIEWER) == "E-08"  # moderation suspended
+    assert post_rule(P("post"), U("author", moderation={"state": "Banned"}), VIEWER) == "E-08"
+    assert post_rule(P("post"), U("author", status=None), VIEWER) is None  # no status: active, as in the app
+    assert post_rule(P("post"), U("author", status="Inactive"), VIEWER) is None  # status alone decides nothing
     assert post_rule(P("post"), None, VIEWER) == "E-08"  # author not found
     assert product_rule(PR("product"), B("inactive_seller"), VARIANTS("product"), VIEWER) == "E-08"
-    assert post_rule(P("post"), U("author", status="ACTIVE"), VIEWER) is None
+    assert product_rule(PR("product"), B("seller", status=None), VARIANTS("product"), VIEWER) == "E-08"  # store: missing is not active
+    assert post_rule(P("post"), U("author", moderation={"state": "active"}), VIEWER) is None
 
 
 def test_e09_suspended_or_removed_once_db08_exists() -> None:

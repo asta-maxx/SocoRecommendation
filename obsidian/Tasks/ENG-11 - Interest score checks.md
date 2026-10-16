@@ -1,13 +1,16 @@
 ---
 tags: [task, step-2]
 task: ENG-11
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-11: Interest score checks
 
 > [!note] Status: **Built** (14 Oct 2026, on my laptop)
 > One script checks the whole interest score on made-up users and prints PASS or FAIL for each of the pack's 11 checks. **All 11 pass.** It becomes **Passed** once it passes on the test server and the output is saved in the shared "Wave1A checks" folder.
+
+> [!success] Passed (16 Oct 2026)
+> Kala: this task's check names no environment, so the run on my laptop is the evidence. 13 of 13 (15 Oct). It covers this task's own check, not the later ENG-30 changes. → [[Answers 16 Oct]]
 
 > [!tip] Pack v1.4 (15 Oct 2026)
 > Two more checks, from the rework list: **12, a test account is left out** (a made-up user with six likes, on the test-account list, gets no score) and **13, an unmapped category is reported** ("Cricket"). **13 of 13 pass.**

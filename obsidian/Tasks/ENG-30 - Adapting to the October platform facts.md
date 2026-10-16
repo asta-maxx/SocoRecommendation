@@ -9,6 +9,9 @@ owner: Allen
 > [!note] Status: **In progress** (15 Oct 2026)
 > New in pack v1.4. Three of its eleven points are done, with the rework of the built tasks: order history read as events (5), returns only at "Returned" (6), and the E-12 check (11). The rest is still to build.
 
+> [!tip] 16 Oct 2026
+> The order-history list gained the app's other lines ("Order placed", "Rejected by buyer", replacements and exchanges, information only). Kala settled the commission defaults (on 10%, no minimum). ENG-30 is Passed only once the ENG-03, 04, 10, 11 and 29 checks re-run on its code. → [[Answers 16 Oct]]
+
 **In one line:** SOCO's app team explained how their database really works (8–13 Oct), and Kala checked it (13–14 Oct). This task makes the engine fit those facts, without asking the app to change anything.
 
 ## Why this task

@@ -1,13 +1,16 @@
 ---
 tags: [task, step-2]
 task: ENG-09
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-09: Fallback ladder
 
 > [!note] Status: **Built** (14 Oct 2026, on my laptop)
 > All five rungs work, plus "rung 3 empty", and every feed list now says which rung it used. The Build List's check passes in the tests and on real databases. It becomes **Passed** once the check runs on the test server (being set up; decided 14 Oct).
+
+> [!success] Passed (16 Oct 2026)
+> Kala: this task's check names no environment, so the run on my laptop is the evidence. Each rung reported for its test user (14 Oct; re-run 15 Oct). Kala confirmed the step names on 16 Oct; rung 5 with no old score now answers with an error. It covers this task's own check, not the later ENG-30 changes. → [[Answers 16 Oct]]
 
 **In one line:** when the engine doesn't know someone well enough yet, or its own data is old or out of reach, decide what to use instead of their interest score, and say on every list which choice was made.
 

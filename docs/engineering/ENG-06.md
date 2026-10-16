@@ -652,3 +652,7 @@ Since then, on 1 Oct 2026:
 
 The live demo script, in plain language, is the Obsidian note
 `obsidian/Demos/Demo - ENG-06.md`.
+
+## Update, 16 Oct 2026
+
+**Built** (Kala S2): all its dependencies are built; Passed once its check runs on the test server. Kala F6: if the product surface still misses 200 ms there, read eligibility from ml_item_state (ENG-27).

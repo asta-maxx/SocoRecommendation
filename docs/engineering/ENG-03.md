@@ -455,3 +455,7 @@ v1.4 leaves ENG-03's text unchanged; ENG-30 voids its "order outcome from orders
 | (2) No statusLog; history from tracking_info mapped as ENG-30 point 5 | **Done 15 Oct**: the history-text map; `is_returned` from order_status Returned; return time from `return_info.returned_at` (ENG-30 §2) |
 | (3) No delivered-list record or engine_position | Done (ENG-29, 1 Oct) |
 | (4) Update the "status log and return request" test | **Done 15 Oct**: `test_order_with_history_and_a_return_request` now reads a Returned order with a request, refund and return in its history; a request alone returns nothing |
+
+## Update, 16 Oct 2026
+
+**16 Oct 2026:** Passed (Kala S1). Platform reads use the per-kind field list (F8). See `ANSWERS_2026-10-16.md`.

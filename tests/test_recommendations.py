@@ -207,7 +207,7 @@ async def test_the_record_holds_what_the_pack_lists(served, monkeypatch) -> None
     (profile(Rung.STALE), "rung_4", False),
     (profile(Rung.POPULARITY, fell_through_from=Rung.STALE), "rung_4_to_3", False),
     (profile(Rung.UNAVAILABLE), "rung_5", False),
-    (profile(Rung.POPULARITY, categories=False, fell_through_from=Rung.UNAVAILABLE), "rung_5_to_3_empty", False),
+    (profile(Rung.POPULARITY, categories=False, fell_through_from=Rung.STALE), "rung_4_to_3_empty", False),
 ], ids=lambda v: v if isinstance(v, str) else None)
 async def test_each_rung_is_reported_on_the_list(served, answer, step, cold_start) -> None:
     """ENG-09: "The rung used is reported on the response and the request record." A

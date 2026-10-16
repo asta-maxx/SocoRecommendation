@@ -55,10 +55,27 @@ async def _record_pending(settings: Settings) -> None:
         logger.exception("still could not record the settings change in ml_config_changes")
 
 
+def _is_rollback(previous: str, new: str) -> bool:
+    try:
+        return int(new) < int(previous)
+    except ValueError:
+        return False
+
+
 async def _apply(settings: Settings, previous: Tunables, new: Tunables, changes: list[dict[str, Any]]) -> None:
     global _unrecorded
     live.put_in_force(new, "file")
     record = _record(settings, previous, new, changes)
+    # Kala F5 (16 Oct): every version put in force is written, a return to a lower
+    # version too (a rollback). One entry per transition: an entry is keyed on the
+    # versions and the entry it follows, so the API and a job noticing the same
+    # change still write it once, and going back to a version already used is new.
+    try:
+        latest = await writers.read_latest_config_change(settings)
+    except Exception:
+        latest = None
+    record["follows"] = latest.get("_id") if latest else None
+    record["rollback"] = _is_rollback(previous.config_version, new.config_version)
     try:
         recorded = await writers.record_config_change(settings, record)
     except Exception:

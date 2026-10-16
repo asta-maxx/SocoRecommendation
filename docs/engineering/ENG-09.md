@@ -176,3 +176,7 @@ Checklist section 10 (`scripts/run_checklist.sh`): 10.1 the ENG-09 check through
 | `tests/test_read_path.py` | Rewritten |
 | `tests/test_recommendations.py` | Ladder stub; rung reporting tests |
 | `tests/test_ladder_store.py` | New |
+
+## Update, 16 Oct 2026
+
+**16 Oct 2026:** Passed (Kala S1). Step strings confirmed; rung 5 with no delivered score raises `EngineStoreUnavailable` (503), no `rung_5_to_3`. The 5-action count's definition is back with Kala (`ANSWERS_2026-10-16.md` §6).

@@ -11,6 +11,9 @@ owner: Allen
 >
 > **14 Oct 2026:** the **test server is ready**, so the engine goes there now. **Production comes later.** Until it's up, this task stays Waiting, because its check says the engine runs in all three places.
 
+> [!tip] 16 Oct 2026 (Kala)
+> Production moves to a new task in the next Build List, as a go-live condition. ENG-01's check then covers dev and test only: it becomes Passed once it runs on the test server. On test, the engine must read SOCO's data with its own read-only login, not the engine's login. → [[Answers 16 Oct]]
+
 **In one line:** give my engine a proper home. That means three separate setups, its own database with all its drawers, and safe handling of passwords.
 
 ## Why this task comes first

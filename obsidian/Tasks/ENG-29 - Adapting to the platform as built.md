@@ -1,7 +1,7 @@
 ---
 tags: [task, step-2]
 task: ENG-29
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-29: Adapting to the platform as built
@@ -10,6 +10,9 @@ owner: Allen
 > All eight parts are built and the Build List's checks pass. Three things wait on others: **I** have to fill in the category map (42 SOCO categories don't match yet), **Aravinth** has to create SOCO's serve log, and the made-up test data moves to the test server once it exists. It becomes **Passed** once the checks run there.
 >
 > **1 Oct 2026, after checking every open question against the pack:** four of this task's questions are answered (3, 4, 5 and 12), so they're off the list. The serve log is now copied every 5 minutes instead of a day late, and a tracking step the engine doesn't recognise now leaves a warning in the log.
+
+> [!success] Passed (16 Oct 2026)
+> Kala: this task's check names no environment, so the run on my laptop is the evidence. Its checks passed on dev (1 Oct; re-run 15 Oct). On 16 Oct the category map was filled: 42 unmatched labels down to 7. It covers this task's own check, not the later ENG-30 changes. → [[Answers 16 Oct]]
 
 > [!tip] Pack v1.4 (15 Oct 2026): the rework on the built tasks
 > v1.4 keeps ENG-29's words but its new sister task, [[ENG-30 - Adapting to the October platform facts]], replaces the "Return Requested" parts. The rework list, done on 15 Oct: order history read as events (ENG-03), returns only at "Returned" (ENG-10), the spelling list's first entry and new E-12 tests (ENG-08), and two new checks (ENG-11, 13 of 13). The settings file is now **version 4**. **Still yours to decide:** the category map (42 SOCO names), and the test-account and exemption lists (account ids needed).

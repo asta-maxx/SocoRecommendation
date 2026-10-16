@@ -135,9 +135,9 @@ class Profile(BaseModel):
         """What the response and the E1 record name as the fallback step (DS-017 4.2:
         "string or null"; null when none was needed, i.e. rung 1).
 
-        rung_2, rung_3, rung_4, rung_5; rung_4_to_3 / rung_5_to_3 where no delivered
-        score existed; and _empty when rung 3 had nothing either, so the list is
-        eligible posts newest first (ENG-09 "rung 3 empty")."""
+        Confirmed by Kala, 16 Oct: null, rung_2, rung_3, rung_3_empty, rung_4,
+        rung_4_to_3, rung_4_to_3_empty, rung_5. There is no rung_5_to_3: with no
+        delivered score rung 5 is an error (reco.fallback.read_path)."""
         if self.rung is Rung.PERSONALISED:
             return None
         step = f"rung_{int(self.fell_through_from)}_to_3" if self.fell_through_from else f"rung_{int(self.rung)}"

@@ -1,7 +1,7 @@
 ---
 tags: [task, step-2]
 task: ENG-07
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-07: Nightly jobs
@@ -10,6 +10,9 @@ owner: Allen
 > The machinery is done: the 2 AM timer, the "finish first, then swap" rule, the job diary and the labels on every score. The interest score (M1) already runs on it, then the daily category check (from ENG-29), and the engine sync's daily audit last. The other nightly jobs join as their own tasks are built. It becomes **Passed** once the check runs on the test server.
 >
 > **Audit fixes, 1 Oct 2026:** a job that gets stuck or is killed now raises an alert within about 2 hours, instead of waiting for the next night; a failed run writes "0 rows" in the diary; and the 2 AM time is locked, as the pack says.
+
+> [!success] Passed (16 Oct 2026)
+> Kala: this task's check names no environment, so the run on my laptop is the evidence. Its check (a job killed halfway) passed on dev (1 Oct; re-run 15 Oct). It covers this task's own check, not the later ENG-30 changes. → [[Answers 16 Oct]]
 
 **In one line:** every night at 2 AM, the engine works out fresh scores in the background, and only swaps them in once they're completely finished.
 

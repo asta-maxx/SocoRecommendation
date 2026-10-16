@@ -493,3 +493,7 @@ The live demo script, in plain language, is the Obsidian note
 
 **Whole checklist:** `bash scripts/run_checklist.sh` re-runs this item's checks
 (section 7) with those of every other finished item.
+
+## Update, 16 Oct 2026
+
+**16 Oct 2026:** Passed (Kala S1).

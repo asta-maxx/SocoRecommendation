@@ -232,8 +232,10 @@ class FakeLog:
         self.latest = latest
 
     async def record(self, settings, record) -> bool:
-        if any(r["config_version"] == record["config_version"] for r in self.records):
+        key = (record.get("previous_version"), record["config_version"], record.get("follows"))
+        if any((r.get("previous_version"), r["config_version"], r.get("follows")) == key for r in self.records):
             return False
+        record = {**record, "_id": f"entry{len(self.records) + 1}"}
         self.records.append(record)
         self.latest = record
         return True
@@ -342,6 +344,30 @@ async def test_a_recorded_version_in_an_older_shape_does_not_stop_the_start(
     change_log.latest = {"config_version": "3", "values": old}  # the old copy is the latest again
     await sync.load_at_start(_settings(_write(tmp_path, "broken = [")))
     assert live.state().source == "defaults"  # not the unreadable copy
+
+
+async def test_a_rollback_is_recorded_too(tmp_path: Path, change_log: FakeLog) -> None:
+    """Kala F5 (16 Oct): every version put in force is in the diary, a return to a
+    lower version too, marked as a rollback."""
+    path = _write(tmp_path, FILE.read_text())
+    await sync.load_at_start(_settings(path))
+    changed = (FILE.read_text().replace(f'config_version = "{V}"', f'config_version = "{NEXT}"')
+               .replace("popularity_window_days = 30", "popularity_window_days = 45"))
+    Path(path).write_text(changed)
+    await sync.reload(_settings(path))
+    Path(path).write_text(FILE.read_text())  # back to V
+    await sync.reload(_settings(path))
+
+    assert live.current().config_version == V
+    assert [(r["previous_version"], r["config_version"], r["rollback"]) for r in change_log.records] == [
+        ("0", V, False), (V, NEXT, False), (NEXT, V, True)]
+    back = change_log.records[-1]
+    assert back["changes"] == [{"key": "interest.popularity_window_days", "old": 45, "new": 30}]
+
+    # And the same forward change again is a new entry, not a duplicate.
+    Path(path).write_text(changed)
+    await sync.reload(_settings(path))
+    assert len(change_log.records) == 4
 
 
 async def test_the_same_version_as_recorded_is_not_recorded_twice(tmp_path: Path, change_log: FakeLog) -> None:

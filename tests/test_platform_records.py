@@ -227,6 +227,10 @@ REAL_HISTORY = {
     "Shipped by seller": "shipped", "Payment Completed": "payment", "Delivered (Urban Vogue Fashion Studio)": "delivered",
     "Return requested (RET-115A15BF)": "return_request", "Refund of \u20b96099 initiated": "refund",
     "Returned to seller": "returned", "Cancelled by seller": "cancelled",
+    # The other texts the app's code writes (its answers, 16 Oct), and Kala's F4 text.
+    "Order placed from proposal 12 (enquiry 6a1) by Arun": "created", "Rejected by buyer: changed mind": "cancelled",
+    "Replacement delivered (Urban Vogue)": "replacement", "Exchange delivered (Urban Vogue)": "replacement",
+    "Refund of \u20b96099 paid (RET-115A15BF)": "refund", "Cancelled by buyer": "cancelled",
 }
 
 
@@ -253,6 +257,30 @@ def test_history_payment_request_and_refund_leave_the_state(text: str) -> None:
            "tracking_info": [{"status": "Delivered", "timestamp": T}, {"status": text, "timestamp": T + timedelta(hours=1)}]}
     order = records.parse_order(doc)
     assert order.status == "Delivered" and not order.is_returned and not order.is_reversed
+
+
+def test_a_replacement_after_a_return_is_not_a_second_delivery() -> None:
+    doc = {"_id": ObjectId(), "order_status": "Delivered", "tracking_info": [
+        {"status": "Delivered (A)", "timestamp": T}, {"status": "Return requested (RET-1)", "timestamp": T + timedelta(days=1)},
+        {"status": "Replacement delivered (A)", "timestamp": T + timedelta(days=3)}]}
+    order = records.parse_order(doc)
+    assert order.delivered_at == T and not order.history_conflict and not order.is_returned
+
+
+def test_a_block_reads_the_apps_fields() -> None:
+    """Question 16, answered 16 Oct: follower_id blocked user_id; either side a person or a store."""
+    blocker, blocked = ObjectId(), str(ObjectId())
+    block = records.parse_block({"follower_id": blocker, "user_id": blocked, "status": "blocked", "isBlocked": True})
+    assert (block.blocker_id, block.blocked_id) == (str(blocker), blocked)
+    assert records.parse_block({"userId": blocker, "followerId": blocked, "status": "blocked"}) is None  # the old guess
+
+
+@pytest.mark.parametrize("moderation,active", [(None, True), ({"state": "active"}, True), ({"state": "Suspended"}, False),
+                                               ({"state": "banned"}, False), ({}, True)])
+def test_a_person_is_active_by_moderation_state(moderation, active) -> None:
+    """Question 17, answered 16 Oct: users.status is not used; moderation.state is."""
+    doc = {"_id": UID, "status": None, **({"moderation": moderation} if moderation is not None else {})}
+    assert records.parse_user(doc, VOCAB).is_active is active
 
 
 def test_history_that_contradicts_itself_is_flagged() -> None:

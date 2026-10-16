@@ -51,7 +51,9 @@ async def read_records(
     if kind not in records.RECORD_KINDS:
         raise ValueError(f"unknown record kind {kind!r}")
     parse = await _parser(settings, kind)
-    cursor = app_db(settings)[PLATFORM_COLLECTIONS[kind]].find(query or {})
+    # Only the fields the engine reads (F8: store records also hold PAN, Aadhaar, GST
+    # and bank details, which are never read or copied).
+    cursor = app_db(settings)[PLATFORM_COLLECTIONS[kind]].find(query or {}, _FIELDS.get(kind))
     if limit:
         cursor = cursor.limit(limit)
     return [parse(doc) async for doc in cursor]
@@ -136,7 +138,8 @@ _FIELDS: dict[str, dict[str, int]] = {
                             "visibility", "compliance", "Product_status", "ageGroup", "isRepost", "products", "productId")},
     "product": {f: 1 for f in ("createdBy", "createdAt", "status", "availability", "categoryPathIds", "basicInfo.categoryId",
                                "crossSellProducts")},
-    "user": {f: 1 for f in ("status", "city", "DOB", "accountIsPublic", "restriction_level", "interest", "timestamp")},
+    "user": {f: 1 for f in ("status", "moderation.state", "city", "DOB", "accountIsPublic", "restriction_level", "interest",
+                            "timestamp")},
     "business": {f: 1 for f in ("user_id", "category", "status", "accountIsPublic", "restriction_level", "timestamp")},
     "variant": {f: 1 for f in ("productId", "sellerId", "salePrice", "originalPrice", "quantity", "reservedStock", "status")},
 }
@@ -241,7 +244,7 @@ async def read_blocks(settings: Settings, account_ids: list[str]) -> list[record
         return []
     either = _any_form(account_ids)
     cursor = app_db(settings)[PLATFORM_COLLECTIONS["follower"]].find(
-        {"status": {"$regex": r"^\s*blocked\s*$", "$options": "i"}, "$or": [{"userId": either}, {"followerId": either}]}
+        {"status": {"$regex": r"^\s*blocked\s*$", "$options": "i"}, "$or": [{"follower_id": either}, {"user_id": either}]}
     )
     return [block async for doc in cursor if (block := records.parse_block(doc)) is not None]
 

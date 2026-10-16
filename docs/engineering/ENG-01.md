@@ -389,3 +389,7 @@ The live demo script, in plain language, is the Obsidian note
 `obsidian/Demos/Demo - ENG-01.md`.
 
 **Whole checklist:** `bash scripts/run_checklist.sh` re-runs this item's checks, with those of every other finished item. It prints PASS/FAIL per line and cleans up after itself.
+
+## Update, 16 Oct 2026
+
+**16 Oct 2026 (Kala Q10):** production moves to a new item; ENG-01's check covers dev and test. On test the engine reads the platform through its own read-only login, separate from the engine's login.

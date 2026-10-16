@@ -50,7 +50,9 @@ def build_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[str,
         {"_id": c["author"], "status": "active", "interest": ["Home & Living"], "accountIsPublic": True},
         {"_id": c["private_author"], "status": "Active", "accountIsPublic": False},
         {"_id": c["blocker"], "status": "Active", "accountIsPublic": True},
-        {"_id": c["inactive_author"], "status": "Inactive", "accountIsPublic": True},
+        # users.status is not what the app uses: moderation.state is (16 Oct). Kept "Inactive"
+        # to show the status field alone no longer hides anyone.
+        {"_id": c["inactive_author"], "status": "Inactive", "moderation": {"state": "suspended"}, "accountIsPublic": True},
         {"_id": c["test_account"], "status": "Active", "interest": ["Beauty & Personal Care"], "accountIsPublic": True},
         {"_id": c["exempt_account"], "status": "Active", "accountIsPublic": True},
         {"_id": c["minor"], "status": "Active", "DOB": (now - timedelta(days=365 * 15)).date().isoformat()},
@@ -70,11 +72,9 @@ def build_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[str,
         {"_id": _id(), "userId": c["viewer"], "followingId": c["seller"], "followingReference": "businessRegister"},
         {"_id": _id(), "userId": c["buyer"], "followingId": c["promoter"], "followingReference": "user"},
     ]
-    # ASSUMED shape: the pack says only "status blocked in followers"; the
-    # collection is empty on dev and its field names are not documented
-    # (question 16 for Kala). Adjust here when they are known.
+    # The app's shape (question 16, answered 16 Oct): follower_id blocked user_id.
     followers = [
-        {"_id": _id(), "userId": c["blocker"], "followerId": c["viewer"], "status": "blocked"},
+        {"_id": _id(), "follower_id": c["blocker"], "user_id": str(c["viewer"]), "status": "blocked", "isBlocked": True},
     ]
 
     # --- categories tree ----------------------------------------------------------

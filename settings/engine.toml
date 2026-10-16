@@ -13,7 +13,7 @@
 # config_version is rejected: the engine keeps the last good version and logs
 # the fault. "fixed" means the sheet fixes the value for Wave 1A.
 
-config_version = "4"
+config_version = "5"
 changed_by = "Allen"
 
 [serving]
@@ -217,9 +217,7 @@ cycle_days = 14
 # Lists. ENG-29, Settings sheet "Lists". Maintained by Allen: every change raises
 # config_version and is logged in ml_config_changes.
 [lists]
-# Platform category (name, any case) -> one of the 23. Every category in use must
-# be mapped; unmapped ones are reported daily and left out of category scoring.
-category_map = {}
+# Platform category -> one of the 23: the [lists.category_map] table below.
 # Status spellings compared ignoring case: stored spelling -> compared value.
 # Products store "Activate", product posts "Activated": both read as active (ENG-29 item 2).
 status_spellings = { activated = "activate" }
@@ -228,6 +226,90 @@ status_spellings = { activated = "activate" }
 #   { account_id = "<24-char id>", reason = "...", expiry = 2026-12-31, changed_by = "Allen" }
 exemptions = []
 test_accounts = []
+
+[lists.category_map]                     # platform category -> one of the 23 (ENG-29 item 1; built 16 Oct, see below)
+# From the app's LEGACY_LABEL_MAP, its category tree's interest tags, and the app team's
+# answers of 16 Oct. Left out (reported daily as unmapped): bags & wallets, watches, fishing,
+# nature, shopping, Appliances, Tools & Home Improvement, Fishing & Marine, and the
+# catimp test categories (test data, not mapped).
+"agriculture" = "Organic & Eco"
+"art & handmade" = "Art & Collectibles"
+"art_&_collectibles" = "Art & Collectibles"
+"auto repair & service" = "Automotive"
+"automobiles" = "Automotive"
+"baby products" = "Toys & Kids"
+"bags, luggage & travel" = "Travel & Lifestyle"
+"bakery & sweets" = "Food & Beverages"
+"baking" = "Food & Beverages"
+"beauty & salon" = "Beauty & Personal Care"
+"beauty & skincare" = "Beauty & Personal Care"
+"beauty_&_personal_care" = "Beauty & Personal Care"
+"bedding & bath" = "Home & Living"
+"books" = "Books & Education"
+"books_&_education" = "Books & Education"
+"business" = "Office & Business"
+"cameras & photography" = "Photography"
+"computers & accessories" = "Technology"
+"cooking" = "Food & Beverages"
+"cricket" = "Sports & Outdoors"
+"cycle & sports" = "Sports & Outdoors"
+"dairy & milk products" = "Food & Beverages"
+"education" = "Books & Education"
+"electronics & appliances" = "Electronics"
+"entertainment" = "Music & Entertainment"
+"farming" = "Organic & Eco"
+"fashion" = "Fashion & Apparel"
+"fashion accessories" = "Fashion & Apparel"
+"fashion design & tailoring" = "Fashion & Apparel"
+"fashion_&_apparel" = "Fashion & Apparel"
+"fitness & gym" = "Sports & Outdoors"
+"food" = "Food & Beverages"
+"food & grocery" = "Food & Beverages"
+"food_&_beverages" = "Food & Beverages"
+"footwear" = "Shoes & Footwear"
+"furniture" = "Home & Living"
+"furniture & home décor" = "Home & Living"
+"gadgets" = "Technology"
+"garden & outdoors" = "Organic & Eco"
+"garden & plants" = "Organic & Eco"
+"grocery & supermarket" = "Food & Beverages"
+"hardware & building materials" = "Home & Living"
+"health" = "Health & Wellness"
+"health & household" = "Health & Wellness"
+"health_&_wellness" = "Health & Wellness"
+"healthcare" = "Health & Wellness"
+"home & decor" = "Home & Living"
+"home & kitchen" = "Home & Living"
+"home_&_living" = "Home & Living"
+"kids & baby" = "Toys & Kids"
+"kitchen & dining" = "Home & Living"
+"men's clothing" = "Fashion & Apparel"
+"mobile & accessories" = "Electronics"
+"music" = "Music & Entertainment"
+"music_&_entertainment" = "Music & Entertainment"
+"musical instruments" = "Music & Entertainment"
+"office products" = "Office & Business"
+"office_&_business" = "Office & Business"
+"organic & millets" = "Organic & Eco"
+"organic_&_eco" = "Organic & Eco"
+"pet supplies" = "Pets"
+"pharmacy" = "Health & Wellness"
+"restaurant" = "Food & Beverages"
+"shoes" = "Shoes & Footwear"
+"shoes_&_footwear" = "Shoes & Footwear"
+"sports" = "Sports & Outdoors"
+"sports, fitness & outdoors" = "Sports & Outdoors"
+"sports_&_outdoors" = "Sports & Outdoors"
+"tech" = "Technology"
+"textiles & clothing" = "Fashion & Apparel"
+"tour operator" = "Travel & Lifestyle"
+"toys & games" = "Toys & Kids"
+"toys_&_kids" = "Toys & Kids"
+"travel" = "Travel & Lifestyle"
+"travel_&_lifestyle" = "Travel & Lifestyle"
+"tyre & battery" = "Automotive"
+"vegetable & fruit market" = "Food & Beverages"
+"wedding_&_events" = "Wedding & Events"
 
 [lists.tracking_stages]                  # ENG-30 point 5: history-text map, opening words -> history event (whole words, ignoring case)
 "order created" = "created"
@@ -240,6 +322,10 @@ test_accounts = []
 "return requested" = "return_request"
 "refund of" = "refund"
 "returned to seller" = "returned"
+"order placed" = "created"                # the other texts the app writes (16 Oct): information only
+"rejected by buyer" = "cancelled"
+"replacement delivered" = "replacement"
+"exchange delivered" = "replacement"
 
 [lists.order_status]                     # the exact stored order_status values; the order's state (ENG-30 points 5, 6; ENG-23 V8)
 delivered = "Delivered"

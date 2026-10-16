@@ -301,3 +301,7 @@ The live demo script, in plain language, is `obsidian/Demos/Demo - ENG-08.md`.
 
 - Rework (ENG-29): status comparisons go through the spelling map, so "Activate" and "Activated" both count. The code already did (`records.status_is`); on 15 Oct the map gained its first entry, `status_spellings = { activated = "activate" }` (settings config_version 4).
 - ENG-30 point 11 (a check only): `test_e12_serves_every_other_compliance_status`, where ok, review, fix_requested and no compliance record are served.
+
+## Update, 16 Oct 2026
+
+**16 Oct 2026:** Passed (Kala S1). Blocks read `follower_id` (blocker) / `user_id` (blocked); a person is active by `moderation.state` (missing or active). F3 proof: `Tracing/checks/F3_E08_by_store_2026-10-16.md`. See `ANSWERS_2026-10-16.md`.

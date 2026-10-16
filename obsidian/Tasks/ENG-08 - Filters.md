@@ -1,13 +1,16 @@
 ---
 tags: [task, step-2]
 task: ENG-08
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-08: Filters
 
 > [!note] Status: **Built** (1 Oct 2026, on dev)
 > All twelve rules work, every item left out is written in the log with its rule, and each list is checked once more just before it goes out. Two rules wait on answers from **Aravinth**: how SOCO stores a block (E-01), and whether an account with no status counts as active (E-08). The 15-minute "current state" from ENG-27 comes later. It becomes **Passed** once the checks run on the test server.
+
+> [!success] Passed (16 Oct 2026)
+> Kala: this task's check names no environment, so the run on my laptop is the evidence. One item left out and one kept per rule, on dev (1 Oct; re-run 15 Oct). On 16 Oct the block rule and the 'active person' rule were corrected to the app's real fields. It covers this task's own check, not the later ENG-30 changes. → [[Answers 16 Oct]]
 
 > [!tip] Pack v1.4 (15 Oct 2026)
 > The spelling list got its first entry: "Activated" reads as "Activate", so a product and a product post both count as active whichever word SOCO stored. New tests show the "pushed down or removed" rule (E-12) still serves posts marked ok, review, fix requested, or with no mark at all.
