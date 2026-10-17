@@ -84,3 +84,11 @@ Open now: points 1, 2, 4 and 8, the daily report of unmatched history texts, and
 ## Point 5, 17 Oct 2026: "Rejected by buyer"
 
 Nisha: map it to the status the platform sets. On dev all 5 orders with this history text have `order_status` Rejected, so the text now maps to a new history event `rejected` (was `cancelled`; `TrackingStage` and `lists.tracking_stages`, settings v7). Information only: the order's state is still `order_status`, and Cancelled and Rejected are reversed alike. `tests/test_platform_records.py` updated.
+
+## Points 1, 2 and 8, 17 Oct 2026 (built with ENG-16)
+
+- **1.** `reco/platform/people.promoter_of(order, post_authors)`: `orders.promoter_id`, else `posts.userId` of the order's post. M8 credits the original's author (point 3); ENG-21 will use `promoter_of`.
+- **2.** `reco/platform/people.People` (`person_of`, `same_person`) from `businessregisters.user_id`. M8 leaves out an order whose buyer is the same person as the post's author.
+- **8.** `ProductRecord.return_window_days` / `return_applicable` from `deliveryConfig.returnWindow` / `isReturnApplicable`; `reco/slots/promoter/sales.return_window_days`: not returnable → 0; missing → `commerce.return_window_fallback_days` (7, new), counted and logged as a fallback; buffer `commerce.return_buffer_days` (2, new). `policySnapshot.windowDays` stays a cross-check only (not yet compared: open).
+
+Tests in `tests/test_promoter.py`. Open now: point 4 (with ENG-18), the daily report of unmatched history texts, the engine-login `findOne()` check, and the `policySnapshot.windowDays` comparison.

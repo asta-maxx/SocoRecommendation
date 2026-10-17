@@ -352,6 +352,10 @@ class Commerce(_Section):
     #: ENG-30 point 3: a repost is followed to its original for at most this many
     #: steps; a longer chain or a loop has no original and is logged (fixed for Wave 1A).
     repost_chain_max_steps: int = fixed(10)
+    #: ENG-30 point 8: the return window when a product has none (logged as a
+    #: fallback, not as product policy), and the buffer after any window.
+    return_window_fallback_days: int = fixed(7)  # sheet range 0-90, fixed for Wave 1A
+    return_buffer_days: int = between(2, 0, 7)
 
 
 # --- M9 fraud --------------------------------------------------------------------

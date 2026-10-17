@@ -41,7 +41,7 @@ logger = logging.getLogger("reco.job")
 IST = timezone(timedelta(hours=5, minutes=30))
 
 #: Job names (in reco.jobs JOBS) run every night, in this order.
-NIGHTLY: tuple[str, ...] = ("interest", "similar_posts", "popularity", "category_check", "reconcile_sync")
+NIGHTLY: tuple[str, ...] = ("interest", "similar_posts", "promoter", "popularity", "category_check", "reconcile_sync")
 
 
 def next_run(now: datetime, at: str = "02:00") -> datetime:

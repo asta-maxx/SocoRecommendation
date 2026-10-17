@@ -302,6 +302,12 @@ proof_to ENG-15
 check "14.1 percentiles within each source, both methods in proportion, duplicates keep the higher percentile and both tags, cut by order, pool sizes logged (no database)" "$PY -m pytest -q tests/test_merge.py -p no:cacheprovider -m 'not mongo'" "17 passed"
 check "14.2 on a database: 200 or fewer, no duplicates, method two filtered (the ENG-15 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_merge.py -p no:cacheprovider -m mongo" "1 passed"
 
+echo "== 15. ENG-16: M8 promoter score, and ENG-30 points 1, 2 and 8"
+proof_to ENG-16
+check "15.1 one person, the promoter fallback, the return window, completed sales, components, both methods, trust (no database)" "$PY -m pytest -q tests/test_promoter.py -p no:cacheprovider -m 'not mongo'" "16 passed"
+check "15.2 on a database: both methods with confidence; repost sale to the original; own-store buy for nobody; open request then completed; returned; reposts only not scored; a confirmed case halves (the ENG-16 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_promoter.py -p no:cacheprovider -m mongo" "1 passed"
+check "15.3 M8 scores SOCO's real promoters, both methods (into reco_demo; skipped would mean the return-request copy is not current)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs promoter" '"batches"'
+
 cleanup
 trap - EXIT
 if $PY -c "

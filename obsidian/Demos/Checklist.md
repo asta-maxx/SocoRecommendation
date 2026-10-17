@@ -10,7 +10,7 @@ bash scripts/run_checklist.sh
 ```
 
 > [!tip] Proof to send (added 14 Oct 2026)
-> `PROOF_DIR="Test Output" bash scripts/run_checklist.sh`, then `python scripts/make_proofs.py`, saves every check's full output as one file per task in `Test Output/`, one folder per model: `Foundation/` (ENG-01 to ENG-08, ENG-29), `M1/` (ENG-09 to ENG-11), `M2/` (ENG-12 to ENG-15). Each file is named after its task (e.g. `M2/ENG-13.pdf`), as `.md`, `.log` and `.pdf`, with an index (`README.md`). Last run 17 Oct 2026: 84 of 87 passed; the 3 not passed are expected on a laptop (two Obsidian line-ending files; 6.3 and 6.4 speed over the internet, which is proved on the test server).
+> `PROOF_DIR="Test Output" bash scripts/run_checklist.sh`, then `python scripts/make_proofs.py`, saves every check's full output as one file per task in `Test Output/`, one folder per model: `Foundation/` (ENG-01 to ENG-08, ENG-29), `M1/` (ENG-09 to ENG-11), `M2/` (ENG-12 to ENG-15), `M8/` (ENG-16). Each file is named after its task (e.g. `M2/ENG-13.pdf`), as `.md`, `.log` and `.pdf`, with an index (`README.md`). Last run 17 Oct 2026: 84 of 87 passed; the 3 not passed are expected on a laptop (two Obsidian line-ending files; 6.3 and 6.4 speed over the internet, which is proved on the test server).
 
 It takes about 4 minutes. It ends with `Result: N passed, 0 failed` when all is well. It only **reads** SOCO's data. Anything it writes goes into a throwaway database (`reco_demo`) that it deletes at the end. It uses its own ports (8190/8191), so a demo already running isn't disturbed.
 
@@ -162,6 +162,13 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 |---|---|
 | 14.1 | Fair scores (0 to 1 within each source), both methods mixed, duplicates keep both labels, cut by order, sizes logged (tests) |
 | 14.2 | On a real database: 200 or fewer, no duplicates, a blocked author's similar post kept out |
+
+### 15. ENG-16: promoter score → [[ENG-16 - Promoter score]]
+| Line | Checks |
+|---|---|
+| 15.1 | The rules: one person, who promoted an order, return windows, kept sales, the six measures, both methods, fraud halving (tests) |
+| 15.2 | On a real database: every case in the pack's check (reshare sale to the original author, own-store buy for nobody, open return request, returned order, reshare-only account, confirmed case halves) |
+| 15.3 | The promoter score runs on SOCO's real data |
 
 ### Last line: clean up
 | Line | Checks |

@@ -56,16 +56,14 @@ v1.4 keeps the words of ENG-01 to ENG-11 and ENG-29, and puts every correction h
 - **What it asks:** follow a reshare back to the first post, at most 10 steps; a loop or a broken link has no original and is logged.
 - **What we did:** built with [[ENG-13 - Quotas]], which needs it ("a repost counts as its original"). The list of recent posts stores each post's original. The promoter score and fraud will use the same rule.
 
-### 1, 2, 4 and 8. Still to build ⏳
+### 1, 2 and 8. Promoter, one person, return window ✅ (17 Oct)
+- **What they ask:** who promoted an order (the order says; if not, the post's author); a person and the stores they own count as one person; each product's return window (0 if it can't be returned, 7 days if it doesn't say, plus 2 days).
+- **What we did:** built with [[ENG-16 - Promoter score]], which needs all three. Buying through your own store now counts for nobody.
+
+### 4. Still to build ⏳
 | # | In plain words |
 |---|---|
-| 1 | Who promoted an order: the order says; if not, the post's author |
-| 2 | A person and their stores count as one person (for self-purchase) |
-| 4 | Commission settings for opportunities, layered platform → store → product |
-| 7 | Copy SOCO's return requests (no addresses, phones or photos), and treat a copy over 24 hours old as stale |
-| 8 | Each product's return window (7 days if unknown, plus 2 days' buffer) |
-| 9 | Posts tagged as seed data are test data |
-| 10 | The interest score takes a purchase off while a return request is open, and puts it back if the request ends without a return |
+| 4 | Commission settings for opportunities, layered platform → store → product (needed by ENG-18) |
 
 ## Result (15 Oct 2026)
 - All automatic checks pass (601). The interest-score check script: 13 of 13.
@@ -74,7 +72,7 @@ v1.4 keeps the words of ENG-01 to ENG-11 and ENG-29, and puts every correction h
 ## Still to do
 | What | Waiting on |
 |---|---|
-| Points 1, 2, 4 and 8 (point 3 done 16 Oct with ENG-13) | Me |
+| Point 4 (points 1, 2, 3 and 8 done 16-17 Oct with ENG-13 and ENG-16) | Me, with ENG-18 |
 | Run its check on the **test** server | The test server → [[Environments]] |
 
 ## How this connects

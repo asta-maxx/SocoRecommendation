@@ -147,9 +147,10 @@ _FIELDS: dict[str, dict[str, int]] = {
                             "visibility", "compliance", "Product_status", "ageGroup", "isRepost", "products", "productId",
                             "_seedTag", "repostDetails.originalPostId")},
     "product": {f: 1 for f in ("createdBy", "createdAt", "status", "availability", "categoryPathIds", "basicInfo.categoryId",
-                               "crossSellProducts")},
+                               "crossSellProducts", "deliveryConfig.returnWindow",
+                               "deliveryConfig.isReturnApplicable")},
     "user": {f: 1 for f in ("status", "moderation.state", "city", "DOB", "accountIsPublic", "restriction_level", "interest",
-                            "timestamp")},
+                            "timestamp", "createdAt")},
     "business": {f: 1 for f in ("user_id", "category", "status", "accountIsPublic", "restriction_level", "timestamp")},
     "variant": {f: 1 for f in ("productId", "sellerId", "salePrice", "originalPrice", "quantity", "reservedStock", "status")},
 }
@@ -334,3 +335,26 @@ async def read_posts_since(settings: Settings, since: Any) -> list[records.PostR
     posts = [post async for doc in cursor if (post := parse(doc)).created_at is not None and post.created_at >= since]
     posts.sort(key=lambda p: (-p.created_at.timestamp(), p.post_id))
     return posts
+
+
+# --- M8 promoter score (ENG-16) --------------------------------------------------------------
+
+
+async def read_all_blocks(settings: Settings) -> list[records.BlockRecord]:
+    """Every block row in followers (status blocked): ENG-16 leaves blocked follows out
+    of a promoter's follower count (Kala, 16 Oct)."""
+    cursor = app_db(settings)[PLATFORM_COLLECTIONS["follower"]].find(
+        {"status": {"$regex": r"^\s*blocked\s*$", "$options": "i"}})
+    return [block async for doc in cursor if (block := records.parse_block(doc)) is not None]
+
+
+async def can_read(settings: Settings, kind: str) -> bool:
+    """Whether the engine's login can read one row of this collection (ENG-30 point 7:
+    if returnrequests cannot be read at all, M8's commerce components stay off)."""
+    from pymongo.errors import PyMongoError
+
+    try:
+        await app_db(settings)[PLATFORM_COLLECTIONS[kind]].find_one({}, {"_id": 1})
+    except PyMongoError:
+        return False
+    return True

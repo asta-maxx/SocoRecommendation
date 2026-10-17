@@ -162,7 +162,7 @@ def parse_user(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map
         account_is_public=doc.get("accountIsPublic") is not False,
         restriction_level=_lower(doc.get("restriction_level")),
         declared_interests=post_categories(vocabulary, doc.get("interest"), category_map).resolved,
-        created_at=time_of(doc, "timestamp"),
+        created_at=time_of(doc, "createdAt", "timestamp"),  # Kala, 16 Oct: createdAt, else (dev) timestamp, else _id
     )
 
 
@@ -654,6 +654,10 @@ class ProductRecord(_Record):
     category_id: str | None  # categoryPathIds[0], else basicInfo.categoryId
     category: str | None  # one of the 23, or None
     cross_sell_ids: list[str]
+    #: ENG-30 point 8: deliveryConfig.returnWindow (days) and isReturnApplicable;
+    #: None where the field is missing (the settings' fallback then applies).
+    return_window_days: float | None = None
+    return_applicable: bool | None = None
 
 
 def parse_product(doc: dict[str, Any], categories: ProductCategoryIndex) -> ProductRecord:
@@ -661,6 +665,8 @@ def parse_product(doc: dict[str, Any], categories: ProductCategoryIndex) -> Prod
     availability = doc.get("availability") if isinstance(doc.get("availability"), dict) else {}
     path_ids = _ids(doc.get("categoryPathIds"))
     category_id = path_ids[0] if path_ids else maybe_str(basic.get("categoryId"))
+    delivery = doc.get("deliveryConfig") if isinstance(doc.get("deliveryConfig"), dict) else {}
+    applicable = delivery.get("isReturnApplicable")
     return ProductRecord(
         product_id=to_str(doc["_id"]),
         seller_id=maybe_str(doc.get("createdBy")),
@@ -671,6 +677,8 @@ def parse_product(doc: dict[str, Any], categories: ProductCategoryIndex) -> Prod
         category_id=category_id,
         category=categories.category_of(category_id),
         cross_sell_ids=_ids(doc.get("crossSellProducts")),
+        return_window_days=_number(delivery.get("returnWindow")),
+        return_applicable=applicable if isinstance(applicable, bool) else None,
     )
 
 

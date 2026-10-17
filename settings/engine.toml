@@ -170,6 +170,8 @@ sales_quality = 0.10
 
 [commerce]
 pending_open_days = 14                   # 7-45. A Pending order older than this is not completed
+return_window_fallback_days = 7          # fixed. ENG-30 point 8: products with no deliveryConfig.returnWindow (logged)
+return_buffer_days = 2                   # 0-7. After the window, as the platform's commission approval
 
 # M9 fraud. ENG-21. Thresholds change only under the calibration rule.
 [fraud]

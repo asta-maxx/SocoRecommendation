@@ -7,6 +7,7 @@ exits. Nothing here serves a request, so a failed job never touches the feed.
     python -m reco.jobs popularity          # platform popularity, ladder rung 3 (ENG-09)
     python -m reco.jobs post_index          # recent posts and 7-day views, for the candidate sources (ENG-12)
     python -m reco.jobs similar_posts       # M2 method two: similar posts per user (ENG-14)
+    python -m reco.jobs promoter            # M8 promoter score, both methods (ENG-16)
     python -m reco.jobs sync                # one engine sync pass (ENG-04)
     python -m reco.jobs sync_loop           # a pass every sync_interval_minutes
     python -m reco.jobs sync_check          # the sync lag alert, on its own
@@ -119,6 +120,15 @@ async def _similar_posts(settings: Settings) -> None:
         job_logger.info("similar posts", extra={"job": "similar_posts", **report})
 
 
+async def _promoter(settings: Settings) -> None:
+    """ENG-16: M8 promoter score, both methods, one batch each (and the monthly copy on the 1st)."""
+    from reco.slots.promoter import job as promoter_job
+
+    async with job_run("promoter"):
+        report = await promoter_job.run(settings)
+        job_logger.info("promoter scores", extra={"job": "promoter", **report})
+
+
 async def _sync(settings: Settings) -> None:
     """ENG-04: one pass over postevents, orders and recommendationrequests."""
     async with job_run("sync"):
@@ -177,6 +187,7 @@ JOBS: dict[str, Callable[[Settings], Awaitable[None]]] = {
     "popularity": _popularity,
     "post_index": _post_index,
     "similar_posts": _similar_posts,
+    "promoter": _promoter,
     "sync": _sync,
     "sync_loop": _sync_loop,
     "sync_check": _sync_check,
