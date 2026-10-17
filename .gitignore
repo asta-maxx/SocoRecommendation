@@ -13,3 +13,6 @@ obsidian/.obsidian/workspace*.json
 # macOS folder metadata
 .DS_Store
 .claude/worktrees/
+
+# scripts/jira_sync.py: local audit log and proposed matches
+Tracing/jira/

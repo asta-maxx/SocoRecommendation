@@ -1,0 +1,27 @@
+# scripts/jira_sync.py: which Jira issues it may update, and how. No secrets here:
+# JIRA_EMAIL and JIRA_API_TOKEN go in .env (an API token from
+# https://id.atlassian.com/manage-profile/security/api-tokens, created by Allen).
+#
+# Until every value below is filled in, the script refuses to run.
+
+base_url = ""                      # https://<site>.atlassian.net
+project_key = ""                   # the ONE project it may touch, e.g. "SOCO"
+allen_account_id = ""              # from `python scripts/jira_sync.py check` (fill base_url and project_key first)
+allen_display_name = "Allen Matthew"
+max_writes_per_run = 20            # 1-50; a run stops at this many writes
+
+# Jira's statuses in workflow order: transitions only ever move forward along this list.
+jira_status_order = ["To Do", "In Progress", "In Review", "Done"]
+
+# The engine's status (the vault note's `status:`) -> the Jira status to move to.
+# Leave a status out to only comment. Every target must be in jira_status_order.
+[transitions]
+# "In progress" = "In Progress"
+# "Built" = "In Review"
+# "Passed" = "Done"
+
+# ENG id -> Jira issue key(s): the ONLY issues it may touch. `discover` matches your
+# Jira issues to the Build List tasks (they are worded differently) and shows each
+# match; `approve` copies the confident ones here; add any others by hand.
+[issues]
+# "ENG-12" = ["SOCO-123"]
