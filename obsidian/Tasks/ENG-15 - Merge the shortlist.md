@@ -44,12 +44,11 @@ It's the last step of M2. The ranking of the feed (ENG-19) starts from this shor
 - All 692 automatic checks pass.
 
 ## Decided
-- **16 Oct 2026:** similar posts are mixed in by list size, about 2 for every 3 (to confirm with Nisha, Q8).
+- **16 Oct 2026:** similar posts are mixed in about 2 for every 3. **Confirmed by Nisha**; on 17 Oct the mix became a setting (0.4 of the places for similar posts), and every request logs how many of the 200 came from each list.
 
 ## Still to do
 | What | Waiting on |
 |---|---|
-| Confirm the mix | Nisha (Q8) |
 | Hand the shortlist to the feed's ranking | ENG-19 |
 | Run its check on the test server | The test server → [[Environments]] |
 

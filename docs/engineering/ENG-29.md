@@ -333,3 +333,7 @@ Point 4 (order history) is now ENG-30 point 5's history-text map (`[lists.tracki
 ## Update, 16 Oct 2026
 
 **16 Oct 2026:** Passed (Kala S1). Category map loaded (settings v5, 78 entries; unmapped 42 → 7). Proof: `Tracing/checks/F1_category_map_2026-10-16.md`.
+
+## Update, 17 Oct 2026: category map v7 (Nisha)
+
+`lists.category_map` 78 → 83 entries (settings config_version 7): watches → Jewellery, appliances → Home & Living, tools & home improvement → Home & Living, nature → Travel & Lifestyle, fishing → Sports & Outdoors. Still unmapped and reported: shopping (by decision), bags & wallets, Fishing & Marine (to be classified by its products, never by its name; no such business on dev on 17 Oct), the catimp test categories. Details: `docs/engineering/ANSWERS_2026-10-16.md` §8.

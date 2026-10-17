@@ -254,3 +254,51 @@ async def test_the_shortlist_on_a_database(store) -> None:
         for name in engine_names:
             await engine[name].delete_many({})
         await client.close()
+
+
+# --- Nisha's answers of 16 Oct 2026: the mix as a setting, counted per list ----------------------
+
+
+def test_the_mix_is_the_setting(settings) -> None:
+    from reco.config import live
+    from tests.conftest import put_in_force
+
+    assert live.current().retrieval.shortlist_method_two_share == 0.4
+    put_in_force({"retrieval": {"shortlist_method_two_share": 0.25}})
+    sources, pool, similar = setup()
+    shortlist = merge(pool, sources, similar, 200)
+    assert shortlist.by_method == {METHOD_ONE: 150, METHOD_TWO: 50}
+
+
+def test_a_short_list_passes_its_places_to_the_other() -> None:
+    sources, pool, similar = setup(n_similar=30)
+    shortlist = merge(pool, sources, similar, 200, method_two_share=0.4)
+    check(shortlist)
+    assert shortlist.by_method == {METHOD_ONE: 170, METHOD_TWO: 30} and len(shortlist.items) == 200
+
+
+def test_share_0_or_1_gives_one_list_first() -> None:
+    sources, pool, similar = setup()
+    assert merge(pool, sources, similar, 200, method_two_share=0.0).by_method == {METHOD_ONE: 200, METHOD_TWO: 0}
+    assert merge(pool, sources, similar, 200, method_two_share=1.0).by_method == {METHOD_ONE: 0, METHOD_TWO: 200}
+    few = merge(pool, sources, similar[:10], 300, method_two_share=1.0)
+    assert few.by_method == {METHOD_ONE: 290, METHOD_TWO: 10}  # the other fills what is left
+
+
+def test_how_many_came_from_each_list_is_logged(monkeypatch, settings, caplog) -> None:
+    import asyncio
+
+    sources, pool, similar = setup()
+
+    async def run(settings, user_id, profile, viewer, request_id, time_limit_ms):
+        return sources, pool
+
+    async def keep(settings, offered, viewer, request_id):
+        return offered
+
+    monkeypatch.setattr(merging, "pool_for_user", run)
+    monkeypatch.setattr(merging, "eligible_similar", keep)
+    with caplog.at_level(logging.INFO, logger="reco.retrieval"):
+        asyncio.run(merging.shortlist_for_user(settings, "u1", None, viewer=object(), request_id="r10"))
+    line = next(r for r in caplog.records if r.getMessage() == "shortlist")
+    assert line.by_method == {METHOD_ONE: 120, METHOD_TWO: 80}

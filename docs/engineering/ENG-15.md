@@ -23,7 +23,7 @@
 - `eligible_similar`: the method-two list through ENG-08 (one platform read and `eligible_posts`), as ENG-13 filters the pool; a post gone from the platform is excluded and logged (`missing`).
 - `shortlist_for_user(settings, user_id, profile, viewer, request_id)`: ENG-12 sources → ENG-13 pool → method-two list filtered → merge → cut to `retrieval.shortlist_size` (200). One log line per request (`reco.retrieval`, message `shortlist`): `request_id`, **`pool_sizes` per source** (interest, follows, trending, popular as taken into the pool; similar after filters), `shortlist_size`, `by_source`, `duplicates`, `excluded_method_two`, `dropped_sources`.
 
-**Where the pack is silent (decided 16 Oct 2026, to confirm with Nisha/Kala, Q8):** method two has no place in ENG-13's order, so where its items sit in the cut is a choice. In proportion to the two lists' sizes keeps both methods for everyone at every cut; appending it after the pool would lose it entirely at 200. The percentile is over what the source returned for the request, not only what reached the pool.
+**Where the pack is silent (decided 16 Oct 2026; confirmed by Nisha 16 Oct, built as a setting 17 Oct):** method two has no place in ENG-13's order, so where its items sit in the cut is a choice. In proportion to the two lists' sizes keeps both methods for everyone at every cut; appending it after the pool would lose it entirely at 200. The percentile is over what the source returned for the request, not only what reached the pool.
 
 ## 3. Configuration
 
@@ -45,7 +45,6 @@ python -m pytest -q tests/test_merge.py
 
 | What | Waits on |
 |---|---|
-| Q8: method two's place in the cut (built in proportion to size) | Nisha / Kala |
 | Pass the shortlist to ranking (the request path still serves the interim list) | ENG-19 |
 | ENG-22's script (shortlist for every test user, quotas, filters, reposts, method two empty under 3 engaged) | ENG-17, ENG-22 |
 | Check on the test server | The test server |
@@ -57,3 +56,10 @@ python -m pytest -q tests/test_merge.py
 | `reco/ranking/merge.py` | New: percentiles, merge, cut, method two filtered, wiring and the log line |
 | `tests/test_merge.py` | New |
 | `scripts/run_checklist.sh` | Section 14 |
+
+## Update, 17 Oct 2026: the mix as a setting (Nisha)
+
+- `retrieval.shortlist_method_two_share` (0.4; 0 to 1; not on the pack's Settings sheet): method two's share of the places when both lists are full. 0.4 is the two lists' full sizes (200 of 300 + 200), so a cut at 200 keeps 120 and 80, as before. A list that runs short passes its places to the other (a user with no list gets 200 from the pool). A share of 0 or 1 puts one list first and the other fills what is left.
+- **Changed from 16 Oct:** the proportion was each user's two list sizes; it is now the setting. For users with full lists the result is the same.
+- `Shortlist.by_method` and the `shortlist` log line's `by_method`: how many of the 200 came from each list, on every request.
+- Tests: +4 (the setting, a short list passes its places on, share 0 and 1, the per-list counts logged). Results: 17 unit + 1 MongoDB passed. Checklist 14.1 now expects 17.

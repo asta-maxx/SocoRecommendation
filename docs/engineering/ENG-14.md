@@ -73,7 +73,7 @@ Kept for serving to decide: private authors (E-05), adult-only content (E-11), b
 
 **Where the pack is silent (decided 16 Oct 2026):**
 - *Engaged posts older than 30 days or no longer eligible* still give the profile their vector, built by the same rule (age measured from the run). The 30-day limit and eligibility decide what can be **recommended**, not what a user's taste is read from. A post the platform no longer has has no vector and does not count towards the 3.
-- *Purchases* are not engaged actions here: the brief's list is postevents only, and ENG-10 reads purchases from the order. A purchase made from a post usually comes with a click or add-to-cart on it. Flag for Kala if purchases should add 20 to the post's weight.
+- *Purchases* (Nisha, 16 Oct 2026; built 17 Oct): a kept order made from a post (`orders.post_id`, from the engine's copy `ml_orders`) adds `interest.weights.purchase` (20) to that post, aged from the order's `created_at`, under ENG-10's rules as M1 applies them: Cancelled, Rejected or Returned (`order_status`) add nothing; an order with an open return request (`ml_return_requests`, ENG-30 point 10) adds nothing while it is open (if the copy is not current the job warns and uses the last good copy, as M1); not from a post, a business buyer, a seed post, a test account, or after the anchor: nothing. The postevents purchase row is never read (one place only). `similar.kept_purchases` → `engaged_by_user(..., purchases=)`; the job's report carries `purchases` and the skip counts.
 - *No time window on engaged actions*: the 30-day decay already fades old ones, and only the 50 most recent posts count.
 
 ### 3. The top 200 per user, stored — done
@@ -85,7 +85,7 @@ Kept for serving to decide: private authors (E-05), adult-only content (E-11), b
 - **Rows** in `ml_user_candidates`, one per (user, post):
   `{user_id, post_id, score, rank (1 = most similar), method: "similar_posts", slot: "retrieval", job_run_id, model_version, config_version, computed_at, data_window: {"from", "to"}}` (`data_window` is the posts' 30 days up to the run).
 - **One ENG-07 batch:** `run_batch(settings, job="similar_posts", slot="retrieval", method="similar_posts", collection="ml_user_candidates", data_window=…, work=…)`. The batch is written whole, then marked current; a failed run leaves the previous batch current and its partial rows are removed; batches older than the one replaced are deleted.
-- **Not excluded (decided 16 Oct 2026, for Kala):** posts the user already engaged with, and the user's own posts. The pack says neither; the rule is kept literal. Own posts are removed at serving (E-10). Whether to drop already-engaged posts is a question for Kala.
+- **The profile's posts are left off** (Nisha, 16 Oct 2026; built 17 Oct): the posts the profile was built from (the last 50) never appear on that user's list; `top_similar(profile, pool, 200, exclude=those)` skips them and the next most similar fill their places. The user's own posts are still removed at serving (E-10).
 
 ### 4. Requests only read the stored list — done
 
@@ -160,8 +160,7 @@ python -m reco.jobs --list                  # similar_posts is listed
 |---|---|
 | Time the read on a server beside the database, then mark Passed | The test server (ENG-01 §4.4) |
 | Lists on dev: there are no posts from the last 30 days on dev | New posts on dev / test data |
-| Should posts the user already engaged with be left out of their list? (kept: the pack's rule literal) | Kala |
-| Should purchases (orders) add to a post's weight? (not counted: postevents only) | Kala |
+| Raise `MODEL_VERSION` on the test server (the method changed on 17 Oct) | Deploy |
 | ENG-15 merges this list (percentiles within source) | ENG-15 |
 | The checklist lines (`scripts/run_checklist.sh`), Task Board and Home entries | The coordinator (proposed in the hand-off) |
 
@@ -179,3 +178,7 @@ python -m reco.jobs --list                  # similar_posts is listed
 | `tests/test_similar.py` | **New.** 30 unit tests, 1 MongoDB test |
 | `docs/engineering/ENG-14.md` | **New.** This document |
 | `obsidian/Tasks/ENG-14 - Similar posts.md` | **New.** The plain-language note |
+
+## Update, 17 Oct 2026: Nisha's answers
+
+Two changes to the built method (see §2 and §3 above): purchases made from a post add 20 to the profile; the profile's posts are left off the list. Tests: `tests/test_similar.py` +5 (a kept purchase adds 20 aged from the order; ENG-10's purchase rules; the postevents purchase row never counts; a purchase alone makes an engaged post; the profile's posts are skipped and the next fill), and the MongoDB test now checks the 4 engaged Pets posts are off the list and the other Pets posts come first. Results: 35 unit + 1 MongoDB passed. Checklist 12.4 now expects 35.

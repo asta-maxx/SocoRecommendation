@@ -380,7 +380,9 @@ async def test_the_job_writes_a_current_batch_and_one_list_reads_in_20_ms(dbs) -
     listed = await candidates.read_user_candidates(settings, "fan")
     assert [r["rank"] for r in listed] == list(range(1, 201))
     assert set(listed[0]) == {"post_id", "score", "rank"}
-    assert {r["post_id"] for r in listed[:len(pets)]} == set(pets)  # every Pets post first
+    # The 4 posts the profile was built from are left off (Nisha, 16 Oct); the other Pets posts come first.
+    assert not set(pets[:4]) & {r["post_id"] for r in listed}
+    assert {r["post_id"] for r in listed[:len(pets) - 4]} == set(pets[4:])
     assert all(a["score"] >= b["score"] for a, b in zip(listed, listed[1:]))
     assert await candidates.read_user_candidates(settings, "two") == []
 
@@ -419,3 +421,61 @@ async def test_the_job_writes_a_current_batch_and_one_list_reads_in_20_ms(dbs) -
     assert current != run["_id"]
     assert len(await candidates.read_user_candidates(settings, "fan")) == 200
     assert await engine["ml_user_candidates"].count_documents({"job_run_id": current}) == 200
+
+
+# --- Nisha's answers of 16 Oct 2026 -------------------------------------------------------------
+
+REVERSED = ("Cancelled", "Rejected", "Returned")
+
+
+def order(buyer="u", post_id="p1", status="Delivered", days=1.0, **fields) -> dict:
+    return {"order_id": fields.pop("order_id", f"o-{post_id}-{status}"), "buyer_id": buyer, "post_id": post_id,
+            "status": status, "created_at": NOW - timedelta(days=days), **fields}
+
+
+def test_a_kept_purchase_from_a_post_adds_20_aged_from_the_order() -> None:
+    bought, _ = similar.kept_purchases([order(days=30)], anchor=NOW, reversed_statuses=REVERSED)
+    read = engaged([row("u", "p1", "like", days=0)], purchases=bought)
+    assert read.by_user["u"]["p1"].weight == pytest.approx(3 + 20 * 0.5)  # like 3, purchase 20 x decay
+    assert read.by_user["u"]["p1"].actions == 2
+
+
+def test_purchases_follow_eng10_rules() -> None:
+    """Cancelled, Rejected or Returned lose their weight; an open return request adds
+    nothing while open; no post, a business buyer, a seed post, a test account or a
+    future order add nothing."""
+    orders = [
+        order(post_id="kept"),
+        order(post_id="c", status="cancelled"), order(post_id="r", status="Rejected"), order(post_id="ret", status="Returned"),
+        order(post_id="open", order_id="o-open"),
+        order(post_id=None), order(post_id="biz", buyer_actor="business"), order(post_id="seed"),
+        order(buyer="tester", post_id="t"), order(post_id="later", days=-1),
+    ]
+    bought, skipped = similar.kept_purchases(orders, anchor=NOW, reversed_statuses=REVERSED, open_requests={"o-open"},
+                                             seed_posts={"seed"}, test_accounts={"tester"})
+    assert [p for _, p, _ in bought] == ["kept"]
+    assert skipped["order_reversed"] == 3 and skipped["order_open_return_request"] == 1
+    assert skipped["order_not_from_a_post"] == 1 and skipped["order_not_by_a_user"] == 1
+    assert skipped["order_seed_post"] == 1 and skipped["order_test_account"] == 1 and skipped["order_future"] == 1
+
+
+def test_the_postevents_purchase_row_is_never_counted() -> None:
+    """ENG-10: purchases are read from the order, one place only."""
+    read = engaged([row("u", "p1", "purchase"), row("u", "p2")])
+    assert set(read.by_user["u"]) == {"p2"} and read.skipped["not_an_engagement"] == 1
+
+
+def test_a_purchase_alone_makes_an_engaged_post() -> None:
+    bought, _ = similar.kept_purchases([order(post_id=p) for p in ("p1", "p2", "p3")], anchor=NOW,
+                                       reversed_statuses=REVERSED)
+    vectors = {p: vec((c,)) for p, c in (("p1", "c1"), ("p2", "c2"), ("p3", "c3"))}
+    read = engaged([], purchases=bought)
+    assert similar.user_profile(read.by_user["u"], vectors, last_posts=50, min_engaged=3) is not None
+
+
+def test_the_profile_posts_are_left_off_and_the_next_fill_their_places() -> None:
+    profile = vec(("c1",), "photo")
+    pool = [pool_post("seen", ("c1",)), pool_post("same", ("c1",), days=1), pool_post("half", ("c1", "c2")),
+            pool_post("far", ("c9",), "video")]
+    top = similar.top_similar(profile, pool, 2, exclude={"seen"})
+    assert [p for p, _ in top] == ["same", "half"]  # 2 places, "seen" skipped, "half" moves up

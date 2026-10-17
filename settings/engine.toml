@@ -99,6 +99,7 @@ not_interested_or_hide = -5
 pool_size = 300                          # 100-2000. Cut first if speed is missed
 post_age_days = 30                       # fixed
 shortlist_size = 200                     # fixed
+shortlist_method_two_share = 0.4         # 0-1. ENG-15 (Nisha, 16 Oct): similar posts' share of the 200 (200 of 300 + 200)
 source_time_limit_ms = 20                # 10-40, each source, in parallel
 similar_engaged_posts = 50               # fixed. ENG-14 method two inputs
 similar_top_stored = 200                 # fixed

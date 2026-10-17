@@ -21,10 +21,12 @@ How each part is done:
   best is 1, the worst 0; a source of one item gives 1. A repost merged into its
   original keeps the percentile of the repost that brought it.
 - Order: the method-one pool in its interleaved order, and the method-two list in
-  its rank order, interleaved in proportion to their sizes (300 to 200 gives 3 to
-  2, so a cut at 200 keeps about 120 and 80). The pack gives method two no place in
-  ENG-13's order; decided 16 Oct 2026, to be confirmed (Nisha/Kala, Q8). A user
-  with no method-two list gets the method-one pool alone, and the other way round.
+  its rank order, interleaved in the proportion retrieval.shortlist_method_two_share
+  (0.4: the two lists' sizes, 300 to 200, so a cut at 200 keeps 120 and 80). The pack
+  gives method two no place in ENG-13's order; Nisha confirmed the proposal on 16 Oct
+  2026 and asked for the proportion as a setting. A list that runs short passes its
+  places to the other, so a user with no method-two list gets 200 from the pool.
+  How many of the 200 came from each list is logged on every request (by_method).
 - Method two's list goes through the ENG-08 filters before the merge, as the pool
   did in ENG-13; its items are the stored list's posts (ENG-14 leaves reposts out).
 - Duplicates: the first place an item reaches stands; a later copy adds its source
@@ -63,6 +65,7 @@ class Shortlist:
     items: list[ShortlistItem] = field(default_factory=list)
     pool_sizes: dict[str, int] = field(default_factory=dict)  # per source, before the merge
     by_source: dict[str, int] = field(default_factory=dict)  # places held, per source, after the cut
+    by_method: dict[str, int] = field(default_factory=dict)  # places held, per list, after the cut
     duplicates: int = 0
     excluded_method_two: int = 0
 
@@ -89,7 +92,8 @@ def _count_below(scores: list[float], value: float, inclusive: bool = False) -> 
     return (bisect_right if inclusive else bisect_left)(scores, value)
 
 
-def merge(pool: Pool, sources: SourceResult, similar: list[SourceItem], size: int) -> Shortlist:
+def merge(pool: Pool, sources: SourceResult, similar: list[SourceItem], size: int,
+          method_two_share: float | None = None) -> Shortlist:
     """The shortlist from the pool and the (filtered) method-two list (no database)."""
     pct = {s: percentiles(sources.items.get(s, [])) for s in SOURCES}
     reposts = dict(pool.reposts_merged)  # original -> the repost that brought it
@@ -99,7 +103,8 @@ def merge(pool: Pool, sources: SourceResult, similar: list[SourceItem], size: in
         return by_id.get(item.item_id, by_id.get(reposts.get(item.item_id, ""), 0.0))
 
     lanes = {METHOD_ONE: list(pool.items), METHOD_TWO: list(similar)}
-    weights = {m: len(v) for m, v in lanes.items()}
+    share = live.current().retrieval.shortlist_method_two_share if method_two_share is None else method_two_share
+    weights = {METHOD_ONE: 1.0 - share, METHOD_TWO: share}
     pos = dict.fromkeys(lanes, 0)
     placed = dict.fromkeys(lanes, 0)
     out: list[ShortlistItem] = []
@@ -109,6 +114,10 @@ def merge(pool: Pool, sources: SourceResult, similar: list[SourceItem], size: in
         live_lanes = [m for m in lanes if pos[m] < len(lanes[m])]
         if not live_lanes:
             break
+        weighted = [m for m in live_lanes if weights[m] > 0]
+        if not weighted:  # a list with share 0 fills only what the other leaves
+            weighted, weights = live_lanes, {m: 1.0 for m in lanes}
+        live_lanes = weighted
         m = min(live_lanes, key=lambda m: ((placed[m] + 0.5) / weights[m], m != METHOD_ONE))
         item = lanes[m][pos[m]]
         pos[m] += 1
@@ -138,7 +147,8 @@ def merge(pool: Pool, sources: SourceResult, similar: list[SourceItem], size: in
         by_source[entry.sources[0]] = by_source.get(entry.sources[0], 0) + 1
     sizes = {s: pool.taken.get(s, 0) for s in pool.taken}
     sizes["similar"] = len(similar)
-    return Shortlist(items=out, pool_sizes=sizes, by_source=by_source, duplicates=duplicates)
+    by_method = {METHOD_ONE: placed[METHOD_ONE], METHOD_TWO: placed[METHOD_TWO]}
+    return Shortlist(items=out, pool_sizes=sizes, by_source=by_source, by_method=by_method, duplicates=duplicates)
 
 
 async def eligible_similar(settings: Settings, similar: list[SourceItem], viewer: Viewer, request_id: str | None) -> list[SourceItem]:
@@ -166,6 +176,6 @@ async def shortlist_for_user(
     shortlist.excluded_method_two = len(offered) - len(similar)
     logger.info("shortlist", extra={
         "request_id": request_id, "pool_sizes": shortlist.pool_sizes, "shortlist_size": len(shortlist.items),
-        "by_source": shortlist.by_source, "duplicates": shortlist.duplicates,
+        "by_source": shortlist.by_source, "by_method": shortlist.by_method, "duplicates": shortlist.duplicates,
         "excluded_method_two": shortlist.excluded_method_two, "dropped_sources": sources.dropped})
     return shortlist

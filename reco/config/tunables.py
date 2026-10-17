@@ -213,6 +213,10 @@ class Retrieval(_Section):
     source_shares: SourceShares = SourceShares()
     post_age_days: int = fixed(30)
     shortlist_size: int = fixed(200)  # ENG-15
+    #: ENG-15 (Nisha, 16 Oct 2026): method two's share of the shortlist's places when
+    #: both lists are full; 0.4 is the two lists' sizes, 200 of 300 + 200. A short list
+    #: passes its places to the other. Not on the pack's Settings sheet.
+    shortlist_method_two_share: float = between(0.4, 0.0, 1.0)
     source_time_limit_ms: int = between(20, 10, 40)  # ENG-12
     similar_engaged_posts: int = fixed(50)  # ENG-14
     similar_top_stored: int = fixed(200)

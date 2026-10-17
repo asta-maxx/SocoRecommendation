@@ -80,3 +80,7 @@ Applied: `copies.read_inputs` drops own-post actions before scoring (`skipped.ow
 `reco/platform/reposts.py`: `original_of` / `resolve_originals` follow `repostDetails.originalPostId` (`PostRecord.repost_of`) to the first post with `isRepost` false, at most `commerce.repost_chain_max_steps` (10, new setting, fixed) steps. No original on a missing link, a missing post, a loop or too many steps; each break is logged (`reco.reposts`, `post_id`, `reason`). Parents are read one level at a time. The post index stores `original_id` (ENG-12); ENG-13 dedupes on it and replaces a repost with its original. ENG-16 and ENG-21 will call the same function for sales through reposts. Tests: `tests/test_quotas.py` (chain cases) and the post-index MongoDB test. Details in `docs/engineering/ENG-13.md`.
 
 Open now: points 1, 2, 4 and 8, the daily report of unmatched history texts, and the engine-login `findOne()` check.
+
+## Point 5, 17 Oct 2026: "Rejected by buyer"
+
+Nisha: map it to the status the platform sets. On dev all 5 orders with this history text have `order_status` Rejected, so the text now maps to a new history event `rejected` (was `cancelled`; `TrackingStage` and `lists.tracking_stages`, settings v7). Information only: the order's state is still `order_status`, and Cancelled and Rejected are reversed alike. `tests/test_platform_records.py` updated.
