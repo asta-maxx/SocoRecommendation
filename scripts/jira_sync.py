@@ -25,6 +25,8 @@ status words: To build, In progress, Waiting, Built, Passed.
 What it may do, and nothing else:
   - read: the token's own user, the project, one issue, its comments, its
     transitions, a search limited to the project and Allen as assignee;
+  - attach each of its tasks' proof (Test Output/<model>/ENG-NN.pdf, the checklist's
+    output for that task) once, as ENG-NN_check_output_<run date>.pdf;
   - add one comment to an issue when its tasks' status has changed;
   - move an issue forward to the Jira status configured for that status.
 It never creates, edits, assigns, deletes, links or bulk-changes anything, never
@@ -40,8 +42,10 @@ Guardrails (each one stops the run, or skips the issue, before any write):
   5. The issue is re-read just before each write: its assignee must be Allen's
      accountId (and display name), or it is skipped.
   6. The API token must belong to Allen (GET /myself accountId = allen_account_id).
-  7. One function sends every request, and it allows only the reads above and two
-     writes (POST comment, POST transition) on an issue verified in this run.
+  7. One function sends every request, and it allows only the reads above and three
+     writes (POST attachment, comment, transition) on an issue verified in this run.
+     An attachment must be a PDF inside Test Output/, the proof of a task that
+     issue covers, under 10 MB, and not already on the issue.
   8. Transitions only forward along jira_status_order, never back.
   9. At most max_writes_per_run writes per run; a failed write stops the run.
  10. Every write, and every refusal, is appended to Tracing/jira/audit.jsonl.
@@ -75,6 +79,8 @@ CONFIG = ROOT / "settings" / "jira_sync.toml"
 TASKS = ROOT / "obsidian" / "Tasks"
 PACK = ROOT / "Tracing" / "pack_text"
 OUT = ROOT / "Tracing" / "jira"
+PROOFS = ROOT / "Test Output"
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 OWNER = "Allen"
 MARKER = "Sync ref"
 
@@ -109,6 +115,7 @@ class Config:
     jira_status_order: list[str]
     max_writes_per_run: int = 20
     notes: dict[str, str] = field(default_factory=dict)  # issue key -> one line added to its comment
+    attach_proofs: bool = True
 
     @classmethod
     def load(cls, path: Path = CONFIG, need_account: bool = True) -> Config:
@@ -124,6 +131,7 @@ class Config:
             jira_status_order=[str(s) for s in data.get("jira_status_order") or []],
             max_writes_per_run=int(data.get("max_writes_per_run", 20)),
             notes={str(k).strip().upper(): str(v).strip() for k, v in (data.get("notes") or {}).items()},
+            attach_proofs=bool(data.get("attach_proofs", True)),
         )
         cfg.validate(need_account)
         return cfg
@@ -201,6 +209,38 @@ def read_tasks(folder: Path = TASKS, pack: Path = PACK) -> dict[str, Task]:
     return tasks
 
 
+@dataclass
+class Proof:
+    eng: str
+    pdf: Path
+    run_date: str
+    passed: int
+    failed: list[str]  # the labels of the checks not passed
+
+    @property
+    def filename(self) -> str:
+        return f"{self.eng}_check_output_{self.run_date}.pdf"
+
+    def summary(self) -> str:
+        text = f"{self.filename} ({self.passed} checks passed"
+        if self.failed:
+            text += f", {len(self.failed)} not passed: " + "; ".join(self.failed) + "; see the note at the top of the file"
+        return text + ")"
+
+
+def find_proof(eng: str, folder: Path | None = None) -> Proof | None:
+    """The checklist's proof of a task: Test Output/<model>/ENG-NN.pdf and its .md."""
+    for pdf in sorted((folder or PROOFS).glob(f"*/{eng}.pdf")):
+        md = pdf.with_suffix(".md")
+        if not md.exists():
+            continue
+        text = md.read_text(encoding="utf-8", errors="replace")
+        run = re.search(r"\*\*Run:\*\* (\d{4}-\d{2}-\d{2})", text)
+        return Proof(eng, pdf, run.group(1) if run else "undated", text.count("\n## PASS"),
+                     [m.strip() for m in re.findall(r"^## FAIL\s+(.+)$", text, re.M)])
+    return None
+
+
 def least_advanced(tasks: list[Task]) -> str:
     return min((t.status for t in tasks), key=lambda s: ENGINE_ORDER.index(s) if s in ENGINE_ORDER else 0)
 
@@ -242,15 +282,18 @@ class Jira:
         reads = [r"/rest/api/3/myself", r"/rest/api/3/search/jql", r"/rest/api/3/project/" + re.escape(self.cfg.project_key)]
         if method == "GET" and any(re.fullmatch(p, path) for p in reads):
             return None
-        m = re.fullmatch(rf"/rest/api/3/issue/({key})(/comment|/transitions)?", path)
-        if m and method == "GET":
+        m = re.fullmatch(rf"/rest/api/3/issue/({key})(/comment|/transitions|/attachments)?", path)
+        if m and method == "GET" and m.group(2) != "/attachments":
             return m.group(1)
-        if m and method == "POST" and m.group(2) in ("/comment", "/transitions"):
+        if m and method == "POST" and m.group(2) in ("/comment", "/transitions", "/attachments"):
             return m.group(1)
         raise GuardError(f"refused: {method} {path} is not an allowed request")
 
-    def request(self, method: str, path: str, query: dict[str, str] | None = None, payload: Any = None) -> Any:
+    def request(self, method: str, path: str, query: dict[str, str] | None = None, payload: Any = None,
+                raw: tuple[bytes, str] | None = None) -> Any:
         issue = self._allowed(method, path)
+        if path.endswith("/attachments") and raw is None:
+            raise GuardError("refused: an attachment goes only through attach()")
         if method == "GET" and path == "/rest/api/3/search/jql":
             jql = (query or {}).get("jql", "")
             if not re.match(rf'project = "{re.escape(self.cfg.project_key)}" AND ', jql + " "):
@@ -268,12 +311,32 @@ class Jira:
         auth = base64.b64encode(f"{self.email}:{self.token}".encode()).decode()
         headers = {"Authorization": f"Basic {auth}", "Accept": "application/json", "Content-Type": "application/json"}
         body = json.dumps(payload).encode() if payload is not None else None
+        if raw is not None:
+            body, headers["Content-Type"] = raw
+            headers["X-Atlassian-Token"] = "no-check"  # Jira's required header for uploads
         status, data = self.transport(method, url, headers, body)
         if method == "POST":
             self.writes += 1
         if status >= 400:
             raise RuntimeError(f"Jira answered {status} to {method} {path}: {json.dumps(data)[:300]}")
         return data
+
+    def attach(self, key: str, proof: Proof, allowed_engs: list[str]) -> Any:
+        """Upload one proof PDF. Only a PDF inside Test Output/, the proof of a task this
+        issue covers, under 10 MB; the rest of the guard is request()'s."""
+        pdf = proof.pdf.resolve()
+        if PROOFS.resolve() not in pdf.parents or pdf.suffix.lower() != ".pdf":
+            raise GuardError(f"refused: {pdf} is not a PDF in Test Output/")
+        if proof.eng not in allowed_engs or pdf.stem != proof.eng:
+            raise GuardError(f"refused: {pdf.name} is not the proof of a task {key} covers")
+        data = pdf.read_bytes()
+        if not data or len(data) > MAX_ATTACHMENT_BYTES:
+            raise GuardError(f"refused: {pdf.name} is empty or over 10 MB")
+        boundary = "reco-sync-" + hashlib.sha256(data).hexdigest()[:16]
+        body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{proof.filename}\"\r\n"
+                f"Content-Type: application/pdf\r\n\r\n").encode() + data + f"\r\n--{boundary}--\r\n".encode()
+        return self.request("POST", f"/rest/api/3/issue/{key}/attachments",
+                            raw=(body, f"multipart/form-data; boundary={boundary}"))
 
     def audit(self, **entry: Any) -> None:
         self.audit_path.parent.mkdir(parents=True, exist_ok=True)
@@ -292,7 +355,7 @@ class Jira:
     def verify_issue(self, key: str) -> dict[str, Any]:
         """Re-read the issue now; it becomes writable only if it is Allen's, in the project."""
         self.verified.discard(key)
-        issue = self.request("GET", f"/rest/api/3/issue/{key}", {"fields": "project,assignee,status,summary"})
+        issue = self.request("GET", f"/rest/api/3/issue/{key}", {"fields": "project,assignee,status,summary,attachment"})
         fields = issue.get("fields") or {}
         project = (fields.get("project") or {}).get("key")
         assignee = fields.get("assignee") or {}
@@ -309,12 +372,13 @@ class Jira:
 # --- what to write --------------------------------------------------------------------------------
 
 
-def fingerprint(key: str, tasks: list[Task], note: str = "") -> str:
+def fingerprint(key: str, tasks: list[Task], note: str = "", proofs: list[Proof] | None = None) -> str:
     text = key + "|" + "|".join(f"{t.eng}:{t.status}" for t in tasks) + "|" + note
+    text += "|" + "|".join(p.filename for p in proofs or [])
     return hashlib.sha256(text.encode()).hexdigest()[:8]
 
 
-def comment_lines(key: str, tasks: list[Task], today: str, note: str = "") -> list[str]:
+def comment_lines(key: str, tasks: list[Task], today: str, note: str = "", proofs: list[Proof] | None = None) -> list[str]:
     """A short, plain status update."""
     status = least_advanced(tasks)
     lines = [f"Status update, {today}: {status}."]
@@ -324,9 +388,11 @@ def comment_lines(key: str, tasks: list[Task], today: str, note: str = "") -> li
         lines.append("This issue covers the tasks above; its status follows the least advanced of them.")
     if note:
         lines.append(note)
+    for proof in proofs or []:
+        lines.append(f"Proof attached: {proof.summary()}.")
     lines.append("Mapped to the Wave 1A Build List v1.4. Details: docs/engineering/" + tasks[0].eng + ".md"
                  + "".join(f", {t.eng}.md" for t in tasks[1:]) + " in the recommendation engine repository.")
-    lines.append(f"{MARKER}: {key}/{fingerprint(key, tasks, note)}")
+    lines.append(f"{MARKER}: {key}/{fingerprint(key, tasks, note, proofs)}")
     return lines
 
 
@@ -335,8 +401,9 @@ def comment_body(lines: list[str]) -> dict[str, Any]:
         {"type": "paragraph", "content": [{"type": "text", "text": line}]} for line in lines]}}
 
 
-def already_posted(comments: dict[str, Any], key: str, tasks: list[Task], note: str = "") -> bool:
-    return f"{MARKER}: {key}/{fingerprint(key, tasks, note)}" in json.dumps(comments or {}, ensure_ascii=False)
+def already_posted(comments: dict[str, Any], key: str, tasks: list[Task], note: str = "",
+                   proofs: list[Proof] | None = None) -> bool:
+    return f"{MARKER}: {key}/{fingerprint(key, tasks, note, proofs)}" in json.dumps(comments or {}, ensure_ascii=False)
 
 
 def eligible_issues(cfg: Config, tasks: dict[str, Task], owners: dict[str, str]) -> tuple[list[tuple[str, list[Task]]], list[str]]:
@@ -392,14 +459,25 @@ def run_sync(jira: Jira, today: str | None = None, show: bool = False) -> list[s
         if status == "To build" and not target:
             report.append(f"{title}: not started, nothing to report")
             continue
+        proofs = [p for t in tasks if t.status != "To build" and (p := find_proof(t.eng))] if cfg.attach_proofs else []
+        on_issue = {a.get("filename") for a in fields.get("attachment") or []}
+        for proof in proofs:
+            if proof.filename in on_issue:
+                report.append(f"      proof {proof.filename} already attached")
+            elif jira.apply:
+                jira.attach(key, proof, [t.eng for t in tasks])
+                jira.audit(action="attach", issue=key, eng=proof.eng, file=proof.filename)
+                report.append(f"      attached {proof.filename}")
+            else:
+                report.append(f"      would attach {proof.filename} ({proof.pdf.stat().st_size // 1024} KB)")
         comments = jira.request("GET", f"/rest/api/3/issue/{key}/comment", {"maxResults": "100", "orderBy": "-created"})
         note = cfg.notes.get(key, "")
-        lines = comment_lines(key, tasks, today, note)
-        if already_posted(comments, key, tasks, note):
+        lines = comment_lines(key, tasks, today, note, proofs)
+        if already_posted(comments, key, tasks, note, proofs):
             report.append(f"{title}: up to date ({status})")
         elif jira.apply:
             jira.request("POST", f"/rest/api/3/issue/{key}/comment", payload=comment_body(lines))
-            jira.audit(action="comment", issue=key, eng=engs, status=status, ref=fingerprint(key, tasks, note))
+            jira.audit(action="comment", issue=key, eng=engs, status=status, ref=fingerprint(key, tasks, note, proofs))
             report.append(f"{title}: commented ({status})")
         else:
             report.append(f"{title}: would comment ({status})")

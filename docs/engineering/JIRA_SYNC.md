@@ -49,3 +49,7 @@ Never: create, edit fields, assign, delete, link, bulk-change, or touch another 
 - `plan` shows each comment in full. Nothing has been written to Jira; `sync --apply` waits for Allen's approval.
 - Tests: 42 passed (searches limited to the project; editing or deleting comments refused; an issue refused whole when any of its tasks is not Allen's; least-advanced status; Passed to Done; notes; `approve` writes under `[issues]` only).
 
+## 17 Oct 2026: proofs attached
+
+Each issue gets the proof of every task it covers that has started: `Test Output/<model>/ENG-NN.pdf` (the checklist's output for that task, `scripts/make_proofs.py`), uploaded once as `ENG-NN_check_output_<run date>.pdf`, before the comment, which names each file with its passed and not-passed checks. Guardrails: only through `Jira.attach`; the file must be a PDF inside `Test Output/`, named after a task the issue covers, non-empty and under 10 MB; not attached when a file of that name is already on the issue; only to an issue verified in this run, in an `--apply` run, within `max_writes_per_run` (now 40). A new proof (a new run date) changes the comment's sync reference, so a fresh comment names it. Tests: 47 passed (+5: attached and named, not twice, only through attach, only a covered task's PDF from Test Output under the size limit, not to an unverified issue).
+

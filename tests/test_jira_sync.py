@@ -23,7 +23,7 @@ def config(**changes) -> js.Config:
     values = dict(base_url="https://mysoco.atlassian.net", project_key="SRE", allen_account_id=ALLEN,
                   allen_display_name="Allen Matthew", issues={"SRE-1": ["ENG-12"], "SRE-2": ["ENG-13", "ENG-15"]},
                   transitions={"Built": "In Progress", "Passed": "Done", "In progress": "In Progress"},
-                  jira_status_order=["To Do", "In Progress", "Done"], max_writes_per_run=20)
+                  jira_status_order=["To Do", "In Progress", "Done"], max_writes_per_run=20, attach_proofs=False)
     values.update(changes)
     cfg = js.Config(**values)
     cfg.validate()
@@ -33,9 +33,11 @@ def config(**changes) -> js.Config:
 class FakeJira:
     """Answers like Jira Cloud; records every request."""
 
-    def __init__(self, me=ALLEN, issues=None, comments=None, status="To Do"):
+    def __init__(self, me=ALLEN, issues=None, comments=None, status="To Do", attachments=None):
         self.me = me
         self.calls: list[tuple[str, str, object]] = []
+        self.headers: list[dict[str, str]] = []
+        self.attachments = attachments or {}
         self.issues = issues or {
             "SRE-1": {"project": "SRE", "assignee": ALLEN, "name": "Allen Matthew"},
             "SRE-2": {"project": "SRE", "assignee": ALLEN, "name": "Allen Matthew"},
@@ -45,10 +47,14 @@ class FakeJira:
 
     def __call__(self, method, url, headers, body):
         path = url.split(".atlassian.net", 1)[1].split("?", 1)[0]
-        self.calls.append((method, path, json.loads(body) if body else None))
+        self.headers.append(headers)
+        is_json = headers.get("Content-Type") == "application/json"
+        self.calls.append((method, path, (json.loads(body) if is_json else body) if body else None))
         if path == "/rest/api/3/myself":
             return 200, {"accountId": self.me, "displayName": "Allen Matthew" if self.me == ALLEN else "Someone"}
         key = path.split("/")[5] if path.startswith("/rest/api/3/issue/") else None
+        if path.endswith("/attachments"):
+            return 200, [{"filename": "x"}]
         if path.endswith("/comment"):
             return (201, {}) if method == "POST" else (200, self.comments.get(key, {"comments": []}))
         if path.endswith("/transitions"):
@@ -59,6 +65,7 @@ class FakeJira:
             i = self.issues[key]
             return 200, {"key": key, "fields": {"project": {"key": i["project"]}, "status": {"name": self.status},
                                                 "summary": "RE-xx something",
+                                                "attachment": [{"filename": f} for f in self.attachments.get(key, [])],
                                                 "assignee": {"accountId": i["assignee"], "displayName": i["name"]}}}
         return 404, {}
 
@@ -318,3 +325,77 @@ def test_approve_copies_only_confident_matches_under_issues(tmp_path) -> None:
     js.approve(js.Config.load(settings), settings, proposals)
     cfg = js.Config.load(settings)
     assert cfg.issues == {"SRE-1": ["ENG-12"], "SRE-7": ["ENG-13"]} and cfg.notes == {"SRE-1": "a note"}
+
+
+# --- proofs attached ----------------------------------------------------------------------------
+
+
+@pytest.fixture
+def proofs(tmp_path, monkeypatch):
+    """A pretend Test Output/ with ENG-12 (all passed) and ENG-15 (one check not passed)."""
+    folder = tmp_path / "Test Output"
+    (folder / "M2").mkdir(parents=True)
+    for eng, body in (("ENG-12", "\n## PASS  12.1 a\n\n## PASS  12.2 b\n"),
+                      ("ENG-15", "\n## PASS  14.1 a\n\n## FAIL  14.2 on a database\n")):
+        (folder / "M2" / f"{eng}.md").write_text(f"# {eng}: check output\n- **Run:** 2026-10-17 14:46 IST\n{body}",
+                                                 encoding="utf-8")
+        (folder / "M2" / f"{eng}.pdf").write_bytes(b"%PDF-1.4 proof of " + eng.encode())
+    monkeypatch.setattr(js, "PROOFS", folder)
+    return folder
+
+
+def test_each_tasks_proof_is_attached_and_named_in_the_comment(tmp_path, proofs) -> None:
+    fake = FakeJira()
+    report = sync(fake, tmp_path, cfg=config(attach_proofs=True))
+    uploads = [(p, b) for m, p, b in fake.calls if p.endswith("/attachments")]
+    assert [p for p, _ in uploads] == ["/rest/api/3/issue/SRE-1/attachments", "/rest/api/3/issue/SRE-2/attachments"]
+    assert b'filename="ENG-12_check_output_2026-10-17.pdf"' in uploads[0][1] and b"%PDF-1.4 proof of ENG-12" in uploads[0][1]
+    assert all(h.get("X-Atlassian-Token") == "no-check" for h in fake.headers if "multipart" in h.get("Content-Type", ""))
+    comment = json.dumps(next(b for m, p, b in fake.calls if p.endswith("SRE-1/comment") and m == "POST"))
+    assert "Proof attached: ENG-12_check_output_2026-10-17.pdf (2 checks passed)." in comment
+    sre2 = json.dumps(next(b for m, p, b in fake.calls if p.endswith("SRE-2/comment") and m == "POST"))
+    assert "ENG-15_check_output_2026-10-17.pdf (1 checks passed, 1 not passed: 14.2 on a database" in sre2
+    assert any("attached ENG-12_check_output_2026-10-17.pdf" in line for line in report)
+
+
+def test_a_proof_already_on_the_issue_is_not_attached_again(tmp_path, proofs) -> None:
+    fake = FakeJira(attachments={"SRE-1": ["ENG-12_check_output_2026-10-17.pdf"]})
+    sync(fake, tmp_path, cfg=config(attach_proofs=True))
+    assert ("POST", "/rest/api/3/issue/SRE-1/attachments") not in fake.writes()
+
+
+def test_an_attachment_cannot_be_sent_without_attach() -> None:
+    fake = FakeJira()
+    j = jira(fake)
+    j.verify_issue("SRE-1")
+    with pytest.raises(js.GuardError, match="only through attach"):
+        j.request("POST", "/rest/api/3/issue/SRE-1/attachments", payload={})
+    assert fake.writes() == []
+
+
+def test_only_a_covered_tasks_pdf_from_test_output_is_attached(tmp_path, proofs, monkeypatch) -> None:
+    fake = FakeJira()
+    j = jira(fake)
+    j.verify_issue("SRE-1")
+    proof = js.find_proof("ENG-15")
+    with pytest.raises(js.GuardError, match="not the proof of a task"):
+        j.attach("SRE-1", proof, ["ENG-12"])  # SRE-1 covers ENG-12 only
+    outside = tmp_path / "ENG-12.pdf"
+    outside.write_bytes(b"%PDF elsewhere")
+    with pytest.raises(js.GuardError, match="not a PDF in Test Output"):
+        j.attach("SRE-1", js.Proof("ENG-12", outside, "2026-10-17", 1, []), ["ENG-12"])
+    text = proofs / "M2" / "ENG-12.md"
+    with pytest.raises(js.GuardError, match="not a PDF in Test Output"):
+        j.attach("SRE-1", js.Proof("ENG-12", text, "2026-10-17", 1, []), ["ENG-12"])
+    monkeypatch.setattr(js, "MAX_ATTACHMENT_BYTES", 5)
+    with pytest.raises(js.GuardError, match="over 10 MB"):
+        j.attach("SRE-1", js.find_proof("ENG-12"), ["ENG-12"])
+    assert fake.writes() == []
+
+
+def test_an_unverified_issue_gets_no_attachment(proofs) -> None:
+    fake = FakeJira()
+    with pytest.raises(js.GuardError, match="not verified"):
+        jira(fake).attach("SRE-1", js.find_proof("ENG-12"), ["ENG-12"])
+    assert fake.writes() == []
+

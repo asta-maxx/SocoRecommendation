@@ -8,7 +8,8 @@ base_url = "https://mysoco.atlassian.net"   # https://<site>.atlassian.net
 project_key = "SRE"                # the ONE project it may touch (board 138, 17 Oct 2026)
 allen_account_id = "712020:67ee6429-c3c4-4d94-8cd7-6d71613a6e59"   # Allen Matthew, from `check` (17 Oct 2026)
 allen_display_name = "Allen Matthew"
-max_writes_per_run = 20            # 1-50; a run stops at this many writes
+max_writes_per_run = 40            # 1-50; a run stops at this many writes (17 Oct: 9 comments, 9 moves, 12 proofs)
+attach_proofs = true               # attach each task's proof PDF from Test Output/ (once per file)
 
 # Jira's statuses in workflow order (SRE's workflow, read 17 Oct 2026): transitions only
 # ever move forward along this list.
