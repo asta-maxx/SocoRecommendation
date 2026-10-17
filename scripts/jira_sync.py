@@ -3,53 +3,52 @@
     python scripts/jira_sync.py check              # connection, who the token is, the project (read only)
     python scripts/jira_sync.py discover           # match Allen's issues to the Build List tasks (read only)
     python scripts/jira_sync.py approve            # copy the confident matches into settings/jira_sync.toml
-    python scripts/jira_sync.py plan               # what sync would do (read only; the default)
+    python scripts/jira_sync.py plan               # what sync would do, with each comment in full (read only)
     python scripts/jira_sync.py sync --apply       # do it: comments and forward transitions only
     python scripts/jira_sync.py sync --apply --every 30    # keep doing it every 30 minutes
 
-Matching (Allen, 17 Oct 2026): the Jira tasks are worded differently from the
-Build List, but describe the same work. `discover` reads each of Allen's issues in
-the project (summary and description) and scores it against every task of Allen's
-in the Build List (its name, what to build, its model) and the vault note's title:
-an ENG id written in the issue wins outright; otherwise a word-overlap score
-(TF-IDF cosine, 0 to 1). A match is confident when its score is at least 0.35 and
-clearly ahead of the next task (by 0.08). One task may have several issues.
+Mapping (settings/jira_sync.toml [issues]): Jira issue key -> the ENG task(s) it
+covers. The Jira issues follow the earlier plan (RE-00a to RE-22), worded
+differently from the Build List v1.4 (ENG-01 to ENG-30); one issue may cover two
+tasks (RE-21 "surface endpoints and latency" is ENG-06 and ENG-20). An issue that
+covers several tasks takes the status of the least advanced one.
+
+`discover` proposes matches: an ENG id written in the issue wins outright; otherwise
+a word-overlap score (TF-IDF cosine, 0 to 1), confident at 0.35 or more and 0.08
+ahead of the next task. `approve` copies only confident ones; the rest Allen
+maps by hand (17 Oct 2026: none were confident, the mapping was made by hand).
 
 Where the updates come from: each task note in obsidian/Tasks/ (frontmatter task,
-status, owner; the "In one line" and the status callout) and the Build List v1.4
-(the owner column). The engine's own status words (To build, In progress, Built,
-Waiting, Passed) are what get reported.
+status, owner) and the Build List v1.4 (the task's name and owner). The engine's
+status words: To build, In progress, Waiting, Built, Passed.
 
 What it may do, and nothing else:
-  - read: the token's own user, one issue, its comments, its transitions, a search
-    limited to the project and Allen as assignee;
-  - add one comment to an issue when that task's status or summary has changed;
-  - move an issue forward to the Jira status configured for the task's status.
+  - read: the token's own user, the project, one issue, its comments, its
+    transitions, a search limited to the project and Allen as assignee;
+  - add one comment to an issue when its tasks' status has changed;
+  - move an issue forward to the Jira status configured for that status.
 It never creates, edits, assigns, deletes, links or bulk-changes anything, never
 touches another project, and never touches an issue not assigned to Allen.
 
 Guardrails (each one stops the run, or skips the issue, before any write):
   1. Dry run unless --apply.
-  2. One project only (settings/jira_sync.toml project_key); every issue key must
-     start with it, and the issue's own project must be it.
-  3. Only issues listed in [issues] (ENG id -> issue key or keys). `discover` only
-     proposes; `approve` writes only confident, one-to-one matches, after showing
-     them; the rest Allen copies by hand. Nothing is found and changed in one step.
-  4. The task must be Allen's twice over: owner Allen in the Build List, and owner
-     Allen in the vault note.
+  2. One project only (project_key); every issue key must start with it, and the
+     issue's own project must be it.
+  3. Only issues listed in [issues], by Allen (or `approve`, confident matches only).
+  4. Every task an issue covers must be Allen's twice over: owner Allen in the Build
+     List, and owner Allen in the vault note.
   5. The issue is re-read just before each write: its assignee must be Allen's
      accountId (and display name), or it is skipped.
-  6. The API token must belong to Allen (GET /myself accountId = allen_account_id),
-     so every change is made as Allen.
+  6. The API token must belong to Allen (GET /myself accountId = allen_account_id).
   7. One function sends every request, and it allows only the reads above and two
      writes (POST comment, POST transition) on an issue verified in this run.
   8. Transitions only forward along jira_status_order, never back.
   9. At most max_writes_per_run writes per run; a failed write stops the run.
  10. Every write, and every refusal, is appended to Tracing/jira/audit.jsonl.
- 11. A comment carries a marker; the same update is never posted twice.
+ 11. A comment carries a short sync reference; the same update is never posted twice.
 
-Credentials: JIRA_EMAIL and JIRA_API_TOKEN from the environment (.env). They are
-never printed or logged.
+Credentials: JIRA_EMAIL and JIRA_API_TOKEN from the environment (.env), never
+printed or logged.
 """
 
 from __future__ import annotations
@@ -77,7 +76,19 @@ TASKS = ROOT / "obsidian" / "Tasks"
 PACK = ROOT / "Tracing" / "pack_text"
 OUT = ROOT / "Tracing" / "jira"
 OWNER = "Allen"
-MARKER = "reco-sync"
+MARKER = "Sync ref"
+
+#: The engine's statuses, least to most advanced (a task with no vault note is To build).
+ENGINE_ORDER = ["To build", "In progress", "Waiting", "Built", "Passed"]
+#: How each status reads in a Jira comment.
+STATUS_TEXT = {
+    "To build": "Not started yet.",
+    "In progress": "Work under way.",
+    "Waiting": "Built as far as it can be; waiting on the environments it is checked in.",
+    "Built": "Development complete and tested on the development environment. It is marked Done once its "
+             "acceptance check has run on the test server.",
+    "Passed": "Complete: its acceptance check has passed.",
+}
 
 
 class GuardError(RuntimeError):
@@ -93,10 +104,11 @@ class Config:
     project_key: str
     allen_account_id: str
     allen_display_name: str
-    issues: dict[str, list[str]]
+    issues: dict[str, list[str]]  # Jira issue key -> ENG ids it covers
     transitions: dict[str, str]
     jira_status_order: list[str]
     max_writes_per_run: int = 20
+    notes: dict[str, str] = field(default_factory=dict)  # issue key -> one line added to its comment
 
     @classmethod
     def load(cls, path: Path = CONFIG, need_account: bool = True) -> Config:
@@ -106,11 +118,12 @@ class Config:
             project_key=str(data.get("project_key", "")).strip(),
             allen_account_id=str(data.get("allen_account_id", "")).strip(),
             allen_display_name=str(data.get("allen_display_name", "Allen Matthew")).strip(),
-            issues={str(k).upper(): [str(x).strip().upper() for x in (v if isinstance(v, list) else [v])]
+            issues={str(k).strip().upper(): [str(x).strip().upper() for x in (v if isinstance(v, list) else [v])]
                     for k, v in (data.get("issues") or {}).items()},
             transitions={str(k): str(v) for k, v in (data.get("transitions") or {}).items()},
             jira_status_order=[str(s) for s in data.get("jira_status_order") or []],
             max_writes_per_run=int(data.get("max_writes_per_run", 20)),
+            notes={str(k).strip().upper(): str(v).strip() for k, v in (data.get("notes") or {}).items()},
         )
         cfg.validate(need_account)
         return cfg
@@ -119,21 +132,22 @@ class Config:
         if not re.fullmatch(r"https://[A-Za-z0-9.-]+\.atlassian\.net", self.base_url):
             raise GuardError("base_url must be https://<site>.atlassian.net (settings/jira_sync.toml)")
         if not re.fullmatch(r"[A-Z][A-Z0-9]{1,9}", self.project_key):
-            raise GuardError("project_key must be one Jira project key, e.g. SOCO (settings/jira_sync.toml)")
+            raise GuardError("project_key must be one Jira project key, e.g. SRE (settings/jira_sync.toml)")
         if need_account and not self.allen_account_id:
             raise GuardError("allen_account_id is empty: run `check` and copy your accountId into settings/jira_sync.toml")
         if not 1 <= self.max_writes_per_run <= 50:
             raise GuardError("max_writes_per_run must be 1 to 50")
-        keys = [key for keys in self.issues.values() for key in keys]
-        for eng, mapped in self.issues.items():
-            if not re.fullmatch(r"ENG-\d{2}", eng):
-                raise GuardError(f"[issues] {eng!r} is not an ENG id")
-            for key in mapped:
-                if not re.fullmatch(rf"{self.project_key}-\d+", key):
-                    raise GuardError(f"[issues] {eng} -> {key}: not an issue of project {self.project_key}")
-        if len(set(keys)) != len(keys):
-            raise GuardError("[issues] maps two tasks to the same issue")
+        for key, engs in self.issues.items():
+            if not re.fullmatch(rf"{self.project_key}-\d+", key):
+                raise GuardError(f"[issues] {key}: not an issue of project {self.project_key}")
+            if not engs or any(not re.fullmatch(r"ENG-\d{2}", e) for e in engs):
+                raise GuardError(f"[issues] {key} -> {engs}: each value must be ENG ids")
+        for key in self.notes:
+            if key not in self.issues:
+                raise GuardError(f"[notes] {key}: not one of the [issues]")
         for status, target in self.transitions.items():
+            if status not in ENGINE_ORDER:
+                raise GuardError(f"[transitions] {status!r}: not an engine status ({', '.join(ENGINE_ORDER)})")
             if target not in self.jira_status_order:
                 raise GuardError(f"[transitions] {status} -> {target!r}: not in jira_status_order")
 
@@ -146,55 +160,49 @@ class Task:
     eng: str
     status: str
     owner: str
-    title: str
-    one_line: str
-    status_line: str
+    name: str  # the Build List's name for it
 
-    @property
-    def fingerprint(self) -> str:
-        return hashlib.sha256(f"{self.status}\n{self.status_line}\n{self.one_line}".encode()).hexdigest()[:12]
+
+def build_list_rows(pack: Path = PACK) -> dict[str, list[str]]:
+    """ENG id -> its Build List v1.4 row (the pack is final, read only)."""
+    build_list = sorted(pack.glob("SOCO-REC_Wave1A_Build_List_*.txt"))[-1]
+    rows = {}
+    for line in build_list.read_text(encoding="utf-8").splitlines():
+        cells = line.split(" | ")
+        if len(cells) > 7 and re.fullmatch(r"ENG-\d{2}", cells[0]):
+            rows.setdefault(cells[0], cells)
+    return rows
 
 
 def build_list_owners(pack: Path = PACK) -> dict[str, str]:
-    """ENG id -> owner, from the Build List v1.4 text (the pack is final, read only)."""
-    build_list = sorted(pack.glob("SOCO-REC_Wave1A_Build_List_*.txt"))[-1]
-    owners = {}
-    for line in build_list.read_text(encoding="utf-8").splitlines():
-        cells = line.split(" | ")
-        if len(cells) > 3 and re.fullmatch(r"ENG-\d{2}", cells[0]):
-            owners[cells[0]] = cells[2].strip()
-    return owners
+    return {eng: cells[2].strip() for eng, cells in build_list_rows(pack).items()}
 
 
 def build_list_texts(pack: Path = PACK) -> dict[str, str]:
     """Allen's ENG ids -> the words that describe the task: its model, name and what to build."""
-    build_list = sorted(pack.glob("SOCO-REC_Wave1A_Build_List_*.txt"))[-1]
-    texts = {}
-    for line in build_list.read_text(encoding="utf-8").splitlines():
-        cells = line.split(" | ")
-        if len(cells) > 7 and re.fullmatch(r"ENG-\d{2}", cells[0]) and cells[2].strip() == OWNER:
-            texts.setdefault(cells[0], " ".join(cells[3:7]))
-    return texts
+    return {eng: " ".join(cells[3:7]) for eng, cells in build_list_rows(pack).items() if cells[2].strip() == OWNER}
 
 
-def read_tasks(folder: Path = TASKS) -> dict[str, Task]:
-    tasks = {}
+def read_tasks(folder: Path = TASKS, pack: Path = PACK) -> dict[str, Task]:
+    """Every ENG task of the Build List, with its status from the vault note (none: To build)."""
+    rows = build_list_rows(pack)
+    notes = {}
     for note in sorted(folder.glob("ENG-*.md")):
-        text = note.read_text(encoding="utf-8")
-        front = re.match(r"---\n(.*?)\n---\n", text, re.S)
-        if not front:
-            continue
-        meta = dict(re.findall(r"^(\w+):\s*(.+?)\s*$", front.group(1), re.M))
-        eng = meta.get("task", "").strip()
-        if not re.fullmatch(r"ENG-\d{2}", eng):
-            continue
-        title = (re.search(r"^# (.+)$", text, re.M) or [None, note.stem])[1]
-        one = re.search(r"^\*\*In one line:\*\*\s*(.+)$", text, re.M)
-        callout = re.search(r"^> \[!note\] Status: (.+)$", text, re.M)
-        tasks[eng] = Task(eng=eng, status=meta.get("status", "").strip(), owner=meta.get("owner", "").strip(),
-                          title=title.strip(), one_line=one.group(1).strip() if one else "",
-                          status_line=re.sub(r"\*\*", "", callout.group(1)).strip() if callout else "")
+        front = re.match(r"---\n(.*?)\n---\n", note.read_text(encoding="utf-8"), re.S)
+        if front:
+            meta = dict(re.findall(r"^(\w+):\s*(.+?)\s*$", front.group(1), re.M))
+            if re.fullmatch(r"ENG-\d{2}", meta.get("task", "")):
+                notes[meta["task"]] = meta
+    tasks = {}
+    for eng, cells in rows.items():
+        meta = notes.get(eng, {})
+        tasks[eng] = Task(eng=eng, status=meta.get("status", "To build").strip(),
+                          owner=meta.get("owner", cells[2]).strip(), name=cells[5].strip())
     return tasks
+
+
+def least_advanced(tasks: list[Task]) -> str:
+    return min((t.status for t in tasks), key=lambda s: ENGINE_ORDER.index(s) if s in ENGINE_ORDER else 0)
 
 
 # --- the only way out: one guarded request function ----------------------------------------------
@@ -243,6 +251,10 @@ class Jira:
 
     def request(self, method: str, path: str, query: dict[str, str] | None = None, payload: Any = None) -> Any:
         issue = self._allowed(method, path)
+        if method == "GET" and path == "/rest/api/3/search/jql":
+            jql = (query or {}).get("jql", "")
+            if not re.match(rf'project = "{re.escape(self.cfg.project_key)}" AND ', jql + " "):
+                raise GuardError("refused: a search must be limited to the configured project")
         if method == "POST":
             if not self.apply:
                 raise GuardError("refused: a write in a dry run")
@@ -294,37 +306,57 @@ class Jira:
         return issue
 
 
-# --- what to do ---------------------------------------------------------------------------------
+# --- what to write --------------------------------------------------------------------------------
 
 
-def comment_body(task: Task, commit: str) -> dict[str, Any]:
-    """Atlassian document format, plain paragraphs, with the marker that stops a repeat."""
-    lines = [f"SOCO engine update: {task.eng} is {task.status}.",
-             task.status_line, task.one_line,
-             f"From the repo (branch work, commit {commit}); details in docs/engineering/{task.eng}.md.",
-             f"[{MARKER} {task.eng} {task.fingerprint}]"]
+def fingerprint(key: str, tasks: list[Task], note: str = "") -> str:
+    text = key + "|" + "|".join(f"{t.eng}:{t.status}" for t in tasks) + "|" + note
+    return hashlib.sha256(text.encode()).hexdigest()[:8]
+
+
+def comment_lines(key: str, tasks: list[Task], today: str, note: str = "") -> list[str]:
+    """A short, plain status update."""
+    status = least_advanced(tasks)
+    lines = [f"Status update, {today}: {status}."]
+    for t in tasks:
+        lines.append(f"{t.eng} {t.name}: {t.status}. {STATUS_TEXT.get(t.status, '')}".strip())
+    if len(tasks) > 1:
+        lines.append("This issue covers the tasks above; its status follows the least advanced of them.")
+    if note:
+        lines.append(note)
+    lines.append("Mapped to the Wave 1A Build List v1.4. Details: docs/engineering/" + tasks[0].eng + ".md"
+                 + "".join(f", {t.eng}.md" for t in tasks[1:]) + " in the recommendation engine repository.")
+    lines.append(f"{MARKER}: {key}/{fingerprint(key, tasks, note)}")
+    return lines
+
+
+def comment_body(lines: list[str]) -> dict[str, Any]:
     return {"body": {"type": "doc", "version": 1, "content": [
-        {"type": "paragraph", "content": [{"type": "text", "text": line}]} for line in lines if line]}}
+        {"type": "paragraph", "content": [{"type": "text", "text": line}]} for line in lines]}}
 
 
-def already_posted(comments: dict[str, Any], task: Task) -> bool:
-    marker = f"[{MARKER} {task.eng} {task.fingerprint}]"
-    return marker in json.dumps(comments or {}, ensure_ascii=False)
+def already_posted(comments: dict[str, Any], key: str, tasks: list[Task], note: str = "") -> bool:
+    return f"{MARKER}: {key}/{fingerprint(key, tasks, note)}" in json.dumps(comments or {}, ensure_ascii=False)
 
 
-def eligible_tasks(cfg: Config, tasks: dict[str, Task], owners: dict[str, str]) -> tuple[list[tuple[Task, str]], list[str]]:
-    """(task, issue key) pairs that pass guardrails 3 and 4, and why the others don't."""
+def eligible_issues(cfg: Config, tasks: dict[str, Task], owners: dict[str, str]) -> tuple[list[tuple[str, list[Task]]], list[str]]:
+    """(issue key, its tasks) for issues whose every task passes guardrail 4, and why the others don't."""
     ok, refused = [], []
-    for eng, keys in sorted(cfg.issues.items()):
-        task = tasks.get(eng)
-        if task is None:
-            refused.append(f"{eng}: no task note in obsidian/Tasks")
-        elif owners.get(eng) != OWNER:
-            refused.append(f"{eng}: Build List owner is {owners.get(eng)!r}, not {OWNER}")
-        elif task.owner != OWNER:
-            refused.append(f"{eng}: the vault note's owner is {task.owner!r}, not {OWNER}")
+    for key, engs in sorted(cfg.issues.items(), key=lambda kv: int(kv[0].split("-")[1])):
+        problem = None
+        for eng in engs:
+            if eng not in tasks:
+                problem = f"{key}: {eng} is not in the Build List"
+            elif owners.get(eng) != OWNER:
+                problem = f"{key}: {eng}'s Build List owner is {owners.get(eng)!r}, not {OWNER}"
+            elif tasks[eng].owner != OWNER:
+                problem = f"{key}: {eng}'s vault note owner is {tasks[eng].owner!r}, not {OWNER}"
+            if problem:
+                break
+        if problem:
+            refused.append(problem)
         else:
-            ok.extend((task, key) for key in keys)
+            ok.append((key, [tasks[e] for e in engs]))
     return ok, refused
 
 
@@ -334,49 +366,63 @@ def forward(order: list[str], current: str, target: str) -> bool:
     return order.index(target) > order.index(current)
 
 
-def run_sync(jira: Jira, commit: str) -> list[str]:
+def run_sync(jira: Jira, today: str | None = None, show: bool = False) -> list[str]:
     cfg = jira.cfg
+    today = today or datetime.now(timezone.utc).strftime("%d %b %Y")
     report: list[str] = []
     me = jira.check_identity()
-    report.append(f"token is {me.get('displayName')} ({'apply' if jira.apply else 'dry run'})")
-    pairs, refused = eligible_tasks(cfg, read_tasks(), build_list_owners())
+    report.append(f"token is {me.get('displayName')} ({'apply' if jira.apply else 'dry run'}); project {cfg.project_key}")
+    pairs, refused = eligible_issues(cfg, read_tasks(), build_list_owners())
     for reason in refused:
         report.append(f"REFUSED {reason}")
         jira.audit(action="refused", reason=reason)
-    for task, key in pairs:
+    for key, tasks in pairs:
+        engs = "+".join(t.eng for t in tasks)
         try:
             issue = jira.verify_issue(key)
         except GuardError as exc:
             report.append(f"SKIP {exc}")
-            jira.audit(action="skipped", issue=key, eng=task.eng, reason=str(exc))
+            jira.audit(action="skipped", issue=key, eng=engs, reason=str(exc))
             continue
-        status_now = ((issue.get("fields") or {}).get("status") or {}).get("name", "")
+        fields = issue.get("fields") or {}
+        status_now = (fields.get("status") or {}).get("name", "")
+        status = least_advanced(tasks)
+        target = cfg.transitions.get(status)
+        title = f"{key} ({engs}) {fields.get('summary', '')!r}"
+        if status == "To build" and not target:
+            report.append(f"{title}: not started, nothing to report")
+            continue
         comments = jira.request("GET", f"/rest/api/3/issue/{key}/comment", {"maxResults": "100", "orderBy": "-created"})
-        if already_posted(comments, task):
-            report.append(f"{key} ({task.eng}): up to date ({task.status})")
+        note = cfg.notes.get(key, "")
+        lines = comment_lines(key, tasks, today, note)
+        if already_posted(comments, key, tasks, note):
+            report.append(f"{title}: up to date ({status})")
         elif jira.apply:
-            jira.request("POST", f"/rest/api/3/issue/{key}/comment", payload=comment_body(task, commit))
-            jira.audit(action="comment", issue=key, eng=task.eng, status=task.status, fingerprint=task.fingerprint)
-            report.append(f"{key} ({task.eng}): commented ({task.status})")
+            jira.request("POST", f"/rest/api/3/issue/{key}/comment", payload=comment_body(lines))
+            jira.audit(action="comment", issue=key, eng=engs, status=status, ref=fingerprint(key, tasks, note))
+            report.append(f"{title}: commented ({status})")
         else:
-            report.append(f"{key} ({task.eng}): would comment ({task.status})")
-        target = cfg.transitions.get(task.status)
+            report.append(f"{title}: would comment ({status})")
+            if show:
+                report += [f"      | {line}" for line in lines]
         if target and target != status_now:
             if not forward(cfg.jira_status_order, status_now, target):
-                report.append(f"{key}: not moving {status_now!r} -> {target!r} (only forward)")
+                report.append(f"      not moving {status_now!r} -> {target!r} (only forward)")
                 continue
             options = jira.request("GET", f"/rest/api/3/issue/{key}/transitions").get("transitions", [])
             move = next((t for t in options if (t.get("to") or {}).get("name") == target), None)
             if move is None:
-                report.append(f"{key}: no transition to {target!r} from {status_now!r} in this workflow")
+                report.append(f"      no transition to {target!r} from {status_now!r} in this workflow")
             elif jira.apply:
                 jira.request("POST", f"/rest/api/3/issue/{key}/transitions", payload={"transition": {"id": move["id"]}})
-                jira.audit(action="transition", issue=key, eng=task.eng, from_status=status_now, to_status=target)
-                report.append(f"{key}: moved {status_now!r} -> {target!r}")
+                jira.audit(action="transition", issue=key, eng=engs, from_status=status_now, to_status=target)
+                report.append(f"      moved {status_now!r} -> {target!r}")
             else:
-                report.append(f"{key}: would move {status_now!r} -> {target!r}")
+                report.append(f"      would move {status_now!r} -> {target!r}")
     return report
 
+
+# --- matching differently worded issues ------------------------------------------------------------
 
 _STOP = set("""a an and are as at be by for from has have in into is it its of on or that the this to
 was were will with not no all each any one two three per than then so do done we our your you their they
@@ -445,26 +491,28 @@ def match_issues(issues: list[tuple[str, str]], tasks: dict[str, str]) -> list[M
     return out
 
 
-def discover(jira: Jira) -> list[str]:
-    """Read only: Allen's issues in the project, each matched to a task of Allen's."""
-    jira.check_identity()
+def search_mine(jira: Jira, fields: str) -> list[dict[str, Any]]:
     jql = f'project = "{jira.cfg.project_key}" AND assignee = "{jira.cfg.allen_account_id}" ORDER BY key'
     found, token = [], None
     while True:
-        query = {"jql": jql, "fields": "summary,description,status,assignee", "maxResults": "100"}
+        query = {"jql": jql, "fields": fields, "maxResults": "100"}
         if token:
             query["nextPageToken"] = token
         page = jira.request("GET", "/rest/api/3/search/jql", query)
         found += page.get("issues", [])
         token = page.get("nextPageToken")
         if not token or page.get("isLast", True):
-            break
+            return found
+
+
+def discover(jira: Jira) -> list[str]:
+    """Read only: Allen's issues in the project, each matched to a task of Allen's."""
+    jira.check_identity()
+    found = search_mine(jira, "summary,description,status,assignee")
     texts = build_list_texts()
-    titles = {eng: t.title for eng, t in read_tasks().items()}
-    tasks = {eng: f"{text} {titles.get(eng, '')}" for eng, text in texts.items()}
     issues = [(i["key"], f"{(i.get('fields') or {}).get('summary', '')}\n{adf_text((i.get('fields') or {}).get('description'))}")
               for i in found]
-    matches = match_issues(issues, tasks)
+    matches = match_issues(issues, texts)
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "proposed_matches.json").write_text(json.dumps([m.__dict__ for m in matches], indent=2, ensure_ascii=False),
                                               encoding="utf-8")
@@ -474,12 +522,8 @@ def discover(jira: Jira) -> list[str]:
         mark = "OK " if m.confident else "?? "
         runner = f", next {m.runner_up[0]} {m.runner_up[1]:.2f}" if m.runner_up else ""
         lines.append(f"{mark}{m.issue} -> {m.eng or '-'} ({m.score:.2f}{runner}; {m.reason})  {m.summary}")
-    covered = {m.eng for m in matches if m.confident}
-    missing = sorted(set(texts) - covered)
-    if missing:
-        lines += ["", "Tasks of yours with no confident issue: " + ", ".join(missing)]
     lines += ["", f"Saved: {OUT / 'proposed_matches.json'}. Next: `approve` copies the OK lines into "
-                  "settings/jira_sync.toml; add the ?? ones by hand if they are right."]
+                  "settings/jira_sync.toml; map the others by hand."]
     return lines
 
 
@@ -487,36 +531,19 @@ def approve(cfg: Config, path: Path = CONFIG, proposals: Path = OUT / "proposed_
     """Copy the confident matches from the last `discover` into [issues], without
     changing any line already there. Touches only the local settings file."""
     matches = json.loads(proposals.read_text(encoding="utf-8"))
-    already = {key for keys in cfg.issues.values() for key in keys}
-    new: dict[str, list[str]] = {}
-    for m in matches:
-        if m["confident"] and m["eng"] and m["issue"] not in already:
-            new.setdefault(m["eng"], []).append(m["issue"])
+    new = {m["issue"]: m["eng"] for m in matches if m["confident"] and m["eng"] and m["issue"] not in cfg.issues}
     if not new:
         return ["nothing new to approve"]
     text = path.read_text(encoding="utf-8")
-    added = []
-    for eng, keys in sorted(new.items()):
-        merged = sorted(set(cfg.issues.get(eng, [])) | set(keys))
-        line = f'"{eng}" = [{", ".join(chr(34) + k + chr(34) for k in merged)}]'
-        text, n = re.subn(rf'^"{eng}"\s*=.*$', line, text, flags=re.M)
-        if not n:
-            text = text.rstrip("\n") + "\n" + line + "\n"
-        added.append(line)
+    added = [f'"{key}" = ["{eng}"]   # approved from discover' for key, eng in sorted(new.items())]
+    header = re.search(r"^\[issues\][^\n]*\n", text, re.M)
+    if header is None:
+        text = text.rstrip("\n") + "\n\n[issues]\n" + "\n".join(added) + "\n"
+    else:  # right under [issues], so they never land in a later table
+        text = text[:header.end()] + "\n".join(added) + "\n" + text[header.end():]
     path.write_text(text, encoding="utf-8")
     Config.load(path)  # still valid, or this raises
     return ["added to settings/jira_sync.toml [issues]:"] + added
-
-
-def current_commit() -> str:
-    head = ROOT / ".git" / "HEAD"
-    try:
-        ref = head.read_text().strip()
-        if ref.startswith("ref: "):
-            return (ROOT / ".git" / ref[5:]).read_text().strip()[:7]
-        return ref[:7]
-    except OSError:
-        return "unknown"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -547,7 +574,7 @@ def main(argv: list[str] | None = None) -> int:
             elif args.command == "approve":
                 lines = approve(cfg)
             else:
-                lines = run_sync(jira, current_commit())
+                lines = run_sync(jira, show=args.command == "plan")
             print("\n".join(lines))
             if not args.every:
                 return 0
