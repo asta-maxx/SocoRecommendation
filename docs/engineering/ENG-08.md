@@ -151,7 +151,7 @@ A post that carries a product (`products` / `productId`), or whose `Product_stat
 ### 14. Before scoring and again on the final list; no model can override: built on serving / ⏳ the scoring jobs
 
 - **On the final list:** done. `serving.interim_candidates` keeps only items that pass `eligible_posts` / `eligible_products`, and `page_after_recheck` (part 16) runs them again on the page just before it is returned. Nothing after the filters adds items back: exploration shuffles only eligible items (DS-017 §4.3).
-- **Before scoring:** the nightly jobs that score items (ENG-10, ENG-13, ENG-17) will call the same functions on their candidates. **Not yet:** those jobs are not built.
+- **Before scoring:** the nightly jobs that score items (ENG-10, ENG-13, ENG-17) will call the same functions on their candidates. **17 Oct 2026:** ENG-17's job scores only sellable products (`product_is_sellable`, E-07, and the seller's `account_rule`, E-08/E-09) and the request applies every rule again with the viewer's own; ENG-13 still to come.
 - *No model can override:* the rules live in one module that takes no model input, and serving applies them after any ordering.
 
 ### 15. E-04 to E-09 and E-12 against ENG-27's current state: ⏳ ENG-27

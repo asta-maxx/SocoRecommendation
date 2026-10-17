@@ -654,6 +654,10 @@ class ProductRecord(_Record):
     category_id: str | None  # categoryPathIds[0], else basicInfo.categoryId
     category: str | None  # one of the 23, or None
     cross_sell_ids: list[str]
+    #: ENG-17 method one's "same category": the product's own (most specific) category,
+    #: basicInfo.categoryId, else the last of categoryPathIds. category_id is the top of
+    #: the path (the top-level category, ENG-17's fallback step 2).
+    leaf_category_id: str | None = None
     #: ENG-30 point 8: deliveryConfig.returnWindow (days) and isReturnApplicable;
     #: None where the field is missing (the settings' fallback then applies).
     return_window_days: float | None = None
@@ -677,6 +681,7 @@ def parse_product(doc: dict[str, Any], categories: ProductCategoryIndex) -> Prod
         category_id=category_id,
         category=categories.category_of(category_id),
         cross_sell_ids=_ids(doc.get("crossSellProducts")),
+        leaf_category_id=maybe_str(basic.get("categoryId")) or (path_ids[-1] if path_ids else None),
         return_window_days=_number(delivery.get("returnWindow")),
         return_applicable=applicable if isinstance(applicable, bool) else None,
     )

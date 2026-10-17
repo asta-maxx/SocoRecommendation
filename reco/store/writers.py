@@ -193,6 +193,11 @@ async def ensure_indexes(settings: Settings) -> None:
 
     await ensure_candidate_indexes(settings)
 
+    # ENG-17: M5's stored lists, read per viewed product from the current batch.
+    from reco.store.product_scores import ensure_product_score_indexes
+
+    await ensure_product_score_indexes(settings)
+
 
 async def upsert_score(settings: Settings, score: InterestScore) -> None:
     """Write one score, keyed on (user_id, category, method, model_version). ST7.

@@ -279,6 +279,16 @@ class Product(_Section):
     lift_strength: int = fixed(10)
     min_co_purchases: int = fixed(2)
     price_band_fraction: float = fixed(0.30)  # sheet range 10-50%, fixed for Wave 1A
+    #: ENG-17, not on the pack's Settings sheet (decided 17 Oct 2026): how many products
+    #: each stored list keeps per viewed product (both methods), and per top-level
+    #: category for fallback step 2. A request needs at most a page plus one spare page
+    #: (limit 50), so these leave room for the filters and for page 2.
+    stored_per_product: int = between(100, 50, 500)
+    stored_per_category: int = between(200, 50, 1000)
+    #: ENG-17: "Until the basket test (APP-22) passes, compute it over cart contents
+    #: instead, and label it 'intent'." cart until APP-22 passes (ENG-23 V5); then
+    #: checkout (orders sharing a checkout_id). A setting, so the switch needs no deploy.
+    basket_source: Literal["cart", "checkout"] = "cart"
 
 
 # --- M6 opportunity ---------------------------------------------------------------

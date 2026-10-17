@@ -90,6 +90,13 @@ def served(settings, monkeypatch):
                           f"product{n:02}" if kind == "product" else None, rank=n) for n in range(1, page * limit + 1)]
         return serving.Built(Viewer(user_id=user_id), made, {}, len(made))
 
+    async def product_list(settings, page, limit, context, user_id, request_id, assignment):
+        # ENG-17: the product surface is the product ranker's (tests/test_product_ranker.py).
+        built = await candidates(settings, "product", page, limit, context, user_id, request_id)
+        built.detail = {"ordering": "eng17_product_ranker", "steps_used": {"own": len(built.candidates)},
+                        "method_served": True, "batch": {"job_run_id": "b1", "why": "current"}}
+        return built
+
     async def record(settings, doc):
         records.append(doc)
 
@@ -97,6 +104,7 @@ def served(settings, monkeypatch):
         return set()
 
     monkeypatch.setattr(api.serving, "interim_candidates", candidates)
+    monkeypatch.setattr(api.product_ranker, "product_candidates", product_list)
     monkeypatch.setattr(serving, "recheck", nothing_failed)
     monkeypatch.setattr(api.writers, "record_served_list", record)
     monkeypatch.setattr(api, "get_profile", ladder)

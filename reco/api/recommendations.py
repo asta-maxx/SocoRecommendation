@@ -25,9 +25,16 @@ in slot_methods, which also says whether the assigned method actually served
 (SD-23: a fallback never counts as a result for a method that did not run) and
 whether the rung is cold start (ENG-24 counts it apart from fallback).
 
-Interim, until ENG-17 and ENG-19: the list is eligible items newest first
+ENG-17: the product surface serves the product ranker (reco.ranking.products):
+the stored list of the user's product_ranking method, filled down its fallback
+order. Its step is the response's fallback_step (null when the method's own list
+filled the page) and the product_ranking slot's fallback_step in slot_methods,
+with the steps used, whether the assigned method served, and (bought_together)
+the label, intent while carts stand in for checkouts.
+
+Interim, until ENG-19: the feed is eligible posts newest first
 (reco.ranking.serving), which is also what "rung 3 empty" serves. Both surfaces
-stay off in production until then (settings serving.surface_mode_*).
+stay off in production until their checks pass (settings serving.surface_mode_*).
 """
 
 from __future__ import annotations
@@ -48,6 +55,7 @@ from reco.config import Settings, get_settings, live
 from reco.config.accounts import is_test_account
 from reco.fallback.profile import Profile, Rung
 from reco.fallback.read_path import get_profile
+from reco.ranking import products as product_ranker
 from reco.ranking import serving
 from reco.slots.assignment import Assignment, assign, method_number, policy_id
 from reco.store import writers
@@ -63,8 +71,8 @@ SURFACES = ("feed", "product")
 #: promoter score (M8, ENG-19); product rails with product ranking (M5, ENG-17).
 SLOTS_BY_SURFACE = {"feed": ("interest", "promoter_score"), "product": ("product_ranking",)}
 
-#: Recorded on the E1 so a list built before the rankers exist is never mistaken
-#: for a ranked one.
+#: Recorded on the E1 so a feed list built before the feed ranking exists is never
+#: mistaken for a ranked one (product lists record reco.ranking.products.ORDERING).
 INTERIM_ORDERING = "interim_newest_first"
 
 
@@ -97,17 +105,24 @@ def _bad_request(body: Any) -> tuple[dict[str, Any] | None, JSONResponse | None]
     }, None
 
 
-def _slot_method(a: Assignment, profile: Profile | None = None) -> dict[str, Any]:
+def _slot_method(a: Assignment, profile: Profile | None = None, product: serving.Built | None = None) -> dict[str, Any]:
     """Capture Register F71: {slot, method, fallback_step}, plus how it was chosen.
 
     For the interest slot, the ladder's rung: `method_served` is False whenever a
     rung other than 1 answered, so the intended method is never credited with a
-    fallback's result (SD-23)."""
+    fallback's result (SD-23). For product_ranking (ENG-17), the product ranker's
+    step, every step used and how many products each added, and the label."""
     entry = {"slot": a.slot, "method": a.method, "fallback_step": None, "method_number": method_number(a),
              "bucket": a.bucket, "from_default": a.from_default}
     if profile is not None:
         entry |= {"fallback_step": profile.fallback_step, "rung": int(profile.rung),
                   "method_served": profile.rung is Rung.PERSONALISED, "cold_start": profile.cold_start}
+    if product is not None and product.detail is not None:
+        detail = product.detail
+        entry |= {"fallback_step": product.fallback_step, "method_served": detail["method_served"],
+                  "steps_used": detail["steps_used"], "batch": detail["batch"]}
+        if "label" in detail:
+            entry["label"] = detail["label"]
     return entry
 
 
@@ -165,10 +180,18 @@ async def recommendations(
     try:
         with pymongo.timeout(budget):
             interest = next((a for a in assignments if a.slot == "interest"), None)
-            built, profile = await asyncio.gather(
-                serving.interim_candidates(
+            ranking = next((a for a in assignments if a.slot == "product_ranking"), None)
+            build = (
+                product_ranker.product_candidates(
+                    settings, asked["page"], asked["limit"], asked["context_item_id"], asked["user_id"], request_id, ranking
+                )
+                if ranking is not None
+                else serving.interim_candidates(
                     settings, surface, asked["page"], asked["limit"], asked["context_item_id"], asked["user_id"], request_id
-                ),
+                )
+            )
+            built, profile = await asyncio.gather(
+                build,
                 get_profile(settings, asked["user_id"] or "", _interest_method(interest)) if interest else _none(),
             )
             page_items = await serving.page_after_recheck(settings, built, asked["page"], asked["limit"], request_id)
@@ -187,7 +210,7 @@ async def recommendations(
         "policy_id": policy_id(*assignments, config_version=tunables.config_version),
         "model_version": settings.model_version,
         "config_version": tunables.config_version,
-        "fallback_step": profile.fallback_step if profile else None,
+        "fallback_step": profile.fallback_step if profile else built.fallback_step,
         "is_exploration": exploration,
         "items": items,
     }
@@ -211,11 +234,12 @@ async def recommendations(
         "created_at": server_ts,  # the retention expiry runs from it (ENG-01)
         "candidate_ids": [c.item_id for c in candidates],
         "served_items": items,
-        "slot_methods": [_slot_method(a, profile if a.slot == "interest" else None) for a in assignments],
+        "slot_methods": [_slot_method(a, profile if a.slot == "interest" else None,
+                                      built if a.slot == "product_ranking" else None) for a in assignments],
         "fallback_step": response["fallback_step"],
         "is_exploration": exploration,
         "is_fallback": False,
-        "ordering": INTERIM_ORDERING,
+        "ordering": (built.detail or {}).get("ordering", INTERIM_ORDERING),
         "scored_not_served": serving.scored_not_served(
             candidates, {c.item_id for c in page_items}, exploration, tunables.serving.sample_random_percent
         ),

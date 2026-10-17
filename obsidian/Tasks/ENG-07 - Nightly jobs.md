@@ -47,9 +47,9 @@ The Build List splits ENG-07 into six numbered parts (1–6). There are three ex
   | Job | Status |
   |---|---|
   | M1, the interest score, both methods | ✅ running |
-  | M2 method two, similar posts | ⏳ ENG-14 |
-  | M5, the product ranker, both methods | ⏳ ENG-17 |
-  | M8, the promoter score, both methods + monthly copy | ⏳ ENG-16 |
+  | M2 method two, similar posts | ✅ built 16 Oct (ENG-14) |
+  | M5, the product ranker, both methods | ✅ built 17 Oct → [[ENG-17 - Products you might also like]] |
+  | M8, the promoter score, both methods + monthly copy | ✅ built 17 Oct (ENG-16) |
   | M6, opportunities | ⏳ ENG-18 |
   | The fraud rules | ⏳ ENG-21 |
   | The daily check for SOCO categories with no match (not in this task's list, added by ENG-29) | ✅ running |
