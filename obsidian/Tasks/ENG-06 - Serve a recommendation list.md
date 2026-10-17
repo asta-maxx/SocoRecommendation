@@ -179,3 +179,6 @@ The Build List row has eleven parts (1–11). There are three extras (A–C).
 - **Next:** [[ENG-07 - Nightly jobs]]. It runs the overnight work (scores and batches) that a real ranking will read from.
 - **Demo:** [[Demo - ENG-06]]. How to show this task working, step by step.
 - **Technical version:** `docs/engineering/ENG-06.md` in the repo.
+
+## Update, 17 Oct 2026
+The feed is now put in order by [[ENG-19 - Ordering the feed]] instead of newest first, and later pages never repeat what you were shown in the last 24 hours.

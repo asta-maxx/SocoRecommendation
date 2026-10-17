@@ -36,7 +36,7 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 
 ## Step 4: ranking and fraud
 - [ ] ENG-18: Opportunity scores (hidden)
-- [ ] ENG-19: Ordering the feed
+- [ ] [[ENG-19 - Ordering the feed]]: **built** (17 Oct: the feed ranked by the formula from M1, M2 and M8, variety rules with their relaxation order, the shuffle fix, 24-hour paging on both surfaces, commission never a term; 17 tests pass; check on the test server later)
 - [ ] [[ENG-20 - Speed test|ENG-20 (part 2)]]: Speed test (waits on ENG-06 and the test server)
 - [ ] ENG-21: Fraud rules and review cases
 - [ ] ENG-22: Retrieval and product checks

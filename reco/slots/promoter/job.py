@@ -34,6 +34,7 @@ from __future__ import annotations
 import logging
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
+from statistics import median
 from typing import Any
 
 from reco.config import Settings, live
@@ -305,6 +306,15 @@ async def run(settings: Settings, anchor: datetime | None = None) -> dict[str, A
 
         records[method] = await run_batch(settings, job=store.JOB, slot=store.SLOT, method=method,
                                           collection=store.COLLECTION, data_window=window, work=work)
+        # ENG-19 (Kala Q8): the medians an author with no score falls back to.
+        scores = [(s.main_category, (s.method_one if which == "one" else s.method_two).score) for s in scored.values()]
+        by_category: dict[str, list[float]] = defaultdict(list)
+        for category, value in scores:
+            if category:
+                by_category[category].append(value)
+        await store.write_medians(settings, method, records[method]["_id"],
+                                  {c: median(v) for c, v in by_category.items()},
+                                  median([v for _, v in scores]) if scores else None)
     if anchor.day == 1:
         month = anchor.strftime("%Y-%m")
         report["monthly_copy"] = {m: await store.copy_monthly(settings, month, m) for m in (one, two)}

@@ -28,7 +28,7 @@ from pymongo import ASCENDING, UpdateOne
 
 from reco.config import Settings
 from reco.store.connection import ml_db
-from reco.store.writers import _collection, _ensure_index, current_job_run_id
+from reco.store.writers import _collection, _ensure_index, current_job_run_id, record_measurement
 
 COLLECTION = "ml_promoter_scores"
 MONTHLY = "ml_promoter_scores_monthly"
@@ -127,3 +127,34 @@ async def copy_monthly(settings: Settings, month: str, method: str) -> int:
                                "promoter_id": {"$nin": [r["promoter_id"] for r in rows]}})
     await monthly.bulk_write(ops, ordered=False)
     return len(rows)
+
+
+MEDIANS = "promoter_medians"
+
+
+async def read_promoter_scores(settings: Settings, promoter_ids: list[str], method: str) -> dict[str, float]:
+    """ENG-19: the current batch's score of each of these promoters under `method`."""
+    batch = await current_job_run_id(settings, JOB, method)
+    if not batch or not promoter_ids:
+        return {}
+    cursor = ml_db(settings)[COLLECTION].find({"job_run_id": batch, "promoter_id": {"$in": sorted(set(promoter_ids))}},
+                                              {"promoter_id": 1, "score": 1})
+    return {row["promoter_id"]: float(row["score"]) async for row in cursor}
+
+
+async def write_medians(settings: Settings, method: str, job_run_id: str, by_category: dict[str, float],
+                        platform: float | None) -> None:
+    """Each main category's median score in a batch, and the platform's, for authors
+    with no promoter score (Kala, 16 Oct, ENG-19 Q8). One document per method."""
+    await record_measurement(settings, {"measure": MEDIANS, "method": method},
+                             {"job_run_id": job_run_id, "by_category": by_category, "platform": platform})
+
+
+async def read_medians(settings: Settings, method: str) -> tuple[dict[str, float], float | None]:
+    """The medians of the current batch of `method` ({category: median}, platform median)."""
+    batch = await current_job_run_id(settings, JOB, method)
+    doc = await ml_db(settings)["ml_measurements"].find_one({"measure": MEDIANS, "method": method}) or {}
+    if not batch or doc.get("job_run_id") != batch:
+        return {}, None
+    return dict(doc.get("by_category") or {}), doc.get("platform")
+

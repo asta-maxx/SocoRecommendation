@@ -660,3 +660,7 @@ The live demo script, in plain language, is the Obsidian note
 **Built** (Kala S2): all its dependencies are built; Passed once its check runs on the test server. Kala F6: if the product surface still misses 200 ms there, read eligibility from ml_item_state (ENG-27).
 
 **16 Oct 2026 (Kala Q7, every product request):** the viewer's cart is read with their follows and blocks (`Viewer.in_cart`, from `carts` by user_id), and every product already in it is left off the product list, as is the context product (`serving.interim_candidates`). Test `test_a_product_in_the_viewers_cart_is_never_on_a_product_list`. ENG-17's product ranker keeps the same rule.
+
+## Update, 17 Oct 2026: the feed is ranked (ENG-19)
+
+The feed no longer serves the interim newest-first ordering: `reco/api/recommendations.py` calls ENG-19's `reco/ranking/feed.feed_candidates` (the E1's `ordering` is `eng19_feed_ranking`, and `scored_not_served` carries each item's score). `interim_candidates` remains only to top up a shortlist shorter than the page. Paging on both surfaces follows ENG-19: page 2 and later leave out what the user was served in the last 24 hours (`writers.read_served_item_ids`). After the exploration shuffle the consecutive-author rule is re-checked. See `docs/engineering/ENG-19.md`.

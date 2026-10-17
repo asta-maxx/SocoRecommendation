@@ -4,11 +4,11 @@
     items      = served_items(page_items, explore=...)
     sample     = scored_sample(candidates, returned_ids, exploration)
 
-The feed's ordering is the interim one the Build List sets for ENG-06 until the
-feed ranking (ENG-19) exists: eligible posts (E-01 to E-12, ENG-08) newest first.
-Page p holds positions (p-1)*limit+1 to p*limit of that order. ENG-19 replaces
-this with the ranking layer, which also leaves out items served to the user in
-the last 24 hours. The product surface is ENG-17's product ranker
+The feed is ENG-19's ranking layer (reco.ranking.feed), which pages by leaving
+out what the user was served in the last 24 hours (Built.page_start = 0: the list
+starts at the requested page). interim_candidates, eligible posts (E-01 to E-12,
+ENG-08) newest first, is what ENG-06 served before ENG-19; ENG-19 now uses it only
+to top up a shortlist shorter than the page. The product surface is ENG-17's product ranker
 (reco.ranking.products); interim_candidates still answers for "product" (eligible
 products newest first, the context product and the cart left out), which is the
 product ranker's last fallback step, but the request path no longer calls it.
@@ -42,6 +42,8 @@ class Candidate:
     post_id: str | None
     product_id: str | None
     rank: int  # 1 = first in the ordering
+    score: float | None = None  # the model's score where there is one (ENG-19)
+    author_id: str | None = None  # a post's author (ENG-19's variety rules)
 
     def card(self, position: int) -> dict[str, Any]:
         return {"item_id": self.item_id, "item_type": self.item_type, "post_id": self.post_id,
@@ -78,6 +80,9 @@ class Built:
     #: records, and how it was built (the ordering, the steps used, the batch read).
     fallback_step: str | None = None
     detail: dict | None = None
+    #: Where the requested page starts in `candidates`: None, positional ((page-1) x
+    #: limit); 0, the list is already paged (ENG-19's paging rule).
+    page_start: int | None = None
 
 
 async def interim_candidates(
@@ -105,7 +110,8 @@ async def interim_candidates(
             # The context product, and on a product list every product already in the
             # viewer's cart (Kala, 16 Oct), never appear.
             if item_id != context_item_id and not (kind == "product" and item_id in viewer.in_cart):
-                found.append(Candidate(item_id, item_type, post_id, product_id, rank=len(found) + 1))
+                found.append(Candidate(item_id, item_type, post_id, product_id, rank=len(found) + 1,
+                                       author_id=row.author_id if kind == "post" else None))
         if len(found) >= wanted or len(rows) < _READ_PAGE or read >= MAX_SCAN_ROWS:
             break
         # Not enough in the first page: the rest of the scan window in one read.
@@ -119,7 +125,7 @@ async def page_after_recheck(
     """ENG-08: the page's items re-checked on the platform just before the list is
     returned; any that fail are replaced by the next eligible items."""
     candidates = built.candidates
-    start = (page - 1) * limit
+    start = built.page_start if built.page_start is not None else (page - 1) * limit
     page_items = candidates[start:start + limit]
     spare = candidates[start + limit:]
     if not page_items:
@@ -133,6 +139,20 @@ async def page_after_recheck(
     kept = [c for c in page_items if c.item_id not in failed]
     spare = [c for c in spare if c.item_id not in failed]
     return kept + spare[:limit - len(kept)]
+
+
+def leave_out_served(built: Built, page: int, served: set[str]) -> Built:
+    """ENG-19's paging rule for a positional list (the product surface, which uses the
+    M5 list directly with the same rule): page 1 is the top; on later pages every
+    item served to the user in the last 24 hours is left out and the next `limit`
+    taken, so the list becomes already paged."""
+    if page <= 1:
+        return built
+    kept = [c for c in built.candidates if c.item_id not in served]
+    built.detail = {**(built.detail or {}), "left_out_served": len(built.candidates) - len(kept)}
+    built.candidates = kept
+    built.page_start = 0
+    return built
 
 
 def decide_exploration(surface: str, percent: int) -> bool:
@@ -154,8 +174,8 @@ def scored_not_served(candidates: list[Candidate], returned: set[str], explorati
     every exploration request, the scored items -- every returned item and every
     one passed over -- each with its score. None on the other requests (F72:
     "Present on about 10% of E1 rows, and on every exploration row"). Until the
-    feed ranking exists (ENG-19) there is no model score: score is null and the
-    rank is kept (on the product surface, the rank in ENG-17's filled list)."""
+    feed's score is ENG-19's; on the product surface there is no score (null) and
+    the rank in ENG-17's filled list is kept."""
     if not (exploration or rng.random() * 100 < percent):
         return None
-    return [{"item_id": c.item_id, "score": None, "rank": c.rank, "returned": c.item_id in returned} for c in candidates]
+    return [{"item_id": c.item_id, "score": c.score, "rank": c.rank, "returned": c.item_id in returned} for c in candidates]

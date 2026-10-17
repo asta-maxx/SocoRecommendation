@@ -45,6 +45,8 @@ import time
 import uuid
 from typing import Any
 
+from datetime import timedelta
+
 import pymongo
 from bson import ObjectId
 from fastapi import APIRouter, Depends, Header, Request
@@ -55,6 +57,7 @@ from reco.config import Settings, get_settings, live
 from reco.config.accounts import is_test_account
 from reco.fallback.profile import Profile, Rung
 from reco.fallback.read_path import get_profile
+from reco.ranking import feed as feed_ranker
 from reco.ranking import products as product_ranker
 from reco.ranking import serving
 from reco.slots.assignment import Assignment, assign, method_number, policy_id
@@ -180,20 +183,26 @@ async def recommendations(
     try:
         with pymongo.timeout(budget):
             interest = next((a for a in assignments if a.slot == "interest"), None)
+            promoter = next((a for a in assignments if a.slot == "promoter_score"), None)
             ranking = next((a for a in assignments if a.slot == "product_ranking"), None)
-            build = (
-                product_ranker.product_candidates(
-                    settings, asked["page"], asked["limit"], asked["context_item_id"], asked["user_id"], request_id, ranking
-                )
-                if ranking is not None
-                else serving.interim_candidates(
-                    settings, surface, asked["page"], asked["limit"], asked["context_item_id"], asked["user_id"], request_id
-                )
-            )
-            built, profile = await asyncio.gather(
-                build,
-                get_profile(settings, asked["user_id"] or "", _interest_method(interest)) if interest else _none(),
-            )
+            # ENG-19 paging: on page 2 and later, what this user was served in the last
+            # 24 hours on this surface is left out (both surfaces).
+            served_since = server_ts - timedelta(hours=tunables.serving.page_dedup_hours)
+            served = await writers.read_served_item_ids(settings, asked["user_id"], surface, served_since) \
+                if asked["page"] > 1 else set()
+            if ranking is not None:
+                built = await product_ranker.product_candidates(
+                    settings, asked["page"], asked["limit"], asked["context_item_id"], asked["user_id"], request_id, ranking)
+                built = serving.leave_out_served(built, asked["page"], served)
+                profile = None
+            else:
+                # The feed: the viewer's interest profile first (the shortlist's top-5
+                # categories and the ranking's interest match both use it), then ENG-19.
+                profile = await get_profile(settings, asked["user_id"] or "", _interest_method(interest)) \
+                    if interest else None
+                built = await feed_ranker.feed_candidates(
+                    settings, asked["page"], asked["limit"], asked["user_id"], request_id, profile,
+                    promoter.method if promoter else None, served)
             page_items = await serving.page_after_recheck(settings, built, asked["page"], asked["limit"], request_id)
         candidates = built.candidates
     except Exception as exc:
@@ -203,6 +212,8 @@ async def recommendations(
     exploration = serving.decide_exploration(surface, tunables.serving.exploration_percent)
     if exploration:
         page_items = serving.explore(page_items, tunables.serving.exploration_top_kept)
+        # ENG-19: shuffling must not undo variety.
+        page_items = feed_ranker.keep_consecutive_rule(page_items, tunables.ranking.max_consecutive_same_author)
     items = [c.card(position) for position, c in enumerate(page_items, start=1)]
 
     response = {

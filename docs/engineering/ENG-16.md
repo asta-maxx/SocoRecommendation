@@ -85,3 +85,7 @@ python -m pytest -q tests/test_promoter.py
 | `reco/jobs/__main__.py`, `scheduler.py` | Job `promoter`, nightly after `similar_posts` |
 | `tests/test_promoter.py` | New |
 | `scripts/run_checklist.sh`, `scripts/make_proofs.py` | Section 15; the M8 proof folder |
+
+## Update, 17 Oct 2026 (ENG-19)
+
+With each method's batch the job now writes the medians an author with no score falls back to (Kala Q8): each main category's median score and the platform median, in `ml_measurements` (measure `promoter_medians`, one document per method, valid only while its `job_run_id` is the current batch; `reco.store.promoter.write_medians` / `read_medians`). `read_promoter_scores` reads many authors' scores at once for ENG-19.

@@ -508,6 +508,17 @@ async def read_served_list(settings: Settings, request_id: str) -> dict[str, Any
     return await ml_db(settings)["ml_events"].find_one({"_id": request_id, "event_code": "E1"})
 
 
+async def read_served_item_ids(settings: Settings, user_id: str | None, surface: str, since: datetime) -> set[str]:
+    """ENG-19 paging: every item served to this user on this surface since `since`,
+    from the engine's own request records (E1)."""
+    if not user_id:
+        return set()
+    cursor = ml_db(settings)["ml_events"].find(
+        {"event_code": "E1", "user_id": user_id, "surface": surface, "server_ts": {"$gte": since}},
+        {"served_items.item_id": 1})
+    return {item["item_id"] async for row in cursor for item in row.get("served_items") or [] if item.get("item_id")}
+
+
 async def record_measurement(settings: Settings, key: dict[str, Any], fields: dict[str, Any]) -> None:
     """One document per key in ml_measurements, replaced when the same key is measured again."""
     await _collection(ml_db(settings), "ml_measurements").replace_one(key, {**key, **fields}, upsert=True)

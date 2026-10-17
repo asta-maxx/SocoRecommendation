@@ -239,9 +239,12 @@ def test_a_passed_task_moves_to_done(tmp_path, monkeypatch) -> None:
     assert any("SRE-1" in line for line in report) and any("moved 'To Do' -> 'Done'" in line for line in report)
 
 
-def test_a_task_not_started_is_left_alone(tmp_path) -> None:
+def test_a_task_not_started_is_left_alone(tmp_path, monkeypatch) -> None:
+    tasks = js.read_tasks()
+    tasks["ENG-21"] = js.Task("ENG-21", "To build", "Allen", "Fraud rules")  # not started, whatever the vault says later
+    monkeypatch.setattr(js, "read_tasks", lambda: tasks)
     fake = FakeJira()
-    report = sync(fake, tmp_path, cfg=config(issues={"SRE-1": ["ENG-19"]}))
+    report = sync(fake, tmp_path, cfg=config(issues={"SRE-1": ["ENG-21"]}))
     assert fake.writes() == [] and any("not started, nothing to report" in line for line in report)
 
 

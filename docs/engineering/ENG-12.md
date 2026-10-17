@@ -83,3 +83,7 @@ python -m pytest -q tests/test_sources.py
 | `reco/jobs/__main__.py`, `reco/sync/run.py` | The `post_index` job; refreshed every 15 min by the sync loop |
 | `tests/test_sources.py` | New |
 | `scripts/run_checklist.sh` | Section 12 |
+
+## Update, 17 Oct 2026 (ENG-19)
+
+Each post-index row also carries `qualified_views` (people with a qualified view over the index's 30 days) and `engagements` (likes, saves, shares, comments, not undone), both without the author's own actions, test accounts or business actors, for ENG-19's engagement quality; `item_state.read_posts_by_ids` reads them for a shortlist.

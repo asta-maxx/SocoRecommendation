@@ -10,7 +10,7 @@ bash scripts/run_checklist.sh
 ```
 
 > [!tip] Proof to send (added 14 Oct 2026)
-> `PROOF_DIR="Test Output" bash scripts/run_checklist.sh`, then `python scripts/make_proofs.py`, saves every check's full output as one file per task in `Test Output/`, one folder per model: `Foundation/` (ENG-01 to ENG-08, ENG-29), `M1/` (ENG-09 to ENG-11), `M2/` (ENG-12 to ENG-15), `M8/` (ENG-16), `M5/` (ENG-17). Each file is named after its task (e.g. `M2/ENG-13.pdf`), as `.md`, `.log` and `.pdf`, with an index (`README.md`). Last run 17 Oct 2026: 84 of 87 passed; the 3 not passed are expected on a laptop (two Obsidian line-ending files; 6.3 and 6.4 speed over the internet, which is proved on the test server).
+> `PROOF_DIR="Test Output" bash scripts/run_checklist.sh`, then `python scripts/make_proofs.py`, saves every check's full output as one file per task in `Test Output/`, one folder per model: `Foundation/` (ENG-01 to ENG-08, ENG-29), `M1/` (ENG-09 to ENG-11), `M2/` (ENG-12 to ENG-15), `M8/` (ENG-16), `M5/` (ENG-17), `Ranking/` (ENG-19). Each file is named after its task (e.g. `M2/ENG-13.pdf`), as `.md`, `.log` and `.pdf`, with an index (`README.md`). Last run 17 Oct 2026: 84 of 87 passed; the 3 not passed are expected on a laptop (two Obsidian line-ending files; 6.3 and 6.4 speed over the internet, which is proved on the test server).
 
 It takes about 4 minutes. It ends with `Result: N passed, 0 failed` when all is well. It only **reads** SOCO's data. Anything it writes goes into a throwaway database (`reco_demo`) that it deletes at the end. It uses its own ports (8190/8191), so a demo already running isn't disturbed.
 
@@ -176,6 +176,12 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 16.1 | Method one's five measures and rescaling, lift worked out by hand for three pairs, pairs need 2, "intent" label, the back-up order and its step, never the viewed product or the cart, exactly the number asked for (tests) |
 | 16.2 | On a real database: both methods stored and served, lift by hand, cart and viewed product left out, a stale batch falls back, checkouts once switched |
 | 16.3 | The product ranker runs on SOCO's real data |
+
+### 17. ENG-19: ordering the feed → [[ENG-19 - Ordering the feed]]
+| Line | Checks |
+|---|---|
+| 17.1 | The score worked out by hand, authors with no promoter score, the variety rules and the order they loosen in, the shuffle fix, later pages (tests) |
+| 17.2 | On a real database: the order follows the score, the variety rules hold, changing a commission changes nothing, page 2 repeats nothing from page 1 |
 
 ### Last line: clean up
 | Line | Checks |

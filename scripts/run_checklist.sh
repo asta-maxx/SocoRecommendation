@@ -314,6 +314,11 @@ check "16.1 method one's components and rescaling; hand-computed lift for three 
 check "16.2 on a database: both batches current; lift by hand; both methods serve through the request path; cart and context left out; stale batch falls back; checkout baskets labelled checkout (the ENG-17 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_product_ranker.py -p no:cacheprovider -m mongo" "1 passed"
 check "16.3 M5 lists SOCO's real products, both methods (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs product_ranking" '"batches"'
 
+echo "== 17. ENG-19: the feed ranking"
+proof_to ENG-19
+check "17.1 the formula by hand, Kala's ladder for authors with no score, variety and its relaxation order, the shuffle fix, paging (no database)" "$PY -m pytest -q tests/test_feed_ranking.py -p no:cacheprovider -m 'not mongo'" "16 passed"
+check "17.2 on a database: the order follows the formula, variety rules hold, a product's commission changes nothing, page 2 leaves out page 1 (the ENG-19 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_feed_ranking.py -p no:cacheprovider -m mongo" "1 passed"
+
 cleanup
 trap - EXIT
 if $PY -c "

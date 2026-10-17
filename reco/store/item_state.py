@@ -27,6 +27,8 @@ from reco.store.writers import _collection, current_job_run_id
 JOB = "post_index"
 METHOD = "post_index"
 _FIELDS = {"_id": 0, "post_id": 1, "author_id": 1, "categories": 1, "created_at": 1, "qualified_views_7d": 1, "original_id": 1}
+#: ENG-19 reads each shortlisted post's engagement from the same index.
+_RANKING_FIELDS = {**_FIELDS, "qualified_views": 1, "engagements": 1}
 
 
 async def ensure_post_index_indexes(settings: Settings) -> None:
@@ -78,3 +80,12 @@ async def read_most_viewed(settings: Settings, batch: str, since: datetime, limi
     cursor = ml_db(settings)["ml_item_state"].find(query, _FIELDS).sort(
         [("qualified_views_7d", DESCENDING), ("created_at", DESCENDING), ("post_id", DESCENDING)]).limit(limit)
     return await cursor.to_list(None)
+
+
+async def read_posts_by_ids(settings: Settings, batch: str, post_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """ENG-19: the index rows of these posts in the current batch (post_id -> row)."""
+    if not batch or not post_ids:
+        return {}
+    cursor = ml_db(settings)["ml_item_state"].find({"job_run_id": batch, "post_id": {"$in": post_ids}}, _RANKING_FIELDS)
+    return {row["post_id"]: row async for row in cursor}
+

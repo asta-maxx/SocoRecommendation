@@ -17,6 +17,11 @@ of it in the last 7 days, from the engine's copy of postevents, test accounts le
 out (ENG-29 item 3). Seed posts (_seedTag, ENG-30 point 9) are test data and are
 not indexed, so no source ever offers one.
 
+For the feed ranking (ENG-19), each row also carries qualified_views (people with a
+qualified view of it over the index's 30 days) and engagements (likes + saves +
+shares + comments on it, not undone, over the same days), both leaving out the
+author's own actions and test accounts.
+
 Each row also carries original_id (ENG-30 point 3, for ENG-13's "a repost counts
 as its original"): the post itself, or for a repost the original its chain leads
 to. A repost whose chain breaks keeps original_id None and is offered as itself
@@ -50,6 +55,19 @@ async def build_post_index(settings: Settings, now: datetime, job_run_id: str) -
     pairs = await writers.read_qualified_views(
         settings, now - timedelta(days=VIEWS_WINDOW_DAYS), tunables.events.qualified_view_seconds * 1000)
     views = Counter(str(p["post_id"]) for p in pairs if str(p.get("user_id") or "").lower() not in tests)
+    from reco.store.promoter import read_promoter_event_rows
+
+    viewers: dict[str, set[str]] = {}
+    engaged: Counter = Counter()
+    for row in await read_promoter_event_rows(settings, data_window(now)["from"]):
+        who = str(row.get("user_id") or "")
+        if not who or who.lower() in tests or row.get("is_self") or row.get("actor") == "business":
+            continue
+        if row["event_type"] == "view":
+            if (row.get("dwell_ms") or 0) >= tunables.events.qualified_view_seconds * 1000:
+                viewers.setdefault(str(row["post_id"]), set()).add(who)
+        else:
+            engaged[str(row["post_id"])] += 1
     originals, reposts, known = await resolve_originals(settings, posts)
     rows: list[dict[str, Any]] = []
     seed = 0
@@ -64,6 +82,7 @@ async def build_post_index(settings: Settings, now: datetime, job_run_id: str) -
             "post_id": post.post_id, "author_id": post.author_id, "categories": post.categories,
             "created_at": post.created_at, "is_repost": post.is_repost,
             "original_id": original, "qualified_views_7d": views.get(post.post_id, 0),
+            "qualified_views": len(viewers.get(post.post_id, ())), "engagements": engaged.get(post.post_id, 0),
         })
     written = await item_state.write_post_index(settings, rows)
     return written, {"posts_read": len(posts), "seed_posts_left_out": seed,

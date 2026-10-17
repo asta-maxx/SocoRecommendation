@@ -97,6 +97,16 @@ def served(settings, monkeypatch):
                         "method_served": True, "batch": {"job_run_id": "b1", "why": "current"}}
         return built
 
+    async def feed_list(settings, page, limit, user_id, request_id, profile, promoter_method, served):
+        # ENG-19: the feed is the ranking layer's (tests/test_feed_ranking.py). Called
+        # through api.serving so a test that makes the database unreadable still can.
+        built = await api.serving.interim_candidates(settings, "feed", page, limit, None, user_id, request_id)
+        built.detail = {"ordering": "eng19_feed_ranking"}
+        return built
+
+    async def nothing_served(settings, user_id, surface, since):
+        return set()
+
     async def record(settings, doc):
         records.append(doc)
 
@@ -105,6 +115,8 @@ def served(settings, monkeypatch):
 
     monkeypatch.setattr(api.serving, "interim_candidates", candidates)
     monkeypatch.setattr(api.product_ranker, "product_candidates", product_list)
+    monkeypatch.setattr(api.feed_ranker, "feed_candidates", feed_list)
+    monkeypatch.setattr(api.writers, "read_served_item_ids", nothing_served)
     monkeypatch.setattr(serving, "recheck", nothing_failed)
     monkeypatch.setattr(api.writers, "record_served_list", record)
     monkeypatch.setattr(api, "get_profile", ladder)
