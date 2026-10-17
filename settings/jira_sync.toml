@@ -4,9 +4,9 @@
 #
 # Until every value below is filled in, the script refuses to run.
 
-base_url = ""                      # https://<site>.atlassian.net
-project_key = ""                   # the ONE project it may touch, e.g. "SOCO"
-allen_account_id = ""              # from `python scripts/jira_sync.py check` (fill base_url and project_key first)
+base_url = "https://mysoco.atlassian.net"   # https://<site>.atlassian.net
+project_key = "SRE"                # the ONE project it may touch (board 138, 17 Oct 2026)
+allen_account_id = "712020:67ee6429-c3c4-4d94-8cd7-6d71613a6e59"   # Allen Matthew, from `check` (17 Oct 2026)
 allen_display_name = "Allen Matthew"
 max_writes_per_run = 20            # 1-50; a run stops at this many writes
 

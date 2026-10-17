@@ -99,7 +99,7 @@ class Config:
     max_writes_per_run: int = 20
 
     @classmethod
-    def load(cls, path: Path = CONFIG) -> Config:
+    def load(cls, path: Path = CONFIG, need_account: bool = True) -> Config:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
         cfg = cls(
             base_url=str(data.get("base_url", "")).rstrip("/"),
@@ -112,15 +112,15 @@ class Config:
             jira_status_order=[str(s) for s in data.get("jira_status_order") or []],
             max_writes_per_run=int(data.get("max_writes_per_run", 20)),
         )
-        cfg.validate()
+        cfg.validate(need_account)
         return cfg
 
-    def validate(self) -> None:
+    def validate(self, need_account: bool = True) -> None:
         if not re.fullmatch(r"https://[A-Za-z0-9.-]+\.atlassian\.net", self.base_url):
             raise GuardError("base_url must be https://<site>.atlassian.net (settings/jira_sync.toml)")
         if not re.fullmatch(r"[A-Z][A-Z0-9]{1,9}", self.project_key):
             raise GuardError("project_key must be one Jira project key, e.g. SOCO (settings/jira_sync.toml)")
-        if not self.allen_account_id:
+        if need_account and not self.allen_account_id:
             raise GuardError("allen_account_id is empty: run `check` and copy your accountId into settings/jira_sync.toml")
         if not 1 <= self.max_writes_per_run <= 50:
             raise GuardError("max_writes_per_run must be 1 to 50")
@@ -526,7 +526,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--every", type=int, default=0, metavar="MINUTES", help="repeat sync every N minutes (10 or more)")
     args = parser.parse_args(argv)
     try:
-        cfg = Config.load()
+        # `check` is how the accountId is found, so it alone runs without one (it only reads).
+        cfg = Config.load(need_account=args.command != "check")
         apply = args.command == "sync" and args.apply
         if args.apply and args.command != "sync":
             raise GuardError("--apply only goes with sync")
@@ -535,7 +536,9 @@ def main(argv: list[str] | None = None) -> int:
         while True:
             jira = Jira(cfg, apply=apply)
             if args.command == "check":
-                me = jira.check_identity()
+                me = jira.request("GET", "/rest/api/3/myself")
+                if cfg.allen_account_id and me.get("accountId") != cfg.allen_account_id:
+                    raise GuardError(f"the API token belongs to {me.get('displayName')!r}, not the configured account")
                 project = jira.request("GET", f"/rest/api/3/project/{cfg.project_key}")
                 lines = [f"token: {me.get('displayName')} ({me.get('accountId')})",
                          f"project: {project.get('key')} {project.get('name')!r}", "nothing was changed"]
