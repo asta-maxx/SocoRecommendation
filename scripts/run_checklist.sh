@@ -215,7 +215,10 @@ echo "== 6. ENG-06: serve a list and record it (throwaway reco_demo, port 8192)"
 proof_to ENG-06
 check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "27 passed"
 check "6.2 constructed data: eligible newest first; record matches the response" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m mongo" "2 passed"
-sed 's/^surface_mode_feed = "off"/surface_mode_feed = "live"/; s/^surface_mode_product = "off"/surface_mode_product = "live"/' settings/engine.toml >"$WORK/serve.toml"
+# The serving copy turns both surfaces on, so it is a change: it needs a new config_version, or the
+# engine (rightly) keeps the version already recorded in reco_demo by the jobs (2.9's rule).
+SV=$(sed -n 's/^config_version = "\([0-9]*\)"/\1/p' settings/engine.toml)
+sed "s/^surface_mode_feed = \"off\"/surface_mode_feed = \"live\"/; s/^surface_mode_product = \"off\"/surface_mode_product = \"live\"/; s/^config_version = \"$SV\"/config_version = \"$((SV + 50))\"/" settings/engine.toml >"$WORK/serve.toml"
 SERVE_TOKEN="checklist-$RANDOM$RANDOM"
 INGEST_TOKEN="$SERVE_TOKEN" SETTINGS_FILE="$WORK/serve.toml" ML_MONGO_DB=reco_demo $PY -m uvicorn reco.main:app --port 8192 >"$WORK/serve.log" 2>&1 &
 started 8192; disown
@@ -284,15 +287,18 @@ proof_to ENG-12
 check "12.1 each source's rule; a source over its limit is dropped and logged (the ENG-12 check, without the timing)" "$PY -m pytest -q tests/test_sources.py -p no:cacheprovider -m 'not mongo'" "9 passed"
 check "12.2 on a database: the post index (recent, no seed posts, no test-account views) and every source reading it" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_sources.py -p no:cacheprovider -m mongo" "1 passed"
 check "12.3 the post index builds from SOCO's real posts (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs post_index" '"outcome": "succeeded"'
+proof_to ENG-14
 check "12.4 ENG-14 vectors, post type, pool rules, profile, cosine top 200 (no database)" "$PY -m pytest -q tests/test_similar.py -p no:cacheprovider -m 'not mongo'" "35 passed"
 check "12.5 ENG-14 the job writes a current batch; one list reads within 20 ms beyond the network (the ENG-14 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_similar.py -p no:cacheprovider -m mongo" "1 passed"
 check "12.6 ENG-14 similar posts runs on SOCO's real data (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs similar_posts" '"outcome": "succeeded"'
 
 echo "== 13. ENG-13: quotas (the pool of 300), and ENG-30 point 3 (reposts)"
+proof_to ENG-13
 check "13.1 quotas, round-robin, short sources, duplicates, reposts as originals, filters before and after; repost chains (no database)" "$PY -m pytest -q tests/test_quotas.py -p no:cacheprovider -m 'not mongo'" "23 passed"
 check "13.2 on a database: 300 or fewer, quotas within 1, no duplicates; blocked author out before, hidden original out after (the ENG-13 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_quotas.py -p no:cacheprovider -m mongo" "1 passed"
 
 echo "== 14. ENG-15: merge into the shortlist"
+proof_to ENG-15
 check "14.1 percentiles within each source, both methods in proportion, duplicates keep the higher percentile and both tags, cut by order, pool sizes logged (no database)" "$PY -m pytest -q tests/test_merge.py -p no:cacheprovider -m 'not mongo'" "17 passed"
 check "14.2 on a database: 200 or fewer, no duplicates, method two filtered (the ENG-15 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_merge.py -p no:cacheprovider -m mongo" "1 passed"
 

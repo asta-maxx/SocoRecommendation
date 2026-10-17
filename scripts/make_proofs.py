@@ -1,8 +1,14 @@
-"""Turn a proof run into files to send: ENG-NN.md, .log and .pdf, and a README index.
+"""Turn a proof run into files to send: one folder per model, one set of files per task.
 
     PROOF_DIR="Test Output" bash scripts/run_checklist.sh   # writes Test Output/ENG-NN.md
     pip install markdown                                      # once (not a service dependency)
-    python scripts/make_proofs.py                             # adds .log, .pdf and README.md
+    python scripts/make_proofs.py                             # files them by model, adds .log, .pdf, README.md
+
+    Test Output/Foundation/ENG-01.md .log .pdf ... ENG-08, ENG-29
+    Test Output/M1/ENG-09 ... ENG-11
+    Test Output/M2/ENG-12 ... ENG-15
+
+Each file is named after its task (Allen, 17 Oct 2026); the run's date is inside it.
 
 Also blanks the per-run local test token, and adds the notes on ENG-01 (which
 environments the run covers), ENG-06 (speed over a laptop link) and ENG-10 (its
@@ -38,19 +44,36 @@ NOTES = {
               "product rail is empty on dev because every seller there has no status (open question 17 to Aravinth), "
               "so each product request reads the whole 1,000-row window, which over a slow link can run past the time "
               "limit; the engine then answers 503 at once, as the pack requires (no retries, SD-26).",
-    "ENG-10": "**ENG-10's own check** is \"All M1 checks in ENG-11 pass\": see ENG-11 (11 of 11). This file adds the "
+    "ENG-10": "**ENG-10's own check** is \"All M1 checks in ENG-11 pass\": see ENG-11 (18 of 18). This file adds the "
               "reader's tests and M1 running on SOCO's real dev data.",
+    "ENG-12": "**About the 20 ms limit.** Each source's rule and the drop-and-log are proved here. The timing itself is "
+              "\"on test load\": from a laptop each read crosses the internet to the database (23 to 30 ms), so the "
+              "timed run is on the test server.",
+    "ENG-14": "**About the 20 ms read.** The database answers one list in 0 ms (an index scan, no sort); from a laptop "
+              "the network adds two round trips, so the wall time is proved on the test server.",
 }
 
+#: Which folder each task goes in: the model it belongs to.
+GROUPS = {
+    "Foundation": ["ENG-01", "ENG-02", "ENG-03", "ENG-04", "ENG-05", "ENG-06", "ENG-07", "ENG-08", "ENG-29"],
+    "M1": ["ENG-09", "ENG-10", "ENG-11"],
+    "M2": ["ENG-12", "ENG-13", "ENG-14", "ENG-15"],
+}
+FOLDER = {task: group for group, tasks in GROUPS.items() for task in tasks}
+
 TITLES = {}
-# The Home sheet: "Save the result as a file named <item ID>_<date>". The date is the run's.
+RUN_DATE = {}
+# File each raw run into its model's folder, named after the task.
 for raw in sorted(OUT.glob("ENG-[0-9][0-9].md")):
     run = re.search(r"\*\*Run:\*\* (\d{4}-\d{2}-\d{2})", raw.read_text(encoding="utf-8"))
-    raw.replace(raw.with_name(f"{raw.stem}_{run.group(1) if run else date.today().isoformat()}.md"))
-for md in sorted(OUT.glob("ENG-*_*.md")):
+    RUN_DATE[raw.stem] = run.group(1) if run else date.today().isoformat()
+    folder = OUT / FOLDER.get(raw.stem, "Other")
+    folder.mkdir(exist_ok=True)
+    raw.replace(folder / raw.name)
+for md in sorted(OUT.glob("*/ENG-[0-9][0-9].md")):
     text = md.read_text(encoding="utf-8")
     text = re.sub(r"checklist-[0-9]+", "<throwaway-token>", text)  # a per-run local test token
-    note = NOTES.get(md.stem.split("_")[0])
+    note = NOTES.get(md.stem)
     if note and note not in text:
         i = text.index("- **Command:**")
         j = text.index("\n", i)
@@ -58,7 +81,7 @@ for md in sorted(OUT.glob("ENG-*_*.md")):
     md.write_text(text, encoding="utf-8")
     m = re.search(r"\*\*Task:\*\* (.+?)\s*$", text, re.M)
     passed, failed = text.count("\n## PASS"), text.count("\n## FAIL")
-    TITLES[md.stem] = (m.group(1) if m else "", passed, failed)
+    TITLES[md.stem] = (md.parent.name, m.group(1) if m else "", passed, failed)
 
     plain = re.sub(r"^(?:```|~~~~)\s*$\n?", "", text, flags=re.M).replace("**", "")
     md.with_suffix(".log").write_text(plain, encoding="utf-8")
@@ -84,22 +107,25 @@ for md in sorted(OUT.glob("ENG-*_*.md")):
         time.sleep(0.5)
     scratch.replace(pdf)
     html.unlink()
-    print(f"{md.stem}: {passed} passed, {failed} failed -> .md .log .pdf ({pdf.stat().st_size // 1024} KB)")
+    print(f"{md.parent.name}/{md.stem}: {passed} passed, {failed} failed -> .md .log .pdf ({pdf.stat().st_size // 1024} KB)")
 
-rows = "\n".join(f"| {k} | {t} | {p} | {f} |" for k, (t, p, f) in TITLES.items())
-(OUT / "README.md").write_text(f"""# Test Output: proof of ENG-01 to ENG-11
+rows = "\n".join(f"| {g} | {k} | {t} | {p} | {f} |"
+                  for k, (g, t, p, f) in sorted(TITLES.items(), key=lambda kv: (list(GROUPS).index(kv[1][0])
+                                                                                 if kv[1][0] in GROUPS else 99, kv[0])))
+(OUT / "README.md").write_text(f"""# Test Output: proof by model
 
 Produced {date.today().isoformat()} by `PROOF_DIR="Test Output" bash scripts/run_checklist.sh` on the dev laptop,
 against the Atlas build cluster. Everything the checks write goes into throwaway databases, dropped at the end.
 SOCO's own data is only read.
 
-Each task has three copies of the same evidence, named `<item ID>_<date>` as the Build List's Home sheet asks:
-**.md** (formatted), **.log** (plain text), **.pdf** (to attach).
-Each file starts with the task's Build List v1.3 "How to check it is done", then every check: the command it ran,
-its full output and its exit code. ENG-29 (adapters) is included because ENG-08 to ENG-11 build on it.
+One folder per model: **Foundation** (ENG-01 to ENG-08, and ENG-29, the adapters the models build on), **M1**
+(interest score: ENG-09 to ENG-11), **M2** (finding posts for the feed: ENG-12 to ENG-15). Each task has three
+copies of the same evidence, named after the task: **.md** (formatted), **.log** (plain text), **.pdf** (to attach).
+The run's date is inside each file. Each file starts with the task's Build List v1.4 "How to check it is done",
+then every check: the command it ran, its full output and its exit code.
 
-| Task | What | Passed | Failed |
-|---|---|---|---|
+| Model | Task | What | Passed | Failed |
+|---|---|---|---|---|
 {rows}
 
 The official runs are on the **test** server (being set up); these are the dev runs. See the notes at the top of
