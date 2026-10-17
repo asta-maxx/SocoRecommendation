@@ -10,7 +10,7 @@ bash scripts/run_checklist.sh
 ```
 
 > [!tip] Proof to send (added 14 Oct 2026)
-> `PROOF_DIR="Test Output" bash scripts/run_checklist.sh`, then `python scripts/make_proofs.py`, saves every check's full output as one file per task in `Test Output/`: `ENG-01` to `ENG-11` (and ENG-29), each as `.md`, `.log` and `.pdf`, with an index (`README.md`).
+> `PROOF_DIR="Test Output" bash scripts/run_checklist.sh`, then `python scripts/make_proofs.py`, saves every check's full output as one file per task in `Test Output/`, one folder per model: `Foundation/` (ENG-01 to ENG-08, ENG-29), `M1/` (ENG-09 to ENG-11), `M2/` (ENG-12 to ENG-15). Each file is named after its task (e.g. `M2/ENG-13.pdf`), as `.md`, `.log` and `.pdf`, with an index (`README.md`). Last run 17 Oct 2026: 84 of 87 passed; the 3 not passed are expected on a laptop (two Obsidian line-ending files; 6.3 and 6.4 speed over the internet, which is proved on the test server).
 
 It takes about 4 minutes. It ends with `Result: N passed, 0 failed` when all is well. It only **reads** SOCO's data. Anything it writes goes into a throwaway database (`reco_demo`) that it deletes at the end. It uses its own ports (8190/8191), so a demo already running isn't disturbed.
 

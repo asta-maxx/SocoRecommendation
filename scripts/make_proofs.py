@@ -61,17 +61,26 @@ GROUPS = {
 }
 FOLDER = {task: group for group, tasks in GROUPS.items() for task in tasks}
 
+def read(path: Path) -> str:
+    """UTF-8, or the Windows code page a console wrote some lines in (e.g. "home décor")."""
+    data = path.read_bytes()
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("cp1252")
+
+
 TITLES = {}
 RUN_DATE = {}
 # File each raw run into its model's folder, named after the task.
 for raw in sorted(OUT.glob("ENG-[0-9][0-9].md")):
-    run = re.search(r"\*\*Run:\*\* (\d{4}-\d{2}-\d{2})", raw.read_text(encoding="utf-8"))
+    run = re.search(r"\*\*Run:\*\* (\d{4}-\d{2}-\d{2})", read(raw))
     RUN_DATE[raw.stem] = run.group(1) if run else date.today().isoformat()
     folder = OUT / FOLDER.get(raw.stem, "Other")
     folder.mkdir(exist_ok=True)
     raw.replace(folder / raw.name)
 for md in sorted(OUT.glob("*/ENG-[0-9][0-9].md")):
-    text = md.read_text(encoding="utf-8")
+    text = read(md)
     text = re.sub(r"checklist-[0-9]+", "<throwaway-token>", text)  # a per-run local test token
     note = NOTES.get(md.stem)
     if note and note not in text:
