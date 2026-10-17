@@ -24,7 +24,7 @@ My Jira tasks are worded differently from the build list, but they're the same w
 - Project **SRE** ("SOCO Recommendation Engine"), as me. It also holds 71 tasks of other people: the script never touches them.
 - My Jira tasks use the older plan's names (RE-09 to RE-22), so I matched them to the build list by hand: only my sprint 3 and 4 sub-tasks. Sprints 1 and 2 are already Done and left alone.
 - Built means In Progress in Jira (not Done until checked on the test server); Passed means Done.
-- Nothing has been changed in Jira yet: it waits for my go.
+- **First update, 17 Oct 2026 (approved by me):** 9 of my SRE tasks updated with a comment, a status move and the proof of the work attached (29 changes). RE-09 (filters) is Done; RE-10 to RE-13, RE-16, RE-18, RE-19 and RE-21 are In Progress until they're checked on the test server. Nothing else in Jira was touched.
 
 ## How to use it
 1. Put my Jira email and token in `.env`; fill in the site and project in `settings/jira_sync.toml`.
