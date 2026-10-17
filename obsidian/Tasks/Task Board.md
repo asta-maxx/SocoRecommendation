@@ -32,7 +32,7 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 - [ ] [[ENG-13 - Quotas]]: **built** (16 Oct: the pool of 300 in turns, 40/30/20/10, short sources pass on, no duplicates, reposts as their original, filters before and after; 24 tests pass; check on the test server later)
 - [ ] [[ENG-15 - Merge the shortlist]]: **built** (16 Oct: pool and similar posts merged into 200, scores as percentiles, duplicates keep both tags, cut by order; 14 tests pass; M2 all built)
 - [ ] [[ENG-16 - Promoter score]]: **built** (17 Oct: both methods with confidence, sales through reshares to the original author, own-store buys count for nobody, return requests respected; 17 tests pass; 108 promoters scored on dev; check on the test server later)
-- [ ] ENG-17: Product "you might also like"
+- [ ] [[ENG-17 - Products you might also like]]: **built** (17 Oct: both methods, lift by hand for three pairs matches, carts labelled intent until APP-22, back-up order recorded, viewed product and cart never shown, exactly limit; 28 tests pass; 263 product lists on dev; check on the test server later)
 
 ## Step 4: ranking and fraud
 - [ ] ENG-18: Opportunity scores (hidden)

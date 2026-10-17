@@ -8,6 +8,7 @@
     Test Output/M1/ENG-09 ... ENG-11
     Test Output/M2/ENG-12 ... ENG-15
     Test Output/M8/ENG-16
+    Test Output/M5/ENG-17
 
 Each file is named after its task (Allen, 17 Oct 2026); the run's date is inside it.
 
@@ -60,6 +61,7 @@ GROUPS = {
     "M1": ["ENG-09", "ENG-10", "ENG-11"],
     "M2": ["ENG-12", "ENG-13", "ENG-14", "ENG-15"],
     "M8": ["ENG-16"],
+    "M5": ["ENG-17"],
 }
 FOLDER = {task: group for group, tasks in GROUPS.items() for task in tasks}
 
@@ -131,7 +133,8 @@ SOCO's own data is only read.
 
 One folder per model: **Foundation** (ENG-01 to ENG-08, and ENG-29, the adapters the models build on), **M1**
 (interest score: ENG-09 to ENG-11), **M2** (finding posts for the feed: ENG-12 to ENG-15),
-**M8** (promoter score: ENG-16). Each task has three
+**M8** (promoter score: ENG-16),
+**M5** (products you might also like: ENG-17). Each task has three
 copies of the same evidence, named after the task: **.md** (formatted), **.log** (plain text), **.pdf** (to attach).
 The run's date is inside each file. Each file starts with the task's Build List v1.4 "How to check it is done",
 then every check: the command it ran, its full output and its exit code.

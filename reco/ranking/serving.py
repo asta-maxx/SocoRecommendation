@@ -4,12 +4,14 @@
     items      = served_items(page_items, explore=...)
     sample     = scored_sample(candidates, returned_ids, exploration)
 
-The ordering is the interim one the Build List sets for ENG-06 until the feed
-ranking (ENG-19) and the product ranker (ENG-17) exist: eligible items (E-01 to
-E-12, ENG-08) newest first -- posts on the feed, products on the product surface (the context
-product left out). Page p holds positions (p-1)*limit+1 to p*limit of that
-order. ENG-19 replaces this with the ranking layer, which also leaves out items
-served to the user in the last 24 hours.
+The feed's ordering is the interim one the Build List sets for ENG-06 until the
+feed ranking (ENG-19) exists: eligible posts (E-01 to E-12, ENG-08) newest first.
+Page p holds positions (p-1)*limit+1 to p*limit of that order. ENG-19 replaces
+this with the ranking layer, which also leaves out items served to the user in
+the last 24 hours. The product surface is ENG-17's product ranker
+(reco.ranking.products); interim_candidates still answers for "product" (eligible
+products newest first, the context product and the cart left out), which is the
+product ranker's last fallback step, but the request path no longer calls it.
 """
 
 from __future__ import annotations
@@ -72,6 +74,10 @@ class Built:
     candidates: list[Candidate]
     cache: dict  # accounts read for this request (reco.eligibility.apply)
     rows_read: int
+    #: The product surface (ENG-17, reco.ranking.products): the fallback step the list
+    #: records, and how it was built (the ordering, the steps used, the batch read).
+    fallback_step: str | None = None
+    detail: dict | None = None
 
 
 async def interim_candidates(
@@ -148,8 +154,8 @@ def scored_not_served(candidates: list[Candidate], returned: set[str], explorati
     every exploration request, the scored items -- every returned item and every
     one passed over -- each with its score. None on the other requests (F72:
     "Present on about 10% of E1 rows, and on every exploration row"). Until the
-    rankers exist (ENG-17, ENG-19) there is no model score: score is null and the
-    interim rank is kept."""
+    feed ranking exists (ENG-19) there is no model score: score is null and the
+    rank is kept (on the product surface, the rank in ENG-17's filled list)."""
     if not (exploration or rng.random() * 100 < percent):
         return None
     return [{"item_id": c.item_id, "score": None, "rank": c.rank, "returned": c.item_id in returned} for c in candidates]

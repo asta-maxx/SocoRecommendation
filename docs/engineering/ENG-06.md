@@ -142,7 +142,7 @@ was built to that clause:
 | Part | Interim behaviour | Replaced by |
 |---|---|---|
 | Feed ordering | Eligible posts, newest first | ENG-19 (ranking layer) |
-| Product ordering | Eligible products, newest first, the context product left out. **The pack is silent on a product interim**; this is our choice, matching the feed's and ENG-17's own last fallback step (*"3. eligible products, newest first"*). It must satisfy ENG-17's *"Always excluded: the product being viewed"* | ENG-17 (product ranker) |
+| Product ordering | Eligible products, newest first, the context product left out. **The pack is silent on a product interim**; this is our choice, matching the feed's and ENG-17's own last fallback step (*"3. eligible products, newest first"*). It must satisfy ENG-17's *"Always excluded: the product being viewed"* | **Done 17 Oct 2026:** ENG-17 serves the product surface (`reco/ranking/products.py`); newest first is now its step 3 |
 | Eligibility | The interim `reco/eligibility/basic.py`, **deleted 1 Oct 2026 (`11e515e`)** and replaced by ENG-08's rules E-01 to E-12 with the final recheck (§2 A) | Done (ENG-08) |
 | `fallback_step` | ~~`null` on the response and on every slot~~ Done 14 Oct 2026: on the feed, the interest slot's ladder rung (ENG-09 §2 item 6); product and promoter_score stay `null` | ENG-09 (done) |
 | Slots | Each slot records the method it **would** use (ENG-05), with `fallback_step` null | ENG-09, ENG-17, ENG-19 |
@@ -327,7 +327,9 @@ open connections themselves. PyMongo was raised from 4.10.1 to **4.18.2**
 (`requirements.txt`) for concurrent async operations: the viewer's context and
 the first page of items are read at the same time.
 
-### 9. Interim ordering: done on dev / ⏳ the real ranking (ENG-17, ENG-19)
+### 9. Interim ordering: done on dev / ⏳ the real ranking (ENG-19); product: replaced by ENG-17 (17 Oct 2026)
+
+> **17 Oct 2026:** the product surface no longer calls `interim_candidates`: it serves ENG-17's product ranker (`reco/ranking/products.product_candidates`), whose step is the response's `fallback_step`, and whose E1 carries `ordering: "eng17_product_ranker"` (docs/engineering/ENG-17.md §2.8). The feed is unchanged.
 
 `interim_candidates(settings, surface, page, limit, context_item_id, user_id, request_id)`:
 

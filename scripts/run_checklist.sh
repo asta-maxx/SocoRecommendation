@@ -308,6 +308,12 @@ check "15.1 one person, the promoter fallback, the return window, completed sale
 check "15.2 on a database: both methods with confidence; repost sale to the original; own-store buy for nobody; open request then completed; returned; reposts only not scored; a confirmed case halves (the ENG-16 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_promoter.py -p no:cacheprovider -m mongo" "1 passed"
 check "15.3 M8 scores SOCO's real promoters, both methods (into reco_demo; skipped would mean the return-request copy is not current)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs promoter" '"batches"'
 
+echo "== 16. ENG-17: M5 product ranker, both methods"
+proof_to ENG-17
+check "16.1 method one's components and rescaling; hand-computed lift for three pairs; at least 2 co-purchases; intent label; the fallback order and its step; context and cart never appear; exactly limit (no database)" "$PY -m pytest -q tests/test_product_ranker.py -p no:cacheprovider -m 'not mongo'" "27 passed"
+check "16.2 on a database: both batches current; lift by hand; both methods serve through the request path; cart and context left out; stale batch falls back; checkout baskets labelled checkout (the ENG-17 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_product_ranker.py -p no:cacheprovider -m mongo" "1 passed"
+check "16.3 M5 lists SOCO's real products, both methods (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs product_ranking" '"batches"'
+
 cleanup
 trap - EXIT
 if $PY -c "

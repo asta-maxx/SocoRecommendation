@@ -86,7 +86,7 @@ Whichever is chosen, **only one** may run per environment: see §7, "overlapping
 |---|---|---|---|
 | M1, both methods | `interest` | **Running** as batches (both methods) | here; since 14 Oct its input is the engine copies (ENG-10) |
 | M2 method two candidates | `similar_posts` | **Built** 16 Oct, in `NIGHTLY` after `interest` (writes `ml_user_candidates`) | ENG-14 |
-| M5, both methods | | waiting | ENG-17 |
+| M5, both methods | `product_ranking` | **Built** 17 Oct, in `NIGHTLY` after `promoter`; one batch per method into `ml_product_scores` | ENG-17 |
 | M8, both methods, monthly copy on the 1st | `promoter` | **Built** 17 Oct, in `NIGHTLY` after `similar_posts`; one batch per method; the monthly copy runs inside the job on the 1st | ENG-16 |
 | M6 | | waiting | ENG-18 |
 | The fraud rules | | waiting | ENG-21 |

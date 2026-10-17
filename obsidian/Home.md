@@ -55,6 +55,7 @@ This vault explains, in plain words, what I'm building and why. Every note ends 
 - [[ENG-13 - Quotas]]: built on dev, 16 Oct; the pool of 300 from the sources, in turns
 - [[ENG-15 - Merge the shortlist]]: built on dev, 16 Oct; the shortlist of 200 (M2 complete on dev)
 - [[ENG-16 - Promoter score]]: built on dev, 17 Oct; M8, each promoter's score, both methods
+- [[ENG-17 - Products you might also like]]: built on dev, 17 Oct; M5, the product rail, both methods
 - [[ENG-20 - Speed test]]: part 1 timer built, 13 Oct; waits on the feed address and a test login
 
 ## Demos

@@ -167,7 +167,7 @@ The Build List row has eleven parts (1–11). There are three extras (A–C).
 | Products on dev: no seller has a status, so nothing can be shown | Aravinth, question 17 → [[People]] |
 | ~~The plan-B ladder, reported on each list~~ | Done 14 Oct → [[ENG-09 - Fallback ladder]] |
 | Real feed ranking, and skipping what was shown in the last 24 hours | ENG-19 |
-| Real product ranking, and a real score on the "passed over" items | ENG-17 |
+| ~~Real product ranking~~ Done 17 Oct: the product rail now serves ENG-17's lists → [[ENG-17 - Products you might also like]]; a real score on the "passed over" items | ENG-19 |
 | Checklist line 6.1 expects 14 tests; there are 17 | A one-line fix in the checklist script |
 | The demo's receipt script still looks for the old field names | A small script fix (the demo uses a short command instead for now) |
 | The check on the **test** server | The test server → [[Environments]] |

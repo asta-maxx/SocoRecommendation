@@ -134,6 +134,9 @@ engagement_quality = 0.10
 lift_strength = 10                       # fixed
 min_co_purchases = 2                     # fixed
 price_band_fraction = 0.30               # fixed for Wave 1A (sheet range 0.10-0.50)
+stored_per_product = 100                 # 50-500. Not on the Settings sheet: products kept per viewed product, each method
+stored_per_category = 200                # 50-1000. Not on the Settings sheet: products kept per top-level category (fallback step 2)
+basket_source = "cart"                   # cart until APP-22 passes (lists labelled intent); then checkout (orders by checkout_id)
 
 [product.weights]                        # fixed for Wave 1A; sum to 1
 category = 0.35

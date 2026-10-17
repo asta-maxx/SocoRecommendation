@@ -241,7 +241,7 @@ def test_a_passed_task_moves_to_done(tmp_path, monkeypatch) -> None:
 
 def test_a_task_not_started_is_left_alone(tmp_path) -> None:
     fake = FakeJira()
-    report = sync(fake, tmp_path, cfg=config(issues={"SRE-1": ["ENG-17"]}))
+    report = sync(fake, tmp_path, cfg=config(issues={"SRE-1": ["ENG-19"]}))
     assert fake.writes() == [] and any("not started, nothing to report" in line for line in report)
 
 

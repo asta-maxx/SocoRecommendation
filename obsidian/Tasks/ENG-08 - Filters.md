@@ -119,7 +119,7 @@ Each item is tested against the rules in order, and the **first** rule it breaks
 - **What it asks:** apply the rules both before items are scored and on the finished list. No model can override them.
 - **What we did:** every list served now goes through the rules, and the page is checked again just before it leaves (part 16). Nothing after the rules can add an item back. The overnight jobs that will score items (the interest score, finding candidate posts, the product ranker) will call the very same rules on their candidates.
 - **Why it matters:** filtering early saves scoring things that can never be shown; filtering at the end is the safety net.
-- **Status:** on the served list, done. "Before scoring" waits on those overnight jobs (ENG-10, ENG-13, ENG-17), which aren't built yet. → [[Nightly batches]]
+- **Status:** on the served list, done. "Before scoring": the product ranker's overnight job now scores only products that can be bought (17 Oct → [[ENG-17 - Products you might also like]]); ENG-13 is still to come. → [[Nightly batches]]
 
 ### 15. Use the engine's 15-minute snapshot ⏳ ENG-27
 - **What it asks:** rules 4 to 9 and 12 read the current state of posts, accounts and products that ENG-27 keeps, refreshed every 15 minutes.
