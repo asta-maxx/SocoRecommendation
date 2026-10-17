@@ -91,17 +91,11 @@ def test_a_bad_configuration_refuses_to_run(change, message) -> None:
 
 def test_a_blank_settings_file_refuses_and_check_alone_runs_without_an_account(tmp_path) -> None:
     blank = tmp_path / "jira_sync.toml"
-    blank.write_text('base_url = ""
-project_key = ""
-allen_account_id = ""
-', encoding="utf-8")
+    blank.write_text('base_url = ""\nproject_key = ""\nallen_account_id = ""\n', encoding="utf-8")
     with pytest.raises(js.GuardError):
         js.Config.load(blank)
     no_account = tmp_path / "no_account.toml"
-    no_account.write_text('base_url = "https://mysoco.atlassian.net"
-project_key = "SRE"
-allen_account_id = ""
-',
+    no_account.write_text('base_url = "https://mysoco.atlassian.net"\nproject_key = "SRE"\nallen_account_id = ""\n',
                           encoding="utf-8")
     with pytest.raises(js.GuardError, match="allen_account_id"):
         js.Config.load(no_account)
