@@ -72,14 +72,14 @@ The Build List row's parts (1–4), in its order, then the extras.
 - **16 Oct 2026 (Kala):** a post's type is the detailed type, else the plain type; empty is "normal"; anything else is "other" and reported. Adding a type changes the model version.
 - **16 Oct 2026:** likes on your own posts, seed posts and test accounts don't shape your taste (as for the interest score).
 - **16 Oct 2026:** posts you engaged with long ago, or that can no longer be shown, still tell us your taste; they just can't be recommended.
-- **16 Oct 2026:** purchases aren't counted here, only activity; a purchase normally comes with a click or add-to-cart anyway.
+- **16 Oct 2026 (Nisha), built 17 Oct:** a purchase made from a post counts towards your taste with weight 20, like in the interest score. Cancelled, rejected or returned orders, and orders with a return request still open, add nothing.
+- **16 Oct 2026 (Nisha), built 17 Oct:** the posts your taste was built from are left off your list, and the next closest posts take their places, so you aren't shown what you've already seen.
 
 ## Still to do
 | What | Waiting on |
 |---|---|
 | Time the read on the test server, then mark Passed | The test server → [[Environments]] |
-| Should posts you already engaged with be left off your list? Kept on for now (the pack doesn't say) | Kala |
-| Should purchases count towards your taste? | Kala |
+| Raise the model version when this goes to the test server (the method changed on 17 Oct) | Deploy |
 | Real lists on dev | New posts on dev (none in the last 30 days) |
 | Merging this list with method one | [[ENG-15 - Merge the shortlist]] |
 

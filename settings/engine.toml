@@ -13,7 +13,7 @@
 # config_version is rejected: the engine keeps the last good version and logs
 # the fault. "fixed" means the sheet fixes the value for Wave 1A.
 
-config_version = "6"
+config_version = "7"
 changed_by = "Allen"
 
 [serving]
@@ -99,6 +99,7 @@ not_interested_or_hide = -5
 pool_size = 300                          # 100-2000. Cut first if speed is missed
 post_age_days = 30                       # fixed
 shortlist_size = 200                     # fixed
+shortlist_method_two_share = 0.4         # 0-1. ENG-15 (Nisha, 16 Oct): similar posts' share of the 200 (200 of 300 + 200)
 source_time_limit_ms = 20                # 10-40, each source, in parallel
 similar_engaged_posts = 50               # fixed. ENG-14 method two inputs
 similar_top_stored = 200                 # fixed
@@ -230,9 +231,11 @@ test_accounts = []
 
 [lists.category_map]                     # platform category -> one of the 23 (ENG-29 item 1; built 16 Oct, see below)
 # From the app's LEGACY_LABEL_MAP, its category tree's interest tags, and the app team's
-# answers of 16 Oct. Left out (reported daily as unmapped): bags & wallets, watches, fishing,
-# nature, shopping, Appliances, Tools & Home Improvement, Fishing & Marine, and the
-# catimp test categories (test data, not mapped).
+# answers of 16 Oct. Nisha's answers of 16 Oct (v7) added watches, appliances, tools &
+# home improvement, nature and fishing (below). Left out (reported daily as unmapped):
+# bags & wallets, shopping (says nothing about taste), Fishing & Marine (classified by its
+# products, never by its name: no such business on dev on 16 Oct), and the catimp test
+# categories (test data, not mapped).
 "agriculture" = "Organic & Eco"
 "art & handmade" = "Art & Collectibles"
 "art_&_collectibles" = "Art & Collectibles"
@@ -308,6 +311,12 @@ test_accounts = []
 "toys_&_kids" = "Toys & Kids"
 "travel" = "Travel & Lifestyle"
 "travel_&_lifestyle" = "Travel & Lifestyle"
+# Nisha, 16 Oct 2026 (config_version 7)
+"watches" = "Jewellery"
+"appliances" = "Home & Living"
+"tools & home improvement" = "Home & Living"
+"nature" = "Travel & Lifestyle"
+"fishing" = "Sports & Outdoors"
 "tyre & battery" = "Automotive"
 "vegetable & fruit market" = "Food & Beverages"
 "wedding_&_events" = "Wedding & Events"
@@ -324,7 +333,7 @@ test_accounts = []
 "refund of" = "refund"
 "returned to seller" = "returned"
 "order placed" = "created"                # the other texts the app writes (16 Oct): information only
-"rejected by buyer" = "cancelled"
+"rejected by buyer" = "rejected"         # the platform sets order_status Rejected (5 dev orders, 16 Oct)
 "replacement delivered" = "replacement"
 "exchange delivered" = "replacement"
 

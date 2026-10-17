@@ -69,7 +69,6 @@ python -m reco.jobs post_index      # the index now carries original_id
 
 | What | Waits on |
 |---|---|
-| Q7: popular short wraps to interest (built that way) | Kala / Nisha |
 | The check on the test server (checklist 13.x) | The test server |
 | Serving: ENG-15 merges the pool with the similar list (built 16 Oct); ENG-19 ranks | ENG-19 |
 | Filters read the platform for every offered post (up to ~1,200) per request; ENG-27 moves them onto `ml_item_state` | ENG-27 |
@@ -87,3 +86,7 @@ python -m reco.jobs post_index      # the index now carries original_id
 | `tests/test_quotas.py` | New |
 | `tests/test_sources.py` | A repost in the database test |
 | `scripts/run_checklist.sh` | Section 13 |
+
+## Update, 17 Oct 2026
+
+Nisha confirmed Q7 (16 Oct): popular's unused share passes round to interest, then follows, then trending, subject to available posts and the filters. Built that way on 16 Oct; no change.

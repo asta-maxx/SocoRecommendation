@@ -54,13 +54,12 @@ The sources ([[ENG-12 - Candidate sources]]) each offer up to 300 posts. This ta
 - That database check found a bug when several sources offer the same posts and all run short; fixed, and a check added so it can't come back.
 
 ## Decided
-- **16 Oct 2026:** after "popular" runs short, its places wrap round to "interests" (to confirm with Nisha, Q7).
+- **16 Oct 2026:** after "popular" runs short, its places wrap round to "interests", then follows, then trending. **Confirmed by Nisha** the same day.
 - **16 Oct 2026:** a reshare whose chain is broken is offered as itself; a recent reshare brings its original in even if the original is older than 30 days.
 
 ## Still to do
 | What | Waiting on |
 |---|---|
-| Confirm the wrap-round | Nisha (Q7) |
 | Run its check on the test server | The test server → [[Environments]] |
 
 ## How this connects

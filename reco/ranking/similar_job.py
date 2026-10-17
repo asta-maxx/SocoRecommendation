@@ -6,10 +6,12 @@
    retrieval.similar_max_posts (5,000), the most recent first; each gets its vector
    (reco.ranking.similar.post_vector).
 2. Each user's profile from their last retrieval.similar_engaged_posts (50) engaged
-   posts (the engine's copy of postevents), weighted by the ENG-10 action weights and
-   the interest.half_life_days (30) decay. A user with fewer than
+   posts (the engine's copies of postevents, and of orders for purchases made from a
+   post: Nisha, 16 Oct 2026), weighted by the ENG-10 action weights and the
+   interest.half_life_days (30) decay. A user with fewer than
    retrieval.similar_min_engaged (3) engaged posts gets no list.
-3. The top retrieval.similar_top_stored (200) pool posts per user by cosine, written
+3. The top retrieval.similar_top_stored (200) pool posts per user by cosine, leaving
+   out the posts the profile was built from (Nisha, 16 Oct 2026), written
    to ml_user_candidates as one ENG-07 batch (run_batch): requests read only the
    batch marked current (reco.store.candidates.read_user_candidates).
 
@@ -36,7 +38,7 @@ from reco.platform import fetch
 from reco.platform.readers import vocabulary
 from reco.platform.records import PostRecord
 from reco.ranking import similar
-from reco.store import candidates
+from reco.store import candidates, writers
 from reco.store.scores import utc_now
 
 logger = logging.getLogger("reco.job")
@@ -108,13 +110,30 @@ async def compute(settings: Settings, anchor: datetime) -> tuple[dict[str, list[
     missing = [pid for pid in engaged_ids if pid not in known]
     for start in range(0, len(missing), _IDS_PER_READ):
         known |= await fetch.read_posts(settings, missing[start:start + _IDS_PER_READ])
-    seed = {pid for pid, p in known.items() if p.is_seed}
     weights = tunables.interest.weights.model_dump()
+    tests = test_account_ids(anchor.date())
+
+    # Purchases made from a post (ENG-10's rules, as M1: ENG-30 points 7 and 10).
+    current, why = await writers.return_requests_current(
+        settings, anchor, tunables.commerce.return_request_current_hours)
+    if not current:
+        logger.warning("return-request copy not current; similar posts run on the last good copy", extra={"why": why})
+    orders = await writers.read_order_copies(settings)
+    bought_ids = sorted({str(o["post_id"]) for o in orders if o.get("post_id")} - set(known))
+    for start in range(0, len(bought_ids), _IDS_PER_READ):
+        known |= await fetch.read_posts(settings, bought_ids[start:start + _IDS_PER_READ])
+    seed = {pid for pid, p in known.items() if p.is_seed}
+    statuses = tunables.lists.order_status
+    purchases, purchase_skipped = similar.kept_purchases(
+        orders, anchor=anchor, reversed_statuses=(statuses.cancelled, statuses.rejected, statuses.returned),
+        open_requests=await writers.read_open_return_orders(settings), seed_posts=seed, test_accounts=tests)
     read = similar.engaged_by_user(
         rows, anchor=anchor, weights=weights, half_life_days=tunables.interest.half_life_days,
         qualified_view_ms=tunables.events.qualified_view_seconds * 1000,
-        seed_posts=seed, test_accounts=test_account_ids(anchor.date()),
+        seed_posts=seed, test_accounts=tests, purchases=purchases,
     )
+    read.skipped.update(purchase_skipped)
+    report.update(purchases=len(purchases), return_requests="current" if current else why)
     engaged_vectors: dict[str, similar.Vector] = dict(vectors)
     profile_types: Counter = Counter()
     profile_unlisted: Counter = Counter()
@@ -132,7 +151,8 @@ async def compute(settings: Settings, anchor: datetime) -> tuple[dict[str, list[
         if profile is None:
             too_few += 1
             continue
-        top = similar.top_similar(profile, pool, retrieval.similar_top_stored)
+        used = set(similar.last_engaged(read.by_user[user_id], engaged_vectors, retrieval.similar_engaged_posts))
+        top = similar.top_similar(profile, pool, retrieval.similar_top_stored, exclude=used)
         if top:
             lists[user_id] = top
     report.update(engaged_only_unlisted_post_types=dict(profile_unlisted), engaged_rows=len(rows), engaged_skipped=dict(read.skipped), users_engaged=len(read.by_user),

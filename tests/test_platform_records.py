@@ -228,7 +228,7 @@ REAL_HISTORY = {
     "Return requested (RET-115A15BF)": "return_request", "Refund of \u20b96099 initiated": "refund",
     "Returned to seller": "returned", "Cancelled by seller": "cancelled",
     # The other texts the app's code writes (its answers, 16 Oct), and Kala's F4 text.
-    "Order placed from proposal 12 (enquiry 6a1) by Arun": "created", "Rejected by buyer: changed mind": "cancelled",
+    "Order placed from proposal 12 (enquiry 6a1) by Arun": "created", "Rejected by buyer: changed mind": "rejected",
     "Replacement delivered (Urban Vogue)": "replacement", "Exchange delivered (Urban Vogue)": "replacement",
     "Refund of \u20b96099 paid (RET-115A15BF)": "refund", "Cancelled by buyer": "cancelled",
 }

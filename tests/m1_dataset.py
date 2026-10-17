@@ -12,7 +12,7 @@ is built for one check of ENG-11:
                    exactly the floor, 10, undecayed (5)
     cancelled      an Electronics order that was cancelled, one that was returned, and a
                    Pets view: Electronics nets to exactly zero (6)
-    unmappable     actions on a "Fishing" post and on posts with malformed categories,
+    unmappable     actions on a "Shopping" post and on posts with malformed categories,
                    and one Home & Living like: only Home & Living is scored (7)
     views          Pets views of 2.0 s, 2.999 s, 4 s and 5 s (the last two on one post):
                    event_count for Pets is 1 (8)
@@ -27,7 +27,7 @@ is built for one check of ENG-11:
     tester         a test account (in the settings' test_accounts) with six Home & Living likes:
                    left out of scoring (12)
 
-The "Fishing" post is also the unmapped category the daily check reports (13).
+The "Shopping" post is also the unmapped category the daily check reports (13).
 
 Pack v1.4 and Kala's answers of 16 Oct:
 
@@ -87,9 +87,9 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
     posts[-1]["_seedTag"] = "soco-seed-2024"  # test data (ENG-30 point 9)
     own_only = post([PETS])
     posts[-1]["userId"] = uid["ownonly"]
-    # "Fishing" has no match in the 23 or in the category map (the app's own map gives it
-    # none), so it stays unmapped. ("Cricket" maps to Sports & Outdoors since 16 Oct.)
-    cricket, malformed = post(["Fishing"]), post([None, 5, "", {"x": 1}])
+    # "Shopping" has no match in the 23 or in the category map (Nisha, 16 Oct: it says nothing
+    # about taste), so it stays unmapped. ("Cricket" and, since 17 Oct, "Fishing" map to Sports & Outdoors.)
+    cricket, malformed = post(["Shopping"]), post([None, 5, "", {"x": 1}])
 
     # --- products, through the category tree -------------------------------------------
     cat_elec = ObjectId()
@@ -189,7 +189,7 @@ def build_m1_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[s
                    "returner", "selfseed"},
         "not_scored": {"rung3", "rung5", "nothing", "author", "tester", "ownonly"},
         "test_account": "tester",
-        "unmapped": "Fishing",
+        "unmapped": "Shopping",
         "return_request_id": request_id,
         "selfseed_qualified": 2,
         "rungs": {"rung1": None, "rung2": "rung_2", "rung3": "rung_3", "rung4": "rung_4", "rung5": "rung_5"},

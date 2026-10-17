@@ -213,6 +213,10 @@ class Retrieval(_Section):
     source_shares: SourceShares = SourceShares()
     post_age_days: int = fixed(30)
     shortlist_size: int = fixed(200)  # ENG-15
+    #: ENG-15 (Nisha, 16 Oct 2026): method two's share of the shortlist's places when
+    #: both lists are full; 0.4 is the two lists' sizes, 200 of 300 + 200. A short list
+    #: passes its places to the other. Not on the pack's Settings sheet.
+    shortlist_method_two_share: float = between(0.4, 0.0, 1.0)
     source_time_limit_ms: int = between(20, 10, 40)  # ENG-12
     similar_engaged_posts: int = fixed(50)  # ENG-14
     similar_top_stored: int = fixed(200)
@@ -455,7 +459,7 @@ class OrderStatusValues(_Section):
 
 #: History events (Build List v1.4 ENG-30 point 5).
 TrackingStage = Literal["created", "accepted", "confirmed", "shipped", "payment", "delivered", "cancelled",
-                        "return_request", "refund", "returned", "replacement"]
+                        "rejected", "return_request", "refund", "returned", "replacement"]
 
 #: ENG-30 point 5, the history-text map: each tracking_info entry's opening words ->
 #: its history event, matched as whole words, ignoring case. Every text on the
@@ -474,7 +478,9 @@ TRACKING_STAGES: dict[str, str] = {
     # The other texts the app writes (its code, 16 Oct). Information only: the state
     # is order_status. A replacement or exchange is never the Delivered event.
     "order placed": "created",
-    "rejected by buyer": "cancelled",
+    # Nisha, 16 Oct: the status the platform sets for it (Rejected on all 5 dev orders).
+    # Scoring treats Cancelled and Rejected alike; order_status stays the state.
+    "rejected by buyer": "rejected",
     "replacement delivered": "replacement",
     "exchange delivered": "replacement",
 }
