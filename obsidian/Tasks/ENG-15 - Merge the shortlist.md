@@ -1,13 +1,13 @@
 ---
 tags: [task, step-3]
 task: ENG-15
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-15: Merge the shortlist
 
-> [!note] Status: **Built** (16 Oct 2026, on my laptop)
-> Works and is tested, including on a real database. Becomes **Passed** when the checklist runs on the test server. With it, all four M2 tasks are built.
+> [!note] Status: **Passed** (19 Oct 2026, on the test server)
+> Its check passed on the **test server** on 19 Oct 2026 (lines 14.1 and 14.2, 2 of 2). The test server is far from the database and slow, which does not affect this check.
 
 **In one line:** for each person, combine the pool of 300 ([[ENG-13 - Quotas]]) with their similar posts ([[ENG-14 - Similar posts]]) into one shortlist of up to 200, which the feed's ranking will order.
 

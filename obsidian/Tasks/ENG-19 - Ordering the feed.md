@@ -1,13 +1,13 @@
 ---
 tags: [task, step-4]
 task: ENG-19
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-19: Ordering the feed
 
-> [!note] Status: **Built** (17 Oct 2026, on my laptop)
-> Works and is tested, including on a real database. Becomes **Passed** when the checklist runs on the test server.
+> [!note] Status: **Passed** (19 Oct 2026, on the test server)
+> Its check passed on the **test server** on 19 Oct 2026 (lines 17.1 and 17.2, 2 of 2). The test server is far from the database and slow, which does not affect this check.
 
 **In one line:** put each person's feed in order: take their shortlist of 200 posts, give every post a score from what they like, how good the author is, how new the post is and how much people engage with it, then fill the page so it isn't all one person or one topic.
 

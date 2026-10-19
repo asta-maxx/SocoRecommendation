@@ -6,7 +6,7 @@
 | **Step** | Step 1 (within 7 working days) |
 | **Waits on** | ENG-01 (built on dev; its server parts come later) |
 | **Needed by** | ENG-03, ENG-04, ENG-05, ENG-07 |
-| **Status** | **Built.** First built 24 Sep 2026 to the 22 Sep row (check passed on dev, `Tracing/checks/ENG-02_2026-09-24.md`); **realigned to the v1.3 row on 1 Oct 2026** (commit `71b6981`), and its check passed again on dev the same day. Becomes Passed when re-run on test (Definitions: every check runs on test) |
+| **Status** | **Passed** (19 Oct 2026): its check passed in the checklist on the **test server** (19 Oct 2026, environment test, commit 6ddc3ce; proofs in `Test Output (test server)/`): lines 2.1 to 2.11, 11 of 11. Built on dev before |
 | **Spec** | Build List v1.3 ENG-02; SDA v1.6 SD-01, SD-05 to SD-10, SD-26 to SD-28; DS-017 v2.5 §3, §7; Settings sheet (v1.3); AS-04; X-02 |
 
 > **What changed on 1 Oct (v1.3).** The engine no longer receives events.

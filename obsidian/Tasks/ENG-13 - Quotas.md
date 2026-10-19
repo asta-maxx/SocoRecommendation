@@ -1,13 +1,13 @@
 ---
 tags: [task, step-3]
 task: ENG-13
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-13: Quotas (the pool of 300)
 
-> [!note] Status: **Built** (16 Oct 2026, on my laptop)
-> The pool works and is tested, including on a real database. It becomes **Passed** when the checklist runs on the test server.
+> [!note] Status: **Passed** (19 Oct 2026, on the test server)
+> Its check passed on the **test server** on 19 Oct 2026 (lines 13.1 and 13.2, 2 of 2). The test server is far from the database and slow, which does not affect this check.
 
 **In one line:** from the sources' posts, make one pool of up to 300 for each person: 40% from their favourite categories, 30% from people they follow, 20% trending, 10% popular, taken in turns, with no post twice.
 

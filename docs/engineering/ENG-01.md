@@ -395,3 +395,7 @@ The live demo script, in plain language, is the Obsidian note
 **16 Oct 2026 (Kala Q10):** production moves to a new item; ENG-01's check covers dev and test. On test the engine reads the platform through its own read-only login, separate from the engine's login.
 
 **16 Oct 2026:** the engine database now has **17** collections: ENG-01's sixteen and `ml_return_requests` (ENG-30 point 7, SDA v1.7). `setup_engine_db.py` and checklist 1.1 expect 17 of 17.
+
+## Update, 19 Oct 2026: the test environment
+
+The engine ran on the test server (`revealer`, Windows Server 2019) with `ENGINE_ENV=test` and its own engine database `soco_engine_test`: checklist lines 1.1 to 1.6 passed, 6 of 6 (17 collections; the platform login read-only, now also reading `returnrequests` and `commissionconfigs`; the safety lock; `.env` ignored; no password in tracked files; production refusing a `.env`). ENG-01 stays **Waiting** for production and its read-only login (Aravinth). The test server is far from Atlas (about 250 ms a round trip) and slow: see `Tracing/checks/TEST_SERVER_2026-10-19.md`.

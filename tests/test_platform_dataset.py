@@ -40,8 +40,8 @@ def parse_everything(dataset: dict[str, list[dict[str, Any]]]) -> list[str]:
     failures = []
     for collection, documents in dataset.items():
         kind = KIND_OF[collection]
-        if kind == "follower":
-            continue  # no parser yet: blocks are read by ENG-08 (shape: question 16)
+        if kind in ("follower", "commission_config"):
+            continue  # no record parser: blocks are read by ENG-08, commission rows by reco.platform.commission
         for doc in documents:
             try:
                 if kind in {"user", "business", "post", "category"}:

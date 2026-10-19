@@ -6,7 +6,7 @@
 | **Step** | Step 3 (within 17 working days) |
 | **Waits on** | ENG-03, ENG-29, ENG-30 (points 1, 2, 3, 5 to 9), ENG-07, ENG-10 |
 | **Needed by** | ENG-18 (M6 opportunity), ENG-19 (feed ranking) |
-| **Status** | **Built** (17 Oct 2026, dev). Becomes Passed when its check runs on the test server |
+| **Status** | **Passed** (19 Oct 2026): its check passed in the checklist on the **test server** (19 Oct 2026, environment test, commit 6ddc3ce; proofs in `Test Output (test server)/`): lines 15.1 to 15.3, 3 of 3. Built on dev before |
 | **Spec** | Build List v1.4 ENG-16; ENG-30 points 1, 2, 3, 5 to 9; Settings "M8 promoter" (weights, strength 20, cohort 20, trust × 0.5, low confidence below 20, follower bands) and "Commerce" (completed sale, 14 days, return window fallback 7, buffer 2, copy current 24 h); Fraud Policy v1.4 6.1 (level 3 restricted, 4 suspended, 5 removed); Kala's answers of 16 Oct (Q6: followers and account age) |
 
 ## 1. What the item requires

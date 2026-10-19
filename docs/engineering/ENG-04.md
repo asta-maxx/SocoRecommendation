@@ -6,7 +6,7 @@
 | **Step** | Step 1 (within 7 working days of starting) |
 | **Waits on** | ENG-02 (built), DB-02 (read-only login), APP-12 (`updated_at` on the platform side: reported built, not yet in the dev data) |
 | **Needed by** | ENG-06, ENG-10, ENG-25, DB-16, ENG-27, ENG-28, ENG-29 |
-| **Status** | **Built** (1 Oct 2026, on dev). All nine parts built and the checks (a)–(g) pass on constructed data; the real backfill ran into the dev engine database. Becomes Passed when re-run on **test** (Definitions: every check runs on test). Waits on APP-12, the test environment and ENG-29 (`rec_serve_log`, `tracking_info`) |
+| **Status** | **Passed** (19 Oct 2026): its check passed in the checklist on the **test server** (19 Oct 2026, environment test, commit 6ddc3ce; proofs in `Test Output (test server)/`): lines 4.1 to 4.11, 11 of 11 (checks (a) to (g) on constructed data, the real backfill and reconciliation). Built on dev before |
 | **Spec** | Build List v1.3 ENG-04 (and ENG-29 items 4, 7; DB-16 step 4; Settings sheet "Engine sync", "Keep event data"); DS-017 v2.5 §7; SDA v1.6 SD-29, SD-30, SD-27; Capture Register X-02, X-08, D8, F74, E1 |
 
 > **Replaces** the 22 Sep design of this item (`POST /v1/events`, `INGEST_TOKEN`, the four-pair reconciliation and the event source switch, built 29 Sep). DS-017 v2.5 §7: *"POST /v1/events, INGEST_TOKEN on events and the queued forwarding in v2.2 are retired."* The endpoint, the token and the switch were removed in the ENG-02 and ENG-03 realignments (see `Tracing/REALIGNMENT_v1.3.md`). The old check record `Tracing/checks/ENG-04_2026-09-29.md` is kept as history only.

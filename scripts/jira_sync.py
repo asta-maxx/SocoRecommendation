@@ -79,7 +79,7 @@ CONFIG = ROOT / "settings" / "jira_sync.toml"
 TASKS = ROOT / "obsidian" / "Tasks"
 PACK = ROOT / "Tracing" / "pack_text"
 OUT = ROOT / "Tracing" / "jira"
-PROOFS = ROOT / "Test Output"
+PROOFS = ROOT / "Test Output"  # settings/jira_sync.toml proofs_folder can name another, e.g. a test-server run
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 OWNER = "Allen"
 MARKER = "Sync ref"
@@ -116,6 +116,7 @@ class Config:
     max_writes_per_run: int = 20
     notes: dict[str, str] = field(default_factory=dict)  # issue key -> one line added to its comment
     attach_proofs: bool = True
+    proofs_folder: str = "Test Output"  # under the repo; attachments come only from here
 
     @classmethod
     def load(cls, path: Path = CONFIG, need_account: bool = True) -> Config:
@@ -132,6 +133,7 @@ class Config:
             max_writes_per_run=int(data.get("max_writes_per_run", 20)),
             notes={str(k).strip().upper(): str(v).strip() for k, v in (data.get("notes") or {}).items()},
             attach_proofs=bool(data.get("attach_proofs", True)),
+            proofs_folder=str(data.get("proofs_folder", "Test Output")),
         )
         cfg.validate(need_account)
         return cfg
@@ -153,6 +155,8 @@ class Config:
         for key in self.notes:
             if key not in self.issues:
                 raise GuardError(f"[notes] {key}: not one of the [issues]")
+        if not self.proofs_folder.startswith("Test Output") or "/" in self.proofs_folder or ".." in self.proofs_folder:
+            raise GuardError("proofs_folder must be a folder named 'Test Output...' at the top of the repo")
         for status, target in self.transitions.items():
             if status not in ENGINE_ORDER:
                 raise GuardError(f"[transitions] {status!r}: not an engine status ({', '.join(ENGINE_ORDER)})")
@@ -226,6 +230,13 @@ class Proof:
         if self.failed:
             text += f", {len(self.failed)} not passed: " + "; ".join(self.failed) + "; see the note at the top of the file"
         return text + ")"
+
+
+def proofs_root(cfg: Config | None) -> Path:
+    """The folder attachments come from: settings' proofs_folder, else Test Output/."""
+    if cfg is None or cfg.proofs_folder == "Test Output":
+        return PROOFS
+    return ROOT / cfg.proofs_folder
 
 
 def find_proof(eng: str, folder: Path | None = None) -> Proof | None:
@@ -325,7 +336,7 @@ class Jira:
         """Upload one proof PDF. Only a PDF inside Test Output/, the proof of a task this
         issue covers, under 10 MB; the rest of the guard is request()'s."""
         pdf = proof.pdf.resolve()
-        if PROOFS.resolve() not in pdf.parents or pdf.suffix.lower() != ".pdf":
+        if proofs_root(self.cfg).resolve() not in pdf.parents or pdf.suffix.lower() != ".pdf":
             raise GuardError(f"refused: {pdf} is not a PDF in Test Output/")
         if proof.eng not in allowed_engs or pdf.stem != proof.eng:
             raise GuardError(f"refused: {pdf.name} is not the proof of a task {key} covers")
@@ -459,7 +470,8 @@ def run_sync(jira: Jira, today: str | None = None, show: bool = False) -> list[s
         if status == "To build" and not target:
             report.append(f"{title}: not started, nothing to report")
             continue
-        proofs = [p for t in tasks if t.status != "To build" and (p := find_proof(t.eng))] if cfg.attach_proofs else []
+        folder = proofs_root(cfg)
+        proofs = [p for t in tasks if t.status != "To build" and (p := find_proof(t.eng, folder))] if cfg.attach_proofs else []
         on_issue = {a.get("filename") for a in fields.get("attachment") or []}
         for proof in proofs:
             if proof.filename in on_issue:

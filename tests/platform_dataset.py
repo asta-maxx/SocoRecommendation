@@ -227,6 +227,14 @@ def build_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[str,
          **personal},
     ]
 
+    # ENG-30 point 4: commission settings, platform and store rows (read raw by
+    # reco.platform.commission; the merge is tested in tests/test_commission.py).
+    commissionconfigs = [
+        {"_id": _id(), "scope": "platform", "scopeId": None, "enabled": True, "poolPercent": 10, "holdDays": 7,
+         "updatedAt": ago(days=3)},
+        {"_id": _id(), "scope": "seller", "scopeId": str(c["seller"]), "poolPercent": 5, "updatedAt": ago(days=2)},
+    ]
+
     return {
         "users": users,
         "businessregisters": businesses,
@@ -242,4 +250,5 @@ def build_dataset(now: datetime | None = None) -> tuple[dict[str, list[dict[str,
         "recommendationrequests": recommendationrequests,
         "rec_serve_log": rec_serve_log,
         "returnrequests": returnrequests,
+        "commissionconfigs": commissionconfigs,
     }, c

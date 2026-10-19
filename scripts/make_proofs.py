@@ -31,7 +31,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import markdown  # noqa: E402
 from render_pdf import CSS, PAGE, find_browser  # noqa: E402
 
-OUT = ROOT / "Test Output"
+#: The folder of raw ENG-NN.md files: "Test Output" by default, or another one named on
+#: the command line (e.g. a test server's run: python scripts/make_proofs.py "Test Output (test server)").
+OUT = ROOT / (sys.argv[1] if len(sys.argv) > 1 else "Test Output")
 EXTRA_CSS = """
 pre { white-space: pre-wrap; word-break: break-word; font-size: 7.6pt; page-break-inside: auto !important; break-inside: auto !important; }
 h2 { font-size: 11pt; margin-top: 6mm; page-break-after: avoid; break-after: avoid; page-break-inside: avoid; }
@@ -56,9 +58,27 @@ NOTES = {
               "the network adds two round trips, so the wall time is proved on the test server.",
 }
 
+#: Notes for a run on the test server (environment test), used instead of NOTES there.
+SERVER = ("**About this run.** It ran on the **test server** (environment test). That server is far from the "
+          "database (one round trip to Atlas about 250 ms on 19 Oct 2026, against about 25 ms from a laptop) and "
+          "about 10 to 20 times slower than a laptop even without the database. Every check that does not depend "
+          "on speed is valid here; the speed checks wait for a server next to the database.")
+NOTES_TEST_SERVER = {
+    "ENG-01": SERVER + " ENG-01's check also names production and its read-only login, which follow later.",
+    "ENG-03": SERVER + " **3.5** read every real platform document; the connection dropped during that long read.",
+    "ENG-06": SERVER + " **6.2, 6.3, 6.4**: a request may take 250 ms in all, and one round trip to the database "
+              "alone takes about that, so the engine answered 503 at once, as the pack requires (SD-26).",
+    "ENG-07": SERVER + " **7.5** times a job killed halfway; its timing assumes a normal-speed machine.",
+    "ENG-17": SERVER + " **16.2** serves through the request path, whose 250 ms limit the database round trip "
+              "alone uses up. The rules (16.1) and the run on SOCO's data (16.3) passed.",
+    "ENG-29": SERVER + " **8.9** seeded constructed data into soco_engine_test, which on the test server is the "
+              "engine's own database, so the seed rightly refused; the checklist now seeds soco_platform_test "
+              "(fixed 19 Oct 2026).",
+}
+
 #: Which folder each task goes in: the model it belongs to.
 GROUPS = {
-    "Foundation": ["ENG-01", "ENG-02", "ENG-03", "ENG-04", "ENG-05", "ENG-06", "ENG-07", "ENG-08", "ENG-29"],
+    "Foundation": ["ENG-01", "ENG-02", "ENG-03", "ENG-04", "ENG-05", "ENG-06", "ENG-07", "ENG-08", "ENG-29", "ENG-30"],
     "M1": ["ENG-09", "ENG-10", "ENG-11"],
     "M2": ["ENG-12", "ENG-13", "ENG-14", "ENG-15"],
     "M8": ["ENG-16"],
@@ -88,7 +108,8 @@ for raw in sorted(OUT.glob("ENG-[0-9][0-9].md")):
 for md in sorted(OUT.glob("*/ENG-[0-9][0-9].md")):
     text = read(md)
     text = re.sub(r"checklist-[0-9]+", "<throwaway-token>", text)  # a per-run local test token
-    note = NOTES.get(md.stem)
+    env = re.search(r"environment (\w+)", text)
+    note = (NOTES_TEST_SERVER.get(md.stem, SERVER) if env and env.group(1) == "test" else NOTES.get(md.stem))
     if note and note not in text:
         i = text.index("- **Command:**")
         j = text.index("\n", i)
@@ -127,9 +148,13 @@ for md in sorted(OUT.glob("*/ENG-[0-9][0-9].md")):
 rows = "\n".join(f"| {g} | {k} | {t} | {p} | {f} |"
                   for k, (g, t, p, f) in sorted(TITLES.items(), key=lambda kv: (list(GROUPS).index(kv[1][0])
                                                                                  if kv[1][0] in GROUPS else 99, kv[0])))
+first = next(iter(sorted(OUT.glob("*/ENG-[0-9][0-9].md"))), None)
+where = re.search(r"\*\*Run:\*\* (\S+) [^\n]* on (\S+) [^\n]*environment (\w+)", read(first)) if first else None
+ran_on = (f"run {where.group(1)} on {where.group(2)}, environment **{where.group(3)}**" if where
+          else "run on the dev laptop")
 (OUT / "README.md").write_text(f"""# Test Output: proof by model
 
-Produced {date.today().isoformat()} by `PROOF_DIR="Test Output" bash scripts/run_checklist.sh` on the dev laptop,
+Produced {date.today().isoformat()} from `PROOF_DIR="Test Output" bash scripts/run_checklist.sh`, {ran_on},
 against the Atlas build cluster. Everything the checks write goes into throwaway databases, dropped at the end.
 SOCO's own data is only read.
 
@@ -146,7 +171,7 @@ then every check: the command it ran, its full output and its exit code.
 |---|---|---|---|---|
 {rows}
 
-The official runs are on the **test** server (being set up); these are the dev runs. See the notes at the top of
+Official runs are on the **test** server; a run's environment is named above and in each file. See the notes at the top of
 ENG-01 (environments) and ENG-06 (speed over a laptop link).
 """, encoding="utf-8")
 print("README.md written")

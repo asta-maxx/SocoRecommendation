@@ -358,3 +358,14 @@ async def can_read(settings: Settings, kind: str) -> bool:
     except PyMongoError:
         return False
     return True
+
+
+#: ENG-30 point 4: only these fields of commissionconfigs are read.
+COMMISSION_FIELDS = ("scope", "scopeId", "enabled", "poolPercent", "minOrderAmount", "holdDays", "updatedAt")
+
+
+async def read_commission_configs(settings: Settings) -> list[dict[str, Any]]:
+    """Every commissionconfigs row, in full (ENG-30 point 4). A read failure raises."""
+    cursor = app_db(settings)[PLATFORM_COLLECTIONS["commission_config"]].find({}, {f: 1 for f in COMMISSION_FIELDS})
+    return [doc async for doc in cursor]
+

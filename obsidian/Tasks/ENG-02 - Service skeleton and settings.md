@@ -1,13 +1,13 @@
 ---
 tags: [task, step-1]
 task: ENG-02
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-02: Service skeleton and settings
 
-> [!note] Status: **Built** (24 Sep 2026; realigned to the new pack on 1 Oct 2026)
-> All 6 parts are built, and the task's official check **passed on my laptop**, first on 24 Sep and again on 1 Oct after the update. The pack says every check must also be run on the **test** server. Once that server exists and the check passes there, this becomes **Passed**.
+> [!note] Status: **Passed** (19 Oct 2026, on the test server)
+> Its check passed on the **test server** on 19 Oct 2026 (lines 2.1 to 2.11, 11 of 11). The test server is far from the database and slow, which does not affect this check.
 
 > [!tip] 16 Oct 2026: rollbacks are now written in the diary
 > Kala found that going back to an older settings version wasn't recorded. Now every version put in force is written, a rollback marked as one. Once this is shown, ENG-02 is **Passed** (test server not needed). → [[Answers 16 Oct]]

@@ -341,10 +341,12 @@ def test_every_record_kind_has_a_parser_and_a_collection() -> None:
 
 
 def test_platform_collections_are_exactly_db_02s_read_list() -> None:
-    """The read list (DS-017 v2.6 section 7) and ENG-30's addition, returnrequests (v1.4)."""
+    """The read list (DS-017 v2.6 section 7) and ENG-30's additions (v1.4): returnrequests
+    (point 7) and commissionconfigs (point 4); "a read role on the soco database covers them"."""
     assert set(PLATFORM_COLLECTIONS.values()) == {
         "postevents", "orders", "recommendationrequests", "rec_serve_log", "posts", "users", "businessregisters",
-        "products", "productvariants", "categories", "follows", "followers", "carts", "returnrequests"}
+        "products", "productvariants", "categories", "follows", "followers", "carts", "returnrequests",
+        "commissionconfigs"}
 
 
 # --- one source per kind of data; no event source switch -----------------------------------

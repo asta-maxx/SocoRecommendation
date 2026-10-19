@@ -193,6 +193,10 @@ async def compute(settings: Settings, anchor: datetime, commerce_readable: bool)
         for product in await fetch.read_where(settings, "product", "_id", product_ids[start:start + _IDS_PER_READ]):
             products[product.product_id] = product
     open_requests = await writers.read_open_return_orders(settings)
+    # ENG-30 point 8: policySnapshot.windowDays is a cross-check only; a difference from
+    # the product's current window is logged, never used for timing.
+    snapshot_windows = await writers.read_return_request_windows(settings)
+    window_differs: list[dict[str, Any]] = []
     order_skipped: Counter = Counter()
     outcomes: Counter = Counter()
     completed_value: Counter = Counter()
@@ -225,6 +229,10 @@ async def compute(settings: Settings, anchor: datetime, commerce_readable: bool)
             window, fallback = sales.return_window_days(products.get(str(order.get("product_id"))),
                                                         tunables.commerce.return_window_fallback_days)
             fallback_windows += fallback
+            snapshot = snapshot_windows.get(str(order.get("order_id") or order.get("_id")))
+            if snapshot is not None and snapshot != window:
+                window_differs.append({"order_id": str(order.get("order_id") or order.get("_id")),
+                                       "product_window": window, "request_window": snapshot})
             outcome = sales.sale_outcome(order, now=anchor, window_days=window, rules=rules, open_requests=open_requests)
             outcomes[outcome] += 1
             if outcome == sales.COMPLETED:
@@ -234,6 +242,9 @@ async def compute(settings: Settings, anchor: datetime, commerce_readable: bool)
                 final_count[author] += 1
             if outcome in sales.BAD:
                 bad_count[author] += 1
+    if window_differs:
+        logger.warning("return request window differs from the product's current window (cross-check only)",
+                       extra={"job": store.JOB, "orders": len(window_differs), "examples": window_differs[:10]})
     if fallback_windows:
         logger.info("return window fallback used", extra={"job": store.JOB, "orders": fallback_windows,
                                                           "days": tunables.commerce.return_window_fallback_days})
@@ -256,7 +267,8 @@ async def compute(settings: Settings, anchor: datetime, commerce_readable: bool)
         no_qualified_views=no_views, scored=len(scored), commerce_on=commerce_on, commerce_readable=commerce_readable,
         orders_in_window=len(orders), order_outcomes=dict(outcomes), orders_skipped=dict(order_skipped),
         reposts_on_orders=dict(repost_report), credited_to_original_not_promoter_id=promoter_differs,
-        return_window_fallbacks=fallback_windows, events_skipped=dict(skipped),
+        return_window_fallbacks=fallback_windows, return_window_differs=len(window_differs),
+        events_skipped=dict(skipped),
         fraud_restricted=sum(1 for v in fraud.values() if v == store.RESTRICTED_LEVEL),
     )
     return scored, report

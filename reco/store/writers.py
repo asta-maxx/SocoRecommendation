@@ -700,3 +700,22 @@ async def return_requests_current(settings: Settings, now: datetime, hours: int)
         return False, f"the last reconciliation of returnrequests ({check.get('day')}) did not pass"
     return True, "current"
 
+
+async def read_unmatched_history(settings: Settings) -> list[dict[str, Any]]:
+    """ENG-30 point 5: order-history texts the history-text map does not match, across
+    the engine's copies of orders, with how many orders carry each (most first)."""
+    cursor = await ml_db(settings)["ml_orders"].aggregate([
+        {"$match": {"history_unmatched.0": {"$exists": True}}},
+        {"$unwind": "$history_unmatched"},
+        {"$group": {"_id": "$history_unmatched", "orders": {"$sum": 1}}},
+        {"$sort": {"orders": -1, "_id": 1}},
+    ])
+    return [{"text": row["_id"], "orders": row["orders"]} async for row in cursor]
+
+
+async def read_return_request_windows(settings: Settings) -> dict[str, float]:
+    """ENG-30 point 8's cross-check: order_id -> the window the platform applied to its
+    return request (policySnapshot.windowDays, copied as window_days)."""
+    cursor = ml_db(settings)["ml_return_requests"].find({"window_days": {"$ne": None}}, {"order_id": 1, "window_days": 1})
+    return {str(row["order_id"]): float(row["window_days"]) async for row in cursor if row.get("order_id")}
+

@@ -210,7 +210,11 @@ def test_an_issue_with_a_task_that_is_not_allens_is_refused(tmp_path, monkeypatc
 # --- what it writes -----------------------------------------------------------------------------
 
 
-def test_a_comment_then_a_forward_move_and_nothing_else(tmp_path) -> None:
+def test_a_comment_then_a_forward_move_and_nothing_else(tmp_path, monkeypatch) -> None:
+    tasks = js.read_tasks()
+    for eng in ("ENG-12", "ENG-13", "ENG-15"):  # fixed here, whatever the vault says later
+        tasks[eng] = js.Task(eng, "Built", "Allen", tasks[eng].name)
+    monkeypatch.setattr(js, "read_tasks", lambda: tasks)
     fake = FakeJira()
     report = sync(fake, tmp_path)
     assert set(fake.writes()) == {("POST", "/rest/api/3/issue/SRE-1/comment"), ("POST", "/rest/api/3/issue/SRE-1/transitions"),
@@ -401,4 +405,12 @@ def test_an_unverified_issue_gets_no_attachment(proofs) -> None:
     with pytest.raises(js.GuardError, match="not verified"):
         jira(fake).attach("SRE-1", js.find_proof("ENG-12"), ["ENG-12"])
     assert fake.writes() == []
+
+
+def test_the_proofs_folder_setting_is_guarded(tmp_path) -> None:
+    with pytest.raises(js.GuardError, match="proofs_folder"):
+        config(proofs_folder="../elsewhere")
+    with pytest.raises(js.GuardError, match="proofs_folder"):
+        config(proofs_folder="Documents")
+    assert js.proofs_root(config(proofs_folder="Test Output (test server)")) == js.ROOT / "Test Output (test server)"
 

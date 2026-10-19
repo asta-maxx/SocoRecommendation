@@ -176,12 +176,19 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 | 16.1 | Method one's five measures and rescaling, lift worked out by hand for three pairs, pairs need 2, "intent" label, the back-up order and its step, never the viewed product or the cart, exactly the number asked for (tests) |
 | 16.2 | On a real database: both methods stored and served, lift by hand, cart and viewed product left out, a stale batch falls back, checkouts once switched |
 | 16.3 | The product ranker runs on SOCO's real data |
+| 16.4 | Both methods serve: one product request for a person on each method, through the real request path |
 
 ### 17. ENG-19: ordering the feed → [[ENG-19 - Ordering the feed]]
 | Line | Checks |
 |---|---|
 | 17.1 | The score worked out by hand, authors with no promoter score, the variety rules and the order they loosen in, the shuffle fix, later pages (tests) |
 | 17.2 | On a real database: the order follows the score, the variety rules hold, changing a commission changes nothing, page 2 repeats nothing from page 1 |
+
+### 18. ENG-30: commission settings → [[ENG-30 - Adapting to the October platform facts]]
+| Line | Checks |
+|---|---|
+| 18.1 | Commission layers (defaults, platform, store, product), nonsense values ignored, clashes resolved, unreadable means no run; unknown order-history texts reported daily (tests) |
+| 18.2 | On a real database: the commission settings read and merged |
 
 ### Last line: clean up
 | Line | Checks |
@@ -208,3 +215,6 @@ Lines 4.3 to 4.9 act out the task's official check, (a) to (g) → [[Engine sync
 - Every line comes from a task's check on the → [[Task Board]].
 - The same steps, shown live to an audience → [[How to demo a task]].
 - Each new task adds its own lines here as it's built.
+
+## Test server, 19 Oct 2026
+First full run on the test server: 85 passed, 8 not passed (speed: the server is far from the database and slow; plus one checklist mistake, fixed). → [[Test server run 19 Oct]]

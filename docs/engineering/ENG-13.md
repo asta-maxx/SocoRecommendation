@@ -6,7 +6,7 @@
 | **Step** | Step 3 (within 17 working days) |
 | **Waits on** | ENG-12 (Built), ENG-08 (Passed) |
 | **Needed by** | ENG-15 (merge), ENG-22 (checks 2 to 4) |
-| **Status** | **Built** (16 Oct 2026, dev). Its check is code and tests, so it becomes Passed when the checklist runs on the test server |
+| **Status** | **Passed** (19 Oct 2026): its check passed in the checklist on the **test server** (19 Oct 2026, environment test, commit 6ddc3ce; proofs in `Test Output (test server)/`): lines 13.1 and 13.2, 2 of 2. Built on dev before |
 | **Spec** | Build List v1.4 ENG-13; Settings sheet "M2 retrieval" (pool size 300, 100–2,000; source shares 40/30/20/10, fixed); ENG-30 point 3 and Settings "Repost chain limit" (10, fixed); ENG-08 (E-01 to E-12) |
 
 ## 1. What the item requires

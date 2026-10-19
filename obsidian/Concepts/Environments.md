@@ -35,3 +35,6 @@ The engine's health page (`/health`) now says which environment it's in.
 - Required by → [[ENG-01 - Engine home and databases]].
 - Production has strict rules about passwords → [[Secrets and passwords]].
 - The demo only had one setup → [[Before Wave 1A - the M1 demo]].
+
+## Test server, 19 Oct 2026
+The engine now runs on the test server too, with its own test database, and all its checks that don't depend on speed passed there. But the server is far from the database (a quarter of a second each trip) and slow, so it can't prove the speed targets. Needed: a server close to the database, with 2 to 4 cores and 8 GB. → [[Test server run 19 Oct]]

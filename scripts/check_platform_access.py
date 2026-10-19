@@ -51,6 +51,13 @@ async def main() -> int:
         )
         names = set(await db.list_collection_names())
         readable = {name: name in names for name in READ_CHECK}
+        # ENG-30 points 4 and 7: "the service confirms it with one read of each".
+        for name in ("returnrequests", "commissionconfigs"):
+            try:
+                await db[name].find_one({}, {"_id": 1})
+                readable[name] = True
+            except Exception:  # noqa: BLE001 - any refusal means the login cannot read it
+                readable[name] = False
 
         print(f"platform database  {settings.app_mongo_db} on {', '.join(_hosts_of(settings.app_mongo_uri))}")
         print(f"logged in          {'yes' if info.get('authenticatedUsers') else 'NO'}")

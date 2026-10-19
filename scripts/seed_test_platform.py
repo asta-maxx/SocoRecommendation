@@ -1,6 +1,6 @@
 """Fill a test platform database with constructed platform-shaped data. ENG-29 item 8.
 
-    .venv/bin/python scripts/seed_test_platform.py soco_engine_test
+    .venv/bin/python scripts/seed_test_platform.py soco_platform_test
 
 Writes every platform collection the engine reads (tests/platform_dataset.py)
 into the named database on the ENGINE cluster (ML_MONGO_URI; the platform login
@@ -10,7 +10,7 @@ result printed.
 
 Refuses any name without "test" in it, and the configured platform and engine
 databases, so it can never write into real data. To point the engine at it:
-APP_MONGO_URI=<engine cluster URI> APP_MONGO_DB=soco_engine_test.
+APP_MONGO_URI=<engine cluster URI> APP_MONGO_DB=soco_platform_test.
 """
 
 from __future__ import annotations

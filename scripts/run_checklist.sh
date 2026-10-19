@@ -255,7 +255,8 @@ check "8.5 a product post on a feed list keeps post_id and product_id apart" "$T
 check "8.6 rec_serve_log rows are read and copied" "$T -k serve_log" "2 passed"
 check "8.7 status spellings from the settings" "$T -k spellings" "1 passed"
 check "8.8 the real daily category check runs on SOCO's data" "ML_MONGO_DB=reco_demo $PY -m reco.jobs category_check" '"outcome": "succeeded"'
-check "8.9 the engine test environment holds the constructed data" "$PY scripts/seed_test_platform.py soco_engine_test" "all parse"
+# Its own database name: on the test server soco_engine_test is the engine's database, which the seed rightly refuses.
+check "8.9 the engine test environment holds the constructed data" "$PY scripts/seed_test_platform.py soco_platform_test" "all parse"
 
 echo "== 9. ENG-08: eligibility filters E-01 to E-12"
 proof_to ENG-08
@@ -313,11 +314,17 @@ proof_to ENG-17
 check "16.1 method one's components and rescaling; hand-computed lift for three pairs; at least 2 co-purchases; intent label; the fallback order and its step; context and cart never appear; exactly limit (no database)" "$PY -m pytest -q tests/test_product_ranker.py -p no:cacheprovider -m 'not mongo'" "27 passed"
 check "16.2 on a database: both batches current; lift by hand; both methods serve through the request path; cart and context left out; stale batch falls back; checkout baskets labelled checkout (the ENG-17 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_product_ranker.py -p no:cacheprovider -m mongo" "1 passed"
 check "16.3 M5 lists SOCO's real products, both methods (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs product_ranking" '"batches"'
+check "16.4 both methods serve: one product request for a user assigned each method, through the request path (ENG-17's check, on the environment it runs in)" "ML_MONGO_DB=reco_demo $PY scripts/try_product_methods.py" "both methods served: yes"
 
 echo "== 17. ENG-19: the feed ranking"
 proof_to ENG-19
 check "17.1 the formula by hand, Kala's ladder for authors with no score, variety and its relaxation order, the shuffle fix, paging (no database)" "$PY -m pytest -q tests/test_feed_ranking.py -p no:cacheprovider -m 'not mongo'" "16 passed"
 check "17.2 on a database: the order follows the formula, variety rules hold, a product's commission changes nothing, page 2 leaves out page 1 (the ENG-19 check)" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_feed_ranking.py -p no:cacheprovider -m mongo" "1 passed"
+
+echo "== 18. ENG-30: commission settings (point 4) and the daily report of unmatched history texts (point 5)"
+proof_to ENG-30
+check "18.1 store disabled and product 15 merge; a missing field falls through; poolPercent 60 ignored and logged; a duplicate scope resolves to the later row; unreadable means M6 does not run; unmatched history texts reported daily (no database)" "$PY -m pytest -q tests/test_commission.py -p no:cacheprovider -m 'not mongo'" "17 passed"
+check "18.2 on a database: commissionconfigs read in full, only the fields used, and merged" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_commission.py -p no:cacheprovider -m mongo" "1 passed"
 
 cleanup
 trap - EXIT

@@ -1,13 +1,13 @@
 ---
 tags: [task, step-3]
 task: ENG-16
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-16: Promoter score (M8)
 
-> [!note] Status: **Built** (17 Oct 2026, on my laptop)
-> Works and is tested, including on a real database and on SOCO's dev data (108 promoters scored). Becomes **Passed** when the checklist runs on the test server.
+> [!note] Status: **Passed** (19 Oct 2026, on the test server)
+> Its check passed on the **test server** on 19 Oct 2026 (lines 15.1 to 15.3, 3 of 3). The test server is far from the database and slow, which does not affect this check.
 
 **In one line:** every night, score each person or store who posts (a "promoter") from 0 to 1 on how well their posts do: how many people they reach, how much those people engage, how regularly they post, and how many real, kept sales come through their posts.
 

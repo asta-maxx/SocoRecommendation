@@ -6,7 +6,7 @@
 | **Step** | Step 3 (within 17 working days) |
 | **Waits on** | ENG-13 (Built), ENG-14 (Built) |
 | **Needed by** | ENG-19 (feed ranking), ENG-22 (retrieval checks) |
-| **Status** | **Built** (16 Oct 2026, dev). Becomes Passed when the checklist runs on the test server |
+| **Status** | **Passed** (19 Oct 2026): its check passed in the checklist on the **test server** (19 Oct 2026, environment test, commit 6ddc3ce; proofs in `Test Output (test server)/`): lines 14.1 and 14.2, 2 of 2. Built on dev before |
 | **Spec** | Build List v1.4 ENG-15; Settings sheet "M2 retrieval" (shortlist cap 200, fixed); ENG-13 (the interleaved order); ENG-08 (filters) |
 
 ## 1. What the item requires

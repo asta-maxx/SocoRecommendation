@@ -1,13 +1,13 @@
 ---
 tags: [task, step-1]
 task: ENG-04
-status: Built
+status: Passed
 owner: Allen
 ---
 # ENG-04: Engine sync
 
-> [!note] Status: **Built** (rebuilt 1 Oct 2026)
-> On 29 Sep this task was a front door that SOCO would send events to. Pack v1.3 retired that door and rewrote the task: the engine now **goes and copies** SOCO's activity itself. All 9 parts are built, the checks pass on my laptop, and the first real copy of SOCO's data is done. It becomes **Passed** once the checks run on the test server.
+> [!note] Status: **Passed** (19 Oct 2026, on the test server)
+> Its check passed on the **test server** on 19 Oct 2026 (lines 4.1 to 4.11, 11 of 11 (checks (a) to (g) on constructed data, the real backfill and reconciliation)). The test server is far from the database and slow, which does not affect this check.
 
 **In one line:** every few minutes, the engine copies what shoppers did, their orders, and the lists SOCO showed them, from SOCO's database into its own, and keeps those copies for a year.
 

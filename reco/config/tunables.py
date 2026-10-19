@@ -305,10 +305,22 @@ class OpportunityWeights(_Section):
         return self
 
 
+class CommissionDefaults(_Section):
+    """ENG-30 point 4, Settings "Commission rate": the built-in defaults a product's
+    commission starts from before the platform, store and product rows. They change
+    only if the app changes them (AS-24)."""
+
+    enabled: bool = True
+    pool_percent: float = fixed(10)
+    min_order_amount: float = fixed(0)
+    hold_days: float = fixed(7)
+
+
 class Opportunity(_Section):
     """ENG-18."""
 
     weights: OpportunityWeights = OpportunityWeights()
+    commission_defaults: CommissionDefaults = CommissionDefaults()
     default_commission_rate: float = fixed(0.10)
     sell_through_window_days: int = fixed(30)  # sheet range 7-180, fixed for Wave 1A
 

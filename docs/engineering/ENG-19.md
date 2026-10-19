@@ -6,7 +6,7 @@
 | **Step** | Step 4 (within 22 working days) |
 | **Waits on** | ENG-15 (Built), ENG-16 (Built), ENG-10 (Passed) |
 | **Needed by** | ENG-23 (final acceptance queries) |
-| **Status** | **Built** (17 Oct 2026, dev). Becomes Passed when its check runs on the test server |
+| **Status** | **Passed** (19 Oct 2026): its check passed in the checklist on the **test server** (19 Oct 2026, environment test, commit 6ddc3ce; proofs in `Test Output (test server)/`): lines 17.1 and 17.2, 2 of 2. Built on dev before |
 | **Spec** | Build List v1.4 ENG-19; Settings "Ranking" (weights 0.35/0.15/0.20/0.20/0.10, freshness half-life 3 days, variety, engagement shrinkage 50 views) and "Serving" (page de-duplication 24 hours, exploration 5% top 3 kept, ranking stage 80 ms); Kala's answer of 16 Oct (Q8: an author with no promoter score) |
 
 ## 1. What the item requires

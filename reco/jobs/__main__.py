@@ -169,12 +169,15 @@ async def _reconcile_sync(settings: Settings) -> None:
 
 
 async def _category_check(settings: Settings) -> None:
-    """ENG-29 item 1: report categories outside the 23 and not in the category map."""
+    """ENG-29 item 1: report categories outside the 23 and not in the category map; and
+    ENG-30 point 5: report order-history texts the history-text map does not match."""
     async with job_run("category_check"), recorded_run(settings, "category_check") as run:
         unmapped = await category_check.check_categories(settings)
-        run["detail"] = {"unmapped": len(unmapped)}
+        history = await category_check.check_history_texts(settings)
+        run["detail"] = {"unmapped": len(unmapped), "unmatched_history_texts": len(history)}
         job_logger.info("category check", extra={"job": "category_check", "unmapped": len(unmapped),
-                                                 "labels": [row["label"] for row in unmapped[:20]]})
+                                                 "labels": [row["label"] for row in unmapped[:20]],
+                                                 "unmatched_history_texts": [row["text"] for row in history[:20]]})
 
 
 async def _nightly(settings: Settings) -> None:

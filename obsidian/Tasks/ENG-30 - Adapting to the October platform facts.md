@@ -1,12 +1,12 @@
 ---
 tags: [task, step-3]
 task: ENG-30
-status: In progress
+status: Built
 owner: Allen
 ---
 # ENG-30: Adapting to the October platform facts
 
-> [!note] Status: **In progress** (15 Oct 2026)
+> [!note] Status: **Built** (19 Oct 2026): all 11 points built
 > New in pack v1.4. Three of its eleven points are done, with the rework of the built tasks: order history read as events (5), returns only at "Returned" (6), and the E-12 check (11). The rest is still to build.
 
 > [!tip] 16 Oct 2026
@@ -60,10 +60,9 @@ v1.4 keeps the words of ENG-01 to ENG-11 and ENG-29, and puts every correction h
 - **What they ask:** who promoted an order (the order says; if not, the post's author); a person and the stores they own count as one person; each product's return window (0 if it can't be returned, 7 days if it doesn't say, plus 2 days).
 - **What we did:** built with [[ENG-16 - Promoter score]], which needs all three. Buying through your own store now counts for nobody.
 
-### 4. Still to build ⏳
-| # | In plain words |
-|---|---|
-| 4 | Commission settings for opportunities, layered platform → store → product (needed by ENG-18) |
+### 4. Commission settings ✅ (19 Oct)
+- **What it asks:** each product's commission, built up in layers: the built-in defaults, then SOCO's platform setting, then the store's, then the product's. Nonsense values (like 60%) are ignored and noted; if two settings clash, the newer wins; if the settings can't be read, the opportunity job doesn't run at all rather than guess.
+- **What we did:** exactly that, ready for the opportunity list (ENG-18, when built). Also: a daily report of order-history texts the engine doesn't recognise, a check that the engine can read the return-request and commission collections, and a note whenever a return request's window differs from the product's.
 
 ## Result (15 Oct 2026)
 - All automatic checks pass (601). The interest-score check script: 13 of 13.
@@ -72,7 +71,7 @@ v1.4 keeps the words of ENG-01 to ENG-11 and ENG-29, and puts every correction h
 ## Still to do
 | What | Waiting on |
 |---|---|
-| Point 4 (points 1, 2, 3 and 8 done 16-17 Oct with ENG-13 and ENG-16) | Me, with ENG-18 |
+| ~~Point 4~~ | Done 19 Oct: every point is built |
 | Run its check on the **test** server | The test server → [[Environments]] |
 
 ## How this connects

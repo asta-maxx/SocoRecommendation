@@ -70,6 +70,7 @@ PLATFORM_COLLECTIONS: dict[str, str] = {
     "served_list": "recommendationrequests",
     "serve_log": "rec_serve_log",  # SOCO_BE's serve log (APP-15, ENG-29)
     "return_request": "returnrequests",  # open return requests, no personal fields (ENG-30 point 7)
+    "commission_config": "commissionconfigs",  # commission settings, for M6 (ENG-30 point 4)
 }
 
 #: ENG-03 "Ignored" (v1.3): platform data the engine must not read, and the only

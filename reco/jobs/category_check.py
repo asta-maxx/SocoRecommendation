@@ -30,3 +30,21 @@ async def check_categories(settings: Settings) -> list[dict[str, Any]]:
         alert("unmapped_categories", "platform categories outside the 23 and not in the category map",
               count=len(unmapped), labels=[row["label"] for row in unmapped[:20]])
     return unmapped
+
+
+async def check_history_texts(settings: Settings) -> list[dict[str, Any]]:
+    """ENG-30 point 5: "An entry that matches nothing is reported daily and never
+    guessed." Recorded in ml_measurements (measure unmatched_history_texts) and
+    alerted when there is any."""
+    unmatched = await writers.read_unmatched_history(settings)
+    day = utc_now().astimezone(IST).date().isoformat()
+    await writers.record_measurement(
+        settings, {"measure": "unmatched_history_texts", "day": day},
+        {"checked_at": utc_now(), "texts": unmatched[:200], "count": len(unmatched),
+         "orders": sum(row["orders"] for row in unmatched)},
+    )
+    if unmatched:
+        alert("unmatched_history_texts", "order-history texts the history-text map does not match",
+              count=len(unmatched), texts=[row["text"] for row in unmatched[:20]])
+    return unmatched
+
