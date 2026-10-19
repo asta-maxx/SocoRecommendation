@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# The whole test-server run in one command, so nothing has to be pasted.
+#
+#     bash scripts/test_server_run.sh
+#
+# Run from the repo root in Git Bash (Windows) or bash (Linux), after cloning
+# branch wave1a/eng-09-11-m1 and putting .env in place (copied by hand, never
+# through git). It:
+#   1. creates .venv and installs requirements.txt (once);
+#   2. checks .env: it must exist and say ENGINE_ENV=test; ML_MONGO_DB and
+#      MODEL_VERSION are set for the test server if missing;
+#   3. checks the engine database and runs the unit tests;
+#   4. runs the full checklist with proofs (about 25 minutes), output in
+#      "Test Output/" and checklist_server.txt;
+#   5. commits the raw proofs to a new branch proofs/test-server-<date> and pushes
+#      it (never merged; Allen's Claude reads it, checks it and makes the PDFs).
+set -u
+cd "$(dirname "$0")/.."
+
+if [ -x .venv/Scripts/python.exe ]; then PY=.venv/Scripts/python.exe
+elif [ -x .venv/bin/python ]; then PY=.venv/bin/python
+else
+  echo "== creating .venv"
+  if command -v py >/dev/null 2>&1; then py -3.12 -m venv .venv
+  else python3.12 -m venv .venv 2>/dev/null || python -m venv .venv; fi
+  if [ -x .venv/Scripts/python.exe ]; then PY=.venv/Scripts/python.exe; else PY=.venv/bin/python; fi
+fi
+"$PY" -c "import sys; assert sys.version_info[:2] == (3, 12), sys.version" || { echo "STOP: Python 3.12 is needed"; exit 1; }
+echo "== installing requirements"
+"$PY" -m pip install -q -r requirements.txt || { echo "STOP: pip install failed"; exit 1; }
+
+echo "== checking .env"
+[ -f .env ] || { echo "STOP: .env is missing. Copy it from the laptop by hand (never through git)."; exit 1; }
+grep -q '^ENGINE_ENV=test' .env || {
+  echo "STOP: .env must say ENGINE_ENV=test on the test server (it says: $(grep '^ENGINE_ENV=' .env || echo nothing))."
+  echo "      Fix it with:  sed -i 's/^ENGINE_ENV=.*/ENGINE_ENV=test/' .env"; exit 1; }
+grep -q '^ML_MONGO_DB=soco_engine_test' .env || { sed -i 's/^ML_MONGO_DB=.*/ML_MONGO_DB=soco_engine_test/' .env
+  grep -q '^ML_MONGO_DB=' .env || echo 'ML_MONGO_DB=soco_engine_test' >> .env; echo "   ML_MONGO_DB set to soco_engine_test"; }
+grep -q '^MODEL_VERSION=1.1.0' .env || { sed -i 's/^MODEL_VERSION=.*/MODEL_VERSION=1.1.0/' .env
+  grep -q '^MODEL_VERSION=' .env || echo 'MODEL_VERSION=1.1.0' >> .env; echo "   MODEL_VERSION set to 1.1.0"; }
+set -a; . ./.env; set +a
+
+echo "== engine database"
+"$PY" scripts/setup_engine_db.py || { echo "STOP: the engine database is not reachable. Is this server's IP on both Atlas access lists?"; exit 1; }
+echo "== unit tests"
+"$PY" -m pytest -q -p no:cacheprovider -m "not mongo" 2>&1 | tail -3
+
+echo "== full checklist with proofs (about 25 minutes)"
+PROOF_DIR="Test Output" bash scripts/run_checklist.sh 2>&1 | tee checklist_server.txt
+
+echo "== pushing the raw proofs to a branch of their own"
+branch="proofs/test-server-$(date +%Y-%m-%d)"
+git checkout -q -b "$branch" 2>/dev/null || git checkout -q "$branch"
+git add -f "Test Output" checklist_server.txt
+git -c user.name="${GIT_AUTHOR_NAME:-Allen Matthew}" -c user.email="${GIT_AUTHOR_EMAIL:-allen@test-server}" \
+  commit -q -m "Test server checklist run, $(date +%Y-%m-%d): raw proofs" && git push -u origin "$branch" \
+  && echo "DONE: pushed $branch. Tell Claude it is there." \
+  || echo "The proofs are in 'Test Output/' and checklist_server.txt; the push did not go through (see above)."
