@@ -57,3 +57,6 @@ Each issue gets the proof of every task it covers that has started: `Test Output
 
 `sync --apply` after the checklist run of 17 Oct (87 passed; the 3 not passed are the laptop items 0.1, 6.3, 6.4): **29 writes**, all on Allen's 9 SRE issues: 11 proof PDFs, 9 comments, 9 moves. SRE-72 To Do → Done (ENG-08 Passed); SRE-73, 74, 75, 76, 79, 100, 101, 103 To Do → In Progress. Not touched: SRE-77, 78, 99, 102, 104 (not started), the sprint stories, sprints 1 and 2, and every issue of anyone else. Verified afterwards by reading each issue back (statuses and attachments as above) and by a second `plan`, which found nothing left to do; `Tracing/jira/audit.jsonl` holds the 29 writes.
 
+## 19 Oct 2026: the test-server update (Allen's approval)
+
+`proofs_folder = "Test Output (test server)"`; `sync --apply`: 29 writes on Allen's SRE issues: 13 proofs from the test server, 11 comments, 5 moves: SRE-74, SRE-76, SRE-101 In Progress → Done and SRE-99 To Do → Done (ENG-13, 15, 16, 19 Passed on test); SRE-77 To Do → In Progress (ENG-17 Built: its serving check needs a faster server). A second `plan` found nothing left to do.
