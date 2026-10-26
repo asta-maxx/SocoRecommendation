@@ -29,6 +29,15 @@ DEFAULT_OUT = ROOT / "reco" / "platform" / "categories.json"
 FALLBACK_LIST = ROOT / "reference" / "post_picker_categories.txt"
 
 
+def _shown(path: Path) -> str:
+    """The path as recorded in the export: relative to the repository where it is
+    inside it, so the export never names one laptop's folder (26 Oct 2026)."""
+    try:
+        return path.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.name
+
+
 def from_categories_js(path: Path) -> dict:
     """Pull both structures out of the JavaScript source.
 
@@ -59,7 +68,7 @@ def from_categories_js(path: Path) -> dict:
         "canonical": canonical,
         "legacy_map": legacy,
         "legacy_map_loaded": bool(legacy_match),
-        "source": str(path),
+        "source": _shown(path),
     }
 
 
@@ -71,7 +80,7 @@ def from_fallback_list(path: Path) -> dict:
         "canonical": [c for c in canonical if c],
         "legacy_map": {},
         "legacy_map_loaded": False,
-        "source": f"{path} (canonical only -- LEGACY_LABEL_MAP not available)",
+        "source": f"{_shown(path)} (canonical only -- LEGACY_LABEL_MAP not available)",
     }
 
 

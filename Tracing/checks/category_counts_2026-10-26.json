@@ -1,0 +1,13 @@
+{
+ "when": "26 Oct 2026, dev",
+ "about": "Platform database soco, read only. Engine writes only into the throwaway reco_cat_check (python -m reco.jobs sync, then nightly, on each version; dropped at the end). Before = commit eaa1783; after = the tree rule and the LEGACY_LABEL_MAP path fix. The M1 figures are from the nightly interest job's summary (both methods give the same).",
+ "rows": [
+  {"measure": "Unmapped labels (daily check)", "before": "140 (355 items)", "after": "33 (70 items)", "note": "after: 28 not_in_tree (business types), 5 top_not_mapped (Art & Handicrafts)"},
+  {"measure": "M1 actions dropped for an unresolved category", "before": 18, "after": 18, "note": "all 18 are orders, with no post, of 8 products under the top Art & Handicrafts (not one of the 23, not in the category map)"},
+  {"measure": "Posts with a label outside the 23 (of 550)", "before": 297, "after": 13, "note": "the 13: Art & Handicrafts sub-categories"},
+  {"measure": "Posts with no category in the 23 (of 550)", "before": 0, "after": 0, "note": "the reviewer's 15 (test server) is not reproduced on dev"},
+  {"measure": "Business follows with no category (of 2,320)", "before": 1917, "after": 1874, "note": "businessregisters.category holds business types (the industries list), not tree categories"},
+  {"measure": "Businesses with a category in the 23 (of 60)", "before": 11, "after": 12, "note": "Home Decor now maps through the tree (Home & Kitchen)"},
+  {"measure": "M1 score rows written (each method)", "before": 3661, "after": 3681, "note": "206 of 208 users scored both times"}
+ ]
+}

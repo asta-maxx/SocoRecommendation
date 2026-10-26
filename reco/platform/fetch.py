@@ -9,22 +9,56 @@ platform field. Collection names come from reco.config.PLATFORM_COLLECTIONS.
 from __future__ import annotations
 
 import re
+import time
 from typing import Any, Callable
 
 from reco.config import PLATFORM_COLLECTIONS, Settings, live
 from reco.platform import records
-from reco.platform.categories import ProductCategoryIndex, canonical_name
+from reco.platform.categories import (
+    CategoryTree,
+    LabelResolution,
+    ProductCategoryIndex,
+    resolve_category_id,
+    resolve_label,
+)
 from reco.platform.connection import app_db
 from reco.platform.ids import id_match, maybe_str
 from reco.platform.readers import vocabulary
 
+#: How long one read of the category tree is reused, in seconds. The tree changes
+#: rarely; a minute matches the settings' reload (ENG-02 item 3), so a new category
+#: takes effect within about a minute everywhere. The pack sets no value.
+CATEGORY_TREE_SECONDS = 60.0
+
+_TREE_CACHE: tuple[Any, str, float, CategoryTree] | None = None
+
+
+async def category_tree(settings: Settings) -> CategoryTree:
+    """The platform's category tree (categories: _id, name, parent, level), read at most
+    once a minute per platform client. ENG-03 / ENG-29 item 1: every category label is
+    mapped through its top-level parent in this tree."""
+    global _TREE_CACHE
+    db = app_db(settings)
+    held = _TREE_CACHE
+    fresh = held is not None and time.monotonic() - held[2] < CATEGORY_TREE_SECONDS
+    if fresh and held[0] is db.client and held[1] == settings.app_mongo_db:
+        return held[3]
+    docs = await db[PLATFORM_COLLECTIONS["category"]].find({}, {"name": 1, "parent": 1, "level": 1}).to_list(None)
+    tree = CategoryTree.build(docs)
+    _TREE_CACHE = (db.client, settings.app_mongo_db, time.monotonic(), tree)
+    return tree
+
+
+def reset_category_tree_cache() -> None:
+    """Test seam: the next read re-reads the tree."""
+    global _TREE_CACHE
+    _TREE_CACHE = None
+
 
 async def product_categories(settings: Settings) -> ProductCategoryIndex:
-    """The category id -> one-of-the-23 index, from the categories collection and the category map."""
-    docs = await app_db(settings)[PLATFORM_COLLECTIONS["category"]].find(
-        {}, {"path": 1, "name": 1}
-    ).to_list(None)
-    return ProductCategoryIndex.build(vocabulary(settings), docs, live.current().lists.category_map)
+    """The category id -> one-of-the-23 index, from the category tree and the category map."""
+    return ProductCategoryIndex.from_tree(vocabulary(settings), await category_tree(settings),
+                                          live.current().lists.category_map)
 
 
 async def _parser(settings: Settings, kind: str) -> Callable[[dict[str, Any]], Any]:
@@ -32,7 +66,8 @@ async def _parser(settings: Settings, kind: str) -> Callable[[dict[str, Any]], A
     lists = live.current().lists
     if kind in {"user", "business", "post", "category"}:
         parse = getattr(records, f"parse_{kind}")
-        return lambda doc: parse(doc, vocab, lists.category_map)
+        tree = await category_tree(settings)
+        return lambda doc: parse(doc, vocab, lists.category_map, tree)
     if kind == "product":
         index = await product_categories(settings)
         return lambda doc: records.parse_product(doc, index)
@@ -176,51 +211,59 @@ async def read_newest(settings: Settings, kind: str, limit: int, skip: int = 0) 
 # --- categories in use (ENG-29 item 1) ----------------------------------------------------
 
 
-async def categories_in_use(settings: Settings) -> dict[str, dict[str, int]]:
-    """Every category label the platform uses, and how many items use it, by where it
-    is used: post categories, users' interests, business categories, and the top
-    of each product's category path (categoryPathIds[0], else basicInfo.categoryId,
-    looked up in the categories tree)."""
-    db = app_db(settings)
-    found: dict[str, dict[str, int]] = {}
+async def category_mapping(settings: Settings) -> list[dict[str, Any]]:
+    """Every category label the platform uses, how many items use it and where, and how
+    it resolves under the tree rule (reco.platform.categories): post categories, users'
+    interests and business categories by name; each product's category id
+    (categoryPathIds[0], else basicInfo.categoryId) by id. Most used first.
 
-    def add(label: Any, where: str, count: int) -> None:
-        if isinstance(label, str) and label.strip():
-            found.setdefault(label.strip(), {}).setdefault(where, 0)
-            found[label.strip()][where] += count
+    Each row: label, used_by {posts | user interests | businesses | products: count},
+    items, category (one of the 23, or None), via, reason (when unmapped), tops, note."""
+    db = app_db(settings)
+    vocab = vocabulary(settings)
+    category_map = live.current().lists.category_map
+    tree = await category_tree(settings)
+    found: dict[str, tuple[LabelResolution, dict[str, int]]] = {}
+
+    def add(resolution: LabelResolution, where: str, count: int) -> None:
+        uses = found.setdefault(resolution.label, (resolution, {}))[1]
+        uses[where] = uses.get(where, 0) + count
 
     for kind, field, where in (("post", "categories", "posts"), ("user", "interest", "user interests"),
                                ("business", "category", "businesses")):
         pipeline = [{"$project": {"v": f"${field}"}}, {"$unwind": "$v"}, {"$group": {"_id": "$v", "n": {"$sum": 1}}}]
         async for row in await db[PLATFORM_COLLECTIONS[kind]].aggregate(pipeline):
-            add(row["_id"], where, row["n"])
+            if isinstance(row["_id"], str) and row["_id"].strip():
+                add(resolve_label(vocab, row["_id"].strip(), category_map, tree), where, row["n"])
 
-    tree = {
-        maybe_str(doc["_id"]): (doc.get("path") or [doc.get("name")])[0]
-        async for doc in db[PLATFORM_COLLECTIONS["category"]].find({}, {"path": 1, "name": 1})
-    }
     pipeline = [
         {"$project": {"c": {"$ifNull": [{"$arrayElemAt": ["$categoryPathIds", 0]}, "$basicInfo.categoryId"]}}},
         {"$group": {"_id": "$c", "n": {"$sum": 1}}},
     ]
     async for row in await db[PLATFORM_COLLECTIONS["product"]].aggregate(pipeline):
-        top = tree.get(maybe_str(row["_id"]))
-        label = top if top else ("(no category id)" if row["_id"] is None else f"(category id {maybe_str(row['_id'])} not in the tree)")
-        add(label, "products", row["n"])
-    return found
+        add(resolve_category_id(vocab, row["_id"], category_map, tree), "products", row["n"])
+
+    rows = [
+        {"label": label, "used_by": uses, "items": sum(uses.values()), "category": r.category, "via": r.via,
+         "reason": r.reason, "tops": r.tops, "note": r.note}
+        for label, (r, uses) in found.items()
+    ]
+    return sorted(rows, key=lambda row: (-row["items"], row["label"]))
+
+
+async def category_interest_labels(settings: Settings) -> dict[str, str]:
+    """The app's own interestLabel on category nodes (id -> label), where set. For the
+    mapping list only: the reviewer sees where the app's label and the tree rule
+    differ. The engine never maps through it (the tree rule uses the top's name)."""
+    cursor = app_db(settings)[PLATFORM_COLLECTIONS["category"]].find(
+        {"interestLabel": {"$type": "string"}}, {"interestLabel": 1})
+    return {maybe_str(doc["_id"]): doc["interestLabel"] async for doc in cursor}
 
 
 async def unmapped_categories(settings: Settings) -> list[dict[str, Any]]:
-    """Labels in use that match none of the 23 by name or through the category map:
-    left out of category scoring until mapped, never guessed."""
-    vocab = vocabulary(settings)
-    category_map = live.current().lists.category_map
-    return sorted(
-        ({"label": label, "used_by": uses, "items": sum(uses.values())}
-         for label, uses in (await categories_in_use(settings)).items()
-         if canonical_name(vocab, label, category_map) is None),
-        key=lambda row: -row["items"],
-    )
+    """Labels in use that the tree rule leaves unmapped, each with its reason: left out
+    of category scoring until mapped, never guessed."""
+    return [row for row in await category_mapping(settings) if row["category"] is None]
 
 
 # --- reads for eligibility (ENG-08) -------------------------------------------------------
@@ -313,7 +356,11 @@ async def read_product_categories(settings: Settings, product_ids: list[str]) ->
 
 
 async def read_business_categories(settings: Settings, business_ids: list[str]) -> dict[str, str | None]:
-    """Each business's category (businessregisters.category), matched to the 23 by name, or None."""
+    """Each business's category (businessregisters.category, a name), mapped to the 23 by
+    the tree rule, or None. Checked on dev 26 Oct 2026: the field holds the app's
+    business types (the industries list: Retail, Textiles & Sarees, ...), not a tree
+    category or an id; businessregisters has no other category field (natureOfBusiness
+    holds the same value)."""
     return {b.business_id: b.category for b in await read_where(settings, "business", "_id", business_ids)}
 
 

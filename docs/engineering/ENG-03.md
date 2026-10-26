@@ -459,3 +459,7 @@ v1.4 leaves ENG-03's text unchanged; ENG-30 voids its "order outcome from orders
 ## Update, 16 Oct 2026
 
 **16 Oct 2026:** Passed (Kala S1). Platform reads use the per-kind field list (F8). See `ANSWERS_2026-10-16.md`.
+
+## Update, 26 Oct 2026: categories through the tree
+
+The category rule in §3 (by name, then the category map) now runs inside the tree rule of review point 4: every label (post categories, users' interests, business categories, a product's category id) is mapped through its top-level parent in `categories`; the top counts if it is one of the 23 or the map points it straight to one. A label that is itself one of the 23 still matches by name (this item's rule). A product's id is followed up its parents (`ProductCategoryIndex.from_tree`) rather than read from `path[0]`. The readers pass the tree (`fetch.category_tree`, read at most once a minute). Details, decisions and the dev counts: `docs/engineering/ENG-29.md`, "Update, 26 Oct 2026".
