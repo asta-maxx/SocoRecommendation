@@ -52,7 +52,9 @@ set -a; . ./.env; set +a
 # Review of 26 Oct 2026, point 1: until the test engine runs next to its databases, a
 # longer test-only limit for the request and for each source (the engine refuses them in
 # production). Printed into the proofs by checklist line 6.0.
-export REQUEST_BUDGET_MS="${REQUEST_BUDGET_MS:-3000}" SOURCE_TIME_LIMIT_MS="${SOURCE_TIME_LIMIT_MS:-3000}"
+# 26 Oct run: 3 s was not enough (a feed request is 17 database steps of about 250 ms from
+# Kansas City), so 10 s, as the review allows ("raise it if that isn't enough").
+export REQUEST_BUDGET_MS="${REQUEST_BUDGET_MS:-10000}" SOURCE_TIME_LIMIT_MS="${SOURCE_TIME_LIMIT_MS:-10000}"
 # Review point 3: the service's settings state (the surface-off state and pending diary
 # entries) lives outside the repo folder, so a fresh clone or redeploy keeps it.
 export RECO_STATE_DIR="${RECO_STATE_DIR:-$(cd .. && pwd)/reco-state}"

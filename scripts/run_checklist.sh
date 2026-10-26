@@ -216,7 +216,7 @@ check "5.5 the real settings file splits within 2 points" "$PY scripts/show_assi
 
 echo "== 6. ENG-06: serve a list and record it (throwaway reco_demo, port 8192)"
 proof_to ENG-06
-check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "27 passed"
+check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "29 passed"
 # Review of 26 Oct, point 1: the limits this run uses, written into the proof.
 check "6.0 the time limits this run uses (test-only REQUEST_BUDGET_MS / SOURCE_TIME_LIMIT_MS when set; refused in production)" "$PY scripts/show_limits.py" "environment"
 check "6.2 constructed data: eligible newest first; record matches the response" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m mongo" "2 passed"
@@ -297,7 +297,7 @@ check "11.3 M1 runs on SOCO's real data from the copies (into reco_demo)" "ML_MO
 
 echo "== 12. ENG-12: candidate sources"
 proof_to ENG-12
-check "12.1 each source's rule; a source over its limit is dropped and logged (the ENG-12 check, without the timing)" "$PY -m pytest -q tests/test_sources.py -p no:cacheprovider -m 'not mongo'" "9 passed"
+check "12.1 each source's rule; a source over its limit is dropped and logged (the ENG-12 check, without the timing)" "$PY -m pytest -q tests/test_sources.py -p no:cacheprovider -m 'not mongo'" "10 passed"
 check "12.2 on a database: the post index (recent, no seed posts, no test-account views) and every source reading it" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_sources.py -p no:cacheprovider -m mongo" "1 passed"
 check "12.3 the post index builds from SOCO's real posts (into reco_demo)" "ML_MONGO_DB=reco_demo $PY -m reco.jobs post_index" '"outcome": "succeeded"'
 proof_to ENG-14
