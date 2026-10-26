@@ -16,6 +16,15 @@
 #      it (never merged; Allen's Claude reads it, checks it and makes the PDFs).
 set -u
 cd "$(dirname "$0")/.."
+# Run from the code branch, and come back to it after pushing the proofs (26 Oct: a
+# server left on the proofs branch pulled into it instead of the code).
+code_branch="wave1a/eng-09-11-m1"
+if [ "$(git branch --show-current)" != "$code_branch" ]; then
+  echo "== switching to $code_branch (was $(git branch --show-current))"
+  git checkout -q "$code_branch" || { echo "STOP: could not switch to $code_branch"; exit 1; }
+fi
+git pull -q --ff-only || echo "   (git pull did not go through; running the code already here: $(git log --oneline -1))"
+echo "== code: $(git branch --show-current) $(git log --oneline -1)"
 
 if [ -x .venv/Scripts/python.exe ]; then PY=.venv/Scripts/python.exe
 elif [ -x .venv/bin/python ]; then PY=.venv/bin/python
