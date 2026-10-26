@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT))
 from reco.config import PLATFORM_COLLECTIONS, _hosts_of, get_settings, live  # noqa: E402
 from reco.platform import connection as platform_conn  # noqa: E402
 from reco.platform import records  # noqa: E402
-from reco.platform.fetch import product_categories  # noqa: E402
+from reco.platform.fetch import category_tree, product_categories  # noqa: E402
 from reco.platform.readers import vocabulary  # noqa: E402
 from reco.store import connection as store_conn  # noqa: E402
 
@@ -43,6 +43,7 @@ async def main() -> int:
         db = platform_conn.app_db(settings)
         names = set(await db.list_collection_names())
         index = await product_categories(settings)
+        tree = await category_tree(settings)
         print(f"platform {settings.app_mongo_db} on {_hosts_of(settings.app_mongo_uri)[0]} (read-only)\n")
         print(f"{'kind':26}{'read':>6}{'failed':>8}{'time from _id':>15}   notes")
         for kind in records.RECORD_KINDS:
@@ -56,7 +57,7 @@ async def main() -> int:
                 read += 1
                 try:
                     if kind in {"user", "business", "post", "category"}:
-                        record = parse(doc, vocab, lists.category_map)
+                        record = parse(doc, vocab, lists.category_map, tree)
                     elif kind == "product":
                         record = parse(doc, index)
                     elif kind == "order":

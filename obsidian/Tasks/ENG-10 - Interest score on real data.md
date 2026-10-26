@@ -20,6 +20,11 @@ owner: Allen
 > - Actions on **seed posts** (test data) are left out.
 > - Each person's **qualified actions** (last 90 days; not hides, not likes on your own post) are counted once, the same way the ladder counts them, and kept with the score, as Kala asked. Likes on your own posts still count towards *what you're into*; whether they should is a question back to Kala.
 
+> [!tip] 26 Oct 2026: following a business, checked (review point 5)
+> The reviewer asked why **1,917** business follows add nothing to the score. Answer: on SOCO a business's "category" is its **type of business** (Retail, Textiles & Sarees, Jewellery Shop…), chosen from a separate list of 43 types. Only 2 of the 34 types in use are names in SOCO's category tree, and 5 are in my map. So the engine reads the right field; the values just aren't one of the 23. With the new tree rule, **1,917 → 1,874** on dev (the "Home Decor" shop now counts). The follows still count towards the 5 actions the ladder needs.
+>
+> There is another place that holds categories: about half the businesses (35 of 60) have a collaboration profile listing 1 to 3 of the 23. Using it would change where the pack says to look and give some follows several categories, so it's for the reviewer to decide. Nothing changed there.
+
 > [!tip] 16 Oct 2026 (later): likes on your own posts
 > Kala decided: they don't count towards what you're into at all, not just towards the 5 actions. Done; a person who only likes their own posts now gets no score from it.
 
@@ -67,6 +72,7 @@ The Build List row's parts (1–9), in its order.
 ### 5. Following a business ✅
 - **What it asks:** +5 on the business's category, if it's one of the 23; otherwise nothing.
 - **Status:** done.
+- **26 Oct 2026 (review point 5):** 1,917 follows added nothing. Checked why: each business's "category" on SOCO is really its **type of business** ("Retail", "Textiles & Sarees", "Electronics Store"), picked from a separate list of 43 business types, not from the product category tree. There is no other category field on a business. So the engine was reading the right field; the values just aren't categories. With the new tree rule ([[ENG-29 - Adapting to the platform as built]]), "Home Decor" now counts (it's in the tree), so **1,917 → 1,874**. The rest wait for me to map each business type, or for the reviewer to choose another source.
 
 ### 6. "Not interested" and "hide" ✅
 - **What it asks:** −5 on the item's category.
@@ -97,6 +103,7 @@ The Build List row's parts (1–9), in its order.
 - **14 Oct 2026:** when someone views a post several times, the latest proper view counts.
 - **14 Oct 2026:** activity rows that don't say who acted are counted when the account is a known person.
 - **14 Oct 2026:** a "hide" on a person (not a post or product) changes no score.
+- **26 Oct 2026:** a business's category is still read from the business itself (its type of business), now mapped through SOCO's category tree too. The collaboration profiles' categories are not used until the reviewer decides.
 
 ## Still to do
 | What | Waiting on |
@@ -104,7 +111,8 @@ The Build List row's parts (1–9), in its order.
 | On-screen times on views, so views count | Aravinth, APP-02 → [[Aravinth's tasks]] |
 | Change times on activity and orders, so an unlike or a cancellation reaches the engine within 5 minutes | Aravinth, APP-12 |
 | Every order status change written to the order's history | Aravinth, APP-08 |
-| Fill the category map (42 SOCO names) | Me (ENG-29) |
+| Fill the category map (42 SOCO names) | Me (ENG-29). **26 Oct:** 33 left, 28 of them business types |
+| Whether business follows should use the collaboration profiles' categories | The reviewer (26 Oct) |
 | Run on the **test** server, then mark Passed | The test server → [[Environments]] |
 
 ## How this connects

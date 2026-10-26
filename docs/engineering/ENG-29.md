@@ -341,3 +341,70 @@ Point 4 (order history) is now ENG-30 point 5's history-text map (`[lists.tracki
 ## Review of 26 Oct 2026, point 8
 
 Checklist 8.9 seeds the constructed data into its own test database, `soco_platform_test` (it used `soco_engine_test`, which on the test server is the engine's own database: the seed rightly refused). To re-run on the server.
+
+## Update, 26 Oct 2026: item 1, the tree rule (review point 4)
+
+**Why.** Review point 4: the daily check reported **140 labels outside the 23** on the test server (dev was re-seeded on 16 Oct afternoon with a new 344-node category tree and new posts, so the 16 Oct figure of 7 no longer held). Most were sub-categories of the tree used as post labels ("Chocolates & Sweets", "Sarees", "Screen Protectors"), which the direct rule (one of the 23 by name, else a `category_map` entry for the label itself) cannot see. The reviewer's rule, verbatim: *"map each label through its actual top-level parent in the platform's category tree. That parent counts if it is one of the 23, or if the settings category_map points it straight to one of the 23. Otherwise leave the label unmapped and list it for me. That covers: a label with no parent; a category_map entry that doesn't point to one of the 23; a label that would end up in two different categories. Don't guess from the label, product or seller name."* It applies ENG-29 item 1 ("a mapping … from the platform's categories (the global master tree and older seller categories) to the 23 … never guessed") and ENG-03 ("a product's categoryPathIds must start with one of the 23").
+
+**What was built** (`reco/platform/categories.py`):
+
+- `CategoryTree` (built from `categories`: `_id`, `name`, `parent`, `level`); `top_node(id)` follows parent links to the top.
+- `top_outcome(vocabulary, tree, id, category_map)`: the node's top, and what it counts as: one of the 23 by name, or the map's entry **for the top** pointing to one of the 23; else `top_not_mapped` / `map_not_to_23`; an unreachable top is `no_parent`.
+- `resolve_label(vocabulary, label, category_map, tree)` for names (post categories, users' interests, business categories) and `resolve_category_id(...)` for ids (a product's `categoryPathIds[0]`, else `basicInfo.categoryId`). Each returns a `LabelResolution`: `category` (one of the 23 or `None`), `via` (`one of the 23`, `category map`, `tree`, `tree and category map`), `reason` when unmapped, `tops`, `note`.
+- Unmapped reasons: `not_in_tree`, `no_parent`, `top_not_mapped`, `map_not_to_23`, `ambiguous`, `empty`.
+- `canonical_name` and `post_categories` take the tree (`tree=`); without it they keep the direct rule (used only by the demo reader and the fallback's old delivered score, below). `ProductCategoryIndex` now follows parents (`from_tree`), not `path[0]`.
+- `reco/platform/fetch.py`: `category_tree(settings)` (read at most once a minute per platform client, `CATEGORY_TREE_SECONDS = 60`); `_parser` passes it to `parse_user`, `parse_business`, `parse_post`, `parse_category`; `product_categories` uses it. `categories_in_use` is replaced by `category_mapping(settings)` (every label in use, its counts and its resolution); `unmapped_categories` returns the unmapped rows with their reason. `category_interest_labels` reads the app's `interestLabel` for the mapping list only.
+- `reco/jobs/category_check.py`: the measurement and the alert carry `by_reason`, and each alerted label its reason.
+- `scripts/category_mapping_report.py` (new, read only, no engine connection): prints and writes the mapping list.
+
+**Decisions where the rule is silent (26 Oct 2026).** Each must satisfy "never guessed" (ENG-29 item 1) and the Build List order:
+
+1. A label that is itself one of the 23 (case and spacing ignored) is that category, whatever the tree says. ENG-03 matches a post's categories "by name to the 23" and the Build List comes first. Where a node of that name sits under another top (dev: "Gaming" under Electronics), the mapping list notes it; it is not applied.
+2. Names are found in the tree with the same key as the 23 (case and spacing ignored); ids by id.
+3. The top is found by parent links (the "actual" parent), not by `path`. A node with no parent is a top only at level 0 (or no level); a missing parent, a loop, or a parentless node below level 0 is `no_parent`.
+4. A top counts only by its own name (one of the 23) or the map's entry for it. A top with no map entry is `top_not_mapped` (the rule's "otherwise").
+5. Several nodes with one name: mapped only if every one resolves, all to the same category; otherwise `ambiguous`.
+6. The direct rule stays for a label's own map entry. Tree and map both give a category and differ: `ambiguous`, neither picked. Only one gives a category: it is used (noted where the tree's top was not mapped). A label's own map entry that does not point to one of the 23 is `map_not_to_23` whatever the tree says.
+7. An id is never ambiguous and takes no direct rule.
+8. The app's `interestLabel` on category nodes is not used (the rule names the top's name and the map); the mapping list shows it for the reviewer.
+9. The fallback's old delivered score (`reco/fallback/read_path.delivered_shares`, rungs 4 and 5) keeps the direct rule: its keys are the app's own interest keys, and reading the platform tree there would add a failure point to the path used when the engine store is down. The pack names no rule for it.
+
+**The mapping list:** `Tracing/checks/category_mapping_2026-10-26.md` (`python scripts/category_mapping_report.py --counts Tracing/checks/category_counts_2026-10-26.json`; dev `soco`, read only).
+
+**Before and after, dev, 26 Oct 2026** (platform `soco` read only; engine writes only into the throwaway `reco_cat_check`, `sync` then `nightly` on each version, dropped at the end; before = `eaa1783`, after = this change):
+
+| Measure | Before | After |
+|---|---:|---:|
+| Unmapped labels (daily check) | **140** (355 items) | **33** (70 items): 28 `not_in_tree` (business types, 48 businesses), 5 `top_not_mapped` (Art & Handicrafts: 9 products, 13 post labels) |
+| M1 actions dropped for an unresolved category (each method) | **18** | **18**: all 18 are orders, with no post, of 8 products under the top "Art & Handicrafts", which is not one of the 23 and not in the map (the map has "art & handmade"; the app's own `interestLabel` says Art & Collectibles). One map entry would clear them: the reviewer's decision |
+| Posts with a label outside the 23 (of 550) | **297** | **13** (the four Art & Handicrafts sub-categories) |
+| Posts with no category in the 23 (of 550) | 0 | 0 |
+| Business follows with no category (`business_follow_no_category`, of 2,320) | **1,917** | **1,874** |
+| Businesses with a category in the 23 (of 60) | 11 | 12 |
+
+The reviewer's "15 of 550" posts outside the 23 was not reproduced on dev: every dev post carries at least one label that is one of the 23, and 297 carried another label beside it (13 after). Both measures are given.
+
+**Mapped differently from before** (behaviour changes): sub-category post labels now count in their top's category (e.g. "Sports Shoes", "Formal Shoes", "Sandals" in Fashion & Apparel because their top is Fashion; "Action Cameras", "Business Laptops" in Electronics). The app's tree labels some of those sub-trees as another of the 23 (`interestLabel`: Fashion > Footwear → Shoes & Footwear; Electronics > Cameras & Photography → Photography; > Computers & Accessories → Technology; > Gaming → Gaming; Food & Grocery > Organic & Millets → Organic & Eco). The top-only rule does not follow those; the list shows them for the reviewer. Category-map entries for sub-category names whose tree top gives another category now make the label `ambiguous` (on dev none is in use).
+
+### LEGACY_LABEL_MAP (review point 4, second part)
+
+Checked 26 Oct 2026. The engine never read `C:\Revealer\Soco\…`: it loads `reco/platform/categories.json` (setting `category_vocabulary_path`). That path was relative to the **working directory**, and the JSON's `source` text, printed in the warning, named the laptop path it was exported from (`C:\Revealer\Soco\reco\reference\post_picker_categories.txt`). The legacy map is not loaded anywhere because the export carries none: it was made from the fallback list (`reference/post_picker_categories.txt`, the 23 only), since the app's `backend/SOCO_BE/src/constants/categories.js` (which holds `CANONICAL_CATEGORIES` and `LEGACY_LABEL_MAP`) is **not in this repository**.
+
+- `CategoryVocabulary.load` now reads a relative path from inside the repository (`REPO_ROOT`), wherever the process starts.
+- `scripts/export_categories.py` records a repository-relative `source`; `categories.json` re-exported (only `source` changed: `reference/post_picker_categories.txt (canonical only -- LEGACY_LABEL_MAP not available)`).
+- The warning now says what is missing and that it affects only the demo-data reader (`CategoryVocabulary.resolve`): the live reader never consults the legacy map (ENG-03), and the settings' category map already holds the app's LEGACY_LABEL_MAP entries (F1, 16 Oct).
+- **Missing, not invented:** `categories.js` itself. To load it: `python scripts/export_categories.py --categories-js <path to categories.js>`.
+
+### Tests, 26 Oct 2026
+
+- `tests/test_category_tree.py` (new, 36): each way a label maps (one of the 23 by name, with the tree's other top noted; through a top that is one of the 23; through a top the map points to; a top-level label; map only; map with an unmapped top; parent links over `path`; case and spacing), each unmapped reason (`not_in_tree`; `no_parent` for a missing parent, a parentless node below level 0, its child, a loop; `top_not_mapped`; `map_not_to_23` on the top and on the label; `ambiguous` for two nodes ending apart, one node resolving and one not, tree vs map, map vs disagreeing nodes; `empty`), ids, the product index, the readers, the vocabulary path, the export's `source`, and the one-minute tree cache.
+- **Changed because the rule changed:** `tests/test_platform_dataset.py::test_an_unmapped_category_is_reported` (mongo). Product rows are now a category id with its path ("Fashion > Shirts (category id …)") instead of being merged under the top's name, and each row has a reason; the test now checks the "Fashion" name row (user interest and business, `top_not_mapped`), the product row (2 products), `(no category id)` (`empty`), and that all clear once "Fashion" is mapped. No other test changed.
+- Unit suite: **861 passed, 1 skipped** (`-m "not mongo"`).
+- MongoDB tests (`TEST_MONGO_TIMEOUT_MS=15000`, per-process throwaway databases): **75 passed**; the same run on `eaa1783`: 75 passed. (A first run had 2 failures and 1 error in `tests/test_recommendations.py`, Atlas network timeouts against the 2 s budget from the laptop; the re-run passed.)
+
+**Proposed checklist lines** (`scripts/run_checklist.sh` is not edited here; another change is in flight):
+
+```bash
+check "8.10 the tree rule: each label through its top; every unmapped reason" "$PY -m pytest -q tests/test_category_tree.py -p no:cacheprovider" "36 passed"
+check "8.11 the category mapping list on SOCO's data (read only)" "$PY scripts/category_mapping_report.py --out /tmp/category_mapping.md" "labels in use"
+```

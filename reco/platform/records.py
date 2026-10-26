@@ -18,9 +18,11 @@ reads a raw platform field:
     productvariants.salePrice; stock quantity - reservedStock; seller
     products.createdBy; follows userId -> followingId. A missing time is read
     from the record's _id.
-  - Categories: a post's categories matched to the 23; a product's through
-    categoryPathIds (or basicInfo.categoryId) and the categories tree. Unmatched
-    ones are dropped, never guessed.
+  - Categories: every label (a post's categories, a user's interests, a
+    business's category, a product's category id) is mapped to the 23 through its
+    top-level parent in the categories tree, or by name / the category map (the
+    tree rule, reco.platform.categories, 26 Oct 2026). Unmapped ones are dropped,
+    never guessed.
   - Status fields: compared ignoring case (status_is).
   - Events: native event types mapped to E codes (reco.platform.native_events).
   - Served item identity: item_id and item_type are the card shown; post_id and
@@ -44,10 +46,12 @@ from pydantic import BaseModel
 from reco.config import live
 from reco.config.tunables import OrderStatusValues
 from reco.platform.categories import (
+    CategoryTree,
     CategoryVocabulary,
     ProductCategoryIndex,
     canonical_name,
     post_categories,
+    top_outcome,
 )
 from reco.platform.ids import as_utc, maybe_str, time_of, to_str
 from reco.platform.native_events import PAGE_VISIT_SURFACE, engine_surface, native
@@ -149,7 +153,8 @@ def _moderation_state(doc: dict[str, Any]) -> str | None:
     return _spelled(state) if isinstance(state, str) and state.strip() else None
 
 
-def parse_user(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None) -> UserRecord:
+def parse_user(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None,
+               tree: CategoryTree | None = None) -> UserRecord:
     return UserRecord(
         user_id=to_str(doc["_id"]),
         status=doc.get("status"),
@@ -161,7 +166,7 @@ def parse_user(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map
         date_of_birth=_date(doc.get("DOB")),
         account_is_public=doc.get("accountIsPublic") is not False,
         restriction_level=_lower(doc.get("restriction_level")),
-        declared_interests=post_categories(vocabulary, doc.get("interest"), category_map).resolved,
+        declared_interests=post_categories(vocabulary, doc.get("interest"), category_map, tree).resolved,
         created_at=time_of(doc, "createdAt", "timestamp"),  # Kala, 16 Oct: createdAt, else (dev) timestamp, else _id
     )
 
@@ -169,7 +174,7 @@ def parse_user(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map
 class BusinessRecord(_Record):
     business_id: str
     owner_user_id: str | None
-    category: str | None  # businessregisters.category, matched to the 23
+    category: str | None  # businessregisters.category (a business type name), mapped to the 23 by the tree rule
     category_supplied: str | None
     status: str | None
     is_active: bool
@@ -178,11 +183,12 @@ class BusinessRecord(_Record):
     created_at: datetime | None
 
 
-def parse_business(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None) -> BusinessRecord:
+def parse_business(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None,
+                   tree: CategoryTree | None = None) -> BusinessRecord:
     return BusinessRecord(
         business_id=to_str(doc["_id"]),
         owner_user_id=maybe_str(doc.get("user_id")),
-        category=canonical_name(vocabulary, doc.get("category"), category_map),
+        category=canonical_name(vocabulary, doc.get("category"), category_map, tree),
         category_supplied=doc.get("category"),
         status=doc.get("status"),
         is_active=status_is(doc.get("status"), "active"),
@@ -256,8 +262,9 @@ class PostRecord(_Record):
     repost_of: str | None = None
 
 
-def parse_post(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None) -> PostRecord:
-    categories = post_categories(vocabulary, doc.get("categories"), category_map)
+def parse_post(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None,
+               tree: CategoryTree | None = None) -> PostRecord:
+    categories = post_categories(vocabulary, doc.get("categories"), category_map, tree)
     product_ids = _ids(doc.get("products"))
     if doc.get("productId") and maybe_str(doc.get("productId")) not in product_ids:
         product_ids.insert(0, maybe_str(doc.get("productId")))
@@ -719,10 +726,13 @@ class CategoryRecord(_Record):
     level: int | None
     path: list[str]
     parent_id: str | None
-    top_level: str | None  # the first name in its path, if one of the 23 (or mapped)
+    top_level: str | None  # its top-level parent, if one of the 23 (or mapped): the tree rule
 
 
-def parse_category(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None) -> CategoryRecord:
+def parse_category(doc: dict[str, Any], vocabulary: CategoryVocabulary, category_map: dict[str, str] | None = None,
+                   tree: CategoryTree | None = None) -> CategoryRecord:
+    """One categories node. With the tree, top_level follows its parents to the top
+    (the tree rule); without it, the first name in its path, matched directly."""
     path = [p for p in doc.get("path") or [] if isinstance(p, str)]
     level = doc.get("level")
     return CategoryRecord(
@@ -731,7 +741,9 @@ def parse_category(doc: dict[str, Any], vocabulary: CategoryVocabulary, category
         level=level if isinstance(level, int) else None,
         path=path,
         parent_id=maybe_str(doc.get("parent")),
-        top_level=canonical_name(vocabulary, path[0] if path else doc.get("name"), category_map),
+        top_level=(top_outcome(vocabulary, tree, to_str(doc["_id"]), category_map).category
+                   if tree is not None and to_str(doc["_id"]) in tree.nodes
+                   else canonical_name(vocabulary, path[0] if path else doc.get("name"), category_map)),
     )
 
 

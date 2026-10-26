@@ -1,13 +1,17 @@
 """The daily check for categories outside the 23. ENG-29 item 1.
 
-Every category label in use on the platform is matched to the 23, by name or
-through the settings' category map. Any that match neither are reported to the
-service owner every day (an alert) and recorded in ml_measurements; items in
-them are left out of category scoring until the map covers them -- never guessed.
+Every category label in use on the platform is mapped to the 23 by the tree rule
+(reco.platform.categories, 26 Oct 2026): through its top-level parent in the
+platform's category tree, or by name / the settings' category map. Any left
+unmapped are reported to the service owner every day (an alert), each with its
+reason (not_in_tree, no_parent, top_not_mapped, map_not_to_23, ambiguous), and
+recorded in ml_measurements; items in them are left out of category scoring until
+mapped -- never guessed.
 """
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 from reco.config import Settings
@@ -24,11 +28,13 @@ async def check_categories(settings: Settings) -> list[dict[str, Any]]:
     await writers.record_measurement(
         settings, {"measure": "unmapped_categories", "day": day},
         {"checked_at": utc_now(), "unmapped": unmapped[:200], "count": len(unmapped),
-         "items": sum(row["items"] for row in unmapped)},
+         "items": sum(row["items"] for row in unmapped),
+         "by_reason": dict(Counter(row["reason"] for row in unmapped))},
     )
     if unmapped:
-        alert("unmapped_categories", "platform categories outside the 23 and not in the category map",
-              count=len(unmapped), labels=[row["label"] for row in unmapped[:20]])
+        alert("unmapped_categories", "platform categories the tree rule leaves outside the 23",
+              count=len(unmapped), by_reason=dict(Counter(row["reason"] for row in unmapped)),
+              labels=[f"{row['label']} ({row['reason']})" for row in unmapped[:20]])
     return unmapped
 
 

@@ -211,11 +211,16 @@ async def test_an_unmapped_category_is_reported(seeded) -> None:
     settings, _, _ = seeded
     labels = {row["label"]: row for row in await fetch.unmapped_categories(settings)}
     assert "Cricket" in labels and labels["Cricket"]["used_by"] == {"posts": 1}
-    assert "Fashion" in labels  # user interest, business category and the products' category tree
-    assert "(no category id)" in labels
+    # 26 Oct 2026 (tree rule): names and product category ids are separate rows, each with its reason.
+    assert labels["Fashion"]["used_by"] == {"user interests": 1, "businesses": 1}  # a top that is not mapped
+    assert labels["Fashion"]["reason"] == "top_not_mapped" and labels["Cricket"]["reason"] == "not_in_tree"
+    shirts = [row for label, row in labels.items() if label.startswith("Fashion > Shirts (category id")]
+    assert len(shirts) == 1 and shirts[0]["used_by"] == {"products": 2} and shirts[0]["reason"] == "top_not_mapped"
+    assert labels["(no category id)"]["reason"] == "empty"
     put_in_force({"lists.category_map": {"Fashion": "Fashion & Apparel", "Cricket": "Sports & Outdoors"}})
     still = {row["label"] for row in await fetch.unmapped_categories(settings)}
     assert "Fashion" not in still and "Cricket" not in still
+    assert not any(label.startswith("Fashion > Shirts") for label in still)  # mapped through its top
 
 
 @pytest.mark.mongo

@@ -267,6 +267,8 @@ check "8.7 status spellings from the settings" "$T -k spellings" "1 passed"
 check "8.8 the real daily category check runs on SOCO's data" "ML_MONGO_DB=reco_demo $PY -m reco.jobs category_check" '"outcome": "succeeded"'
 # Its own database name: on the test server soco_engine_test is the engine's database, which the seed rightly refuses.
 check "8.9 the engine test environment holds the constructed data" "$PY scripts/seed_test_platform.py soco_platform_test" "all parse"
+check "8.10 the tree rule (review point 4): each label through its top in the category tree; every unmapped reason" "$PY -m pytest -q tests/test_category_tree.py -p no:cacheprovider" "36 passed"
+check "8.11 the category mapping list on SOCO's data (read only)" "$PY scripts/category_mapping_report.py --out \"$WORK/category_mapping.md\"" "labels in use"
 
 echo "== 9. ENG-08: eligibility filters E-01 to E-12"
 proof_to ENG-08

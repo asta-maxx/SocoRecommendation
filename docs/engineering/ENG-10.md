@@ -164,3 +164,28 @@ Own-post actions still add weight to the score; only the count leaves them out. 
 Tests: `tests/test_m1_copies.py` +4 (open request out and back; a stale copy used and said; seed posts; the count, rule by rule). Unit suite 614 passed, 1 skipped.
 
 **16 Oct 2026 (Kala):** own-post actions are now left out of the score under both methods, not only the count. See ENG-30 'Clarification from Kala'. Method one keeps all retained history; the 90-day limit is the count's and method two's.
+
+## Update, 26 Oct 2026: business follows with no category (review point 5)
+
+**The question:** M1 left out 1,917 business follows as `business_follow_no_category` (test server). Do those businesses really have no category, or is the reader looking in the wrong field?
+
+**Checked on dev, 26 Oct 2026** (platform `soco`, read only):
+
+- `follows`: 2,320 rows with `followingReference` businessRegister, all by users; `followingId` is the `businessregisters._id` in every one (57 distinct businesses; none is an owner's user id). So the join is right.
+- `businessregisters` (60): `category` is a **name** in all 60, never an id. It is the app's **business type**, from the `industries` collection (43 names: Retail, Textiles & Sarees, Electronics Store, Jewellery Shop, Bakery & Sweets, …), not a node of the product category tree. `natureOfBusiness` holds the same value in all 60; `tags` repeats it with the city. There is no `businessCategory`, `categoryId` or other category field. `interestScores` is the platform's own delivered interest score, not a category.
+- Only 2 of the 34 business types in use are names in the category tree ("Home Decor", under Home & Kitchen; "Musical Instruments", a top). 5 more are in the category map (Restaurant, Grocery & Supermarket, Bakery & Sweets, Pharmacy, Musical Instruments).
+
+**Finding:** the reader reads the field the pack names (ENG-10: "The business's category must match one of the 23 by name"; ENG-29 question 12: the older seller categories are `businessregisters.category`). It is not the wrong field: those businesses' category really is outside the 23, because it is a business type. The fix is the tree rule (ENG-29 update of 26 Oct): `fetch.read_business_categories` → `parse_business` now maps the name through the category tree as well as by name and the map. That adds "Home Decor" (1 business, 43 follows).
+
+| Dev, 26 Oct 2026 (`sync`, then `nightly`, into the throwaway `reco_cat_check`) | Before (`eaa1783`) | After |
+|---|---:|---:|
+| Business follows with no category (of 2,320) | **1,917** | **1,874** |
+| Businesses with a category in the 23 (of 60) | 11 | 12 |
+
+The 1,874 still count as qualified actions (Kala 2a); they add no weight. They stay unmapped until each business type is mapped in `lists.category_map` (28 types, listed in `Tracing/checks/category_mapping_2026-10-26.md`); mapping them is a decision, not a guess from the name.
+
+**Another source, for the reviewer (not used):** `brandprofiles` (35 of the 60 businesses; the app's collaboration profile) carries `categories`, names that are already among the 23 (1 to 3 per profile). Where a business has both, its mapped `category` is among them (10 of 10). For the 1,874 follows: 855 are to businesses with no profile, 692 to a profile with one category, 327 to a profile with two or three. The pack names `businessregisters.category`, ENG-10 gives a follow "5 on that business's category" (one), and a profile can hold several, so switching source is the reviewer's decision.
+
+The 18 M1 actions dropped for an unresolved category are not follows: all 18 are orders, with no post, of 8 products under the tree top "Art & Handicrafts", which is not one of the 23 and has no map entry (ENG-29 update of 26 Oct).
+
+Tests: no ENG-10 test changed; the tree rule is tested in `tests/test_category_tree.py` (`test_post_user_business_and_category_records_use_the_tree` covers a business category mapped through the tree).

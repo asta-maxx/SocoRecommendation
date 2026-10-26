@@ -17,6 +17,17 @@ owner: Allen
 > [!tip] Pack v1.4 (15 Oct 2026): the rework on the built tasks
 > v1.4 keeps ENG-29's words but its new sister task, [[ENG-30 - Adapting to the October platform facts]], replaces the "Return Requested" parts. The rework list, done on 15 Oct: order history read as events (ENG-03), returns only at "Returned" (ENG-10), the spelling list's first entry and new E-12 tests (ENG-08), and two new checks (ENG-11, 13 of 13). The settings file is now **version 4**. **Still yours to decide:** the category map (42 SOCO names), and the test-account and exemption lists (account ids needed).
 
+> [!tip] 26 Oct 2026: categories now go through SOCO's category tree (review point 4)
+> **The problem.** The daily check had grown to **140** SOCO names that didn't match the 23. Most were small, specific names people pick for posts, like "Chocolates & Sweets" or "Screen Protectors". The engine only looked a name up directly ("is it one of the 23, or in my map?"), so it couldn't see that "Screen Protectors" lives under "Electronics" in SOCO's own category tree.
+>
+> **The new rule (the reviewer's).** SOCO's categories form a family tree: "Screen Protectors" sits under "Mobile Accessories", which sits under "Electronics" at the top. Now the engine climbs the tree from the name to the very top. The top counts if it's one of the 23, or if my map points it straight to one of the 23. Otherwise the name is left out and listed with a reason. Nothing is ever guessed from the name.
+>
+> **The reasons a name can stay unmapped:** not in the tree at all; its top can't be reached (a broken branch); its top isn't one of the 23 and isn't in my map; the map points it at something that isn't one of the 23; or it would land in two different categories (then the engine picks neither).
+>
+> **On dev (26 Oct):** unmapped names **140 → 33**. Posts carrying a name outside the 23: **297 → 13** of 550. Business follows that add nothing: **1,917 → 1,874** (see [[ENG-10 - Interest score on real data]] for why). The 18 actions M1 drops for "no category" stay at 18: they're all purchases of products under "Art & Handicrafts", a top my map doesn't cover yet. The full list for the reviewer: `Tracing/checks/category_mapping_2026-10-26.md`.
+>
+> **"LEGACY_LABEL_MAP doesn't load".** It never loaded anywhere: the app file that holds it (`categories.js`) isn't in this repository, so the engine's category file was made from the plain list of the 23. The `C:\Revealer\Soco\…` path in the warning was only a note of where that file was first made, not where the engine looks. Fixed: the file now names a path inside the repository, the engine finds it wherever it's started from, and the warning says what's really missing. The live engine doesn't need the legacy map: its entries were copied into my map on 16 Oct. Still missing: `categories.js` itself, from the app team.
+
 **In one line:** the engine learns the quirks of SOCO's real database (its category names, its spellings, how it writes an order's steps, its new serve log) and gets a test database full of made-up SOCO data.
 
 ## Why this task
@@ -39,6 +50,7 @@ The Build List splits ENG-29 into eight numbered parts (1–8). There are three 
 - **What we did:** the map was already in the settings file (from ENG-03), and it's only trusted if it points at one of the 23. New: a **daily check** that looks at every place SOCO stores a category (post categories, people's interests, business categories, and the top of each product's category) and lists every name that matches neither one of the 23 nor the map. It runs every night at 2 AM, alerts me if anything is unmapped, writes the list into the engine's measurements, and leaves a line in the job diary. A product with no category at all shows up as "(no category id)".
 - **Why it matters:** without it, a whole section of SOCO quietly counts for nothing. With it, I see exactly which names need a decision.
 - **Status:** the check is done. **Real run, 1 Oct:** **42 names don't match**. The two biggest are product categories called "Menswear catimp…" (2,005 products between them, nearly all of SOCO's); then names like "Fashion", "Sports", "Food" from people's interests. The map is empty, so **filling it is my decision**. The pack's "older seller categories" turned out to be the free-text category on each business and SOCO's category tree (question 12, answered 1 Oct); the check already reads both, so nothing changed.
+- **26 Oct 2026:** names now go through SOCO's category tree to its top (the reviewer's rule; see the note at the top). The daily check lists each unmapped name **with its reason**. On dev: 140 → 33 unmapped. A script prints the whole list for the reviewer.
 - → [[Settings file]]
 
 ### 2. Spellings and order statuses in the settings ✅
@@ -120,6 +132,13 @@ The Build List splits ENG-29 into eight numbered parts (1–8). There are three 
 | 1 Oct 2026 | The serve log is copied every 5 minutes in the order lines were added, looking back 2 minutes each time | It's written once per request and never changed (API contract 4.3), so it needs no "last changed" time (question 3) |
 | 1 Oct 2026 | A post card showing a product is item type `product` | Capture Register F10 and X-16 (question 4) |
 | 1 Oct 2026 | Test accounts are left out of fraud entirely | Build List ENG-29 and X-21, which outrank the Fraud Policy (question 5) |
+| 26 Oct 2026 | Every category name (posts, interests, businesses) and every product's category goes through SOCO's category tree to its top; the top counts if it's one of the 23 or my map points it there | The reviewer's rule for ENG-29 point 1; never guessed |
+| 26 Oct 2026 | A name that is itself one of the 23 stays that category, even if the tree has a node of that name elsewhere ("Gaming" sits under Electronics) | The Build List matches post categories to the 23 by name, and it comes first; the clash is listed for the reviewer |
+| 26 Oct 2026 | Names are matched ignoring capitals and extra spaces; the top is found by following each node's parent, not its stored path | Same matching as the 23; "actual parent" in the rule |
+| 26 Oct 2026 | If the tree and my map give different answers, or two nodes of one name end in different places, the name is left out ("ambiguous") | The rule says don't pick one |
+| 26 Oct 2026 | If only my map gives an answer (the name isn't in the tree, or its top isn't mapped), the map's answer is used, with a note | The map is the engine's own setting for that exact name |
+| 26 Oct 2026 | The app's own label on each tree node ("interestLabel") is shown to the reviewer but not used | The rule names only the top and my map |
+| 26 Oct 2026 | The tree is read at most once a minute | Same as the settings; a new category shows up within a minute |
 
 > [!note] Where "the 23" come from (15 Oct 2026)
 > The pack says "the 23 categories" many times but never lists them. The engine's list comes from the SOCO app's own post-category picker (saved during the M1 demo). Asked Aravinth to confirm it's still the app's current list.
@@ -127,7 +146,9 @@ The Build List splits ENG-29 into eight numbered parts (1–8). There are three 
 ## Still to do
 | What | Waiting on |
 |---|---|
-| Fill the category map (42 names, including the two "Menswear catimp…" product categories) | **Me**: a decision per name |
+| Fill the category map (42 names, including the two "Menswear catimp…" product categories) | **Me**: a decision per name. **26 Oct:** with the tree rule, 33 left: 28 business types ("Retail", "Textiles & Sarees"…) and the "Art & Handicrafts" top (the app labels it Art & Collectibles) |
+| Decide on the tree's sub-branches the app labels as another of the 23 (Footwear → Shoes & Footwear, Cameras → Photography, Computers → Technology, Organic & Millets → Organic & Eco): today they count in their top's category | **The reviewer** (list in `Tracing/checks/category_mapping_2026-10-26.md`) |
+| The app's `categories.js` (holds LEGACY_LABEL_MAP), to export it properly | Aravinth (app team) |
 | SOCO's serve log (`rec_serve_log`) to exist | Aravinth, APP-15 → [[People]] |
 | The real field names in `followers` | Question 16: Aravinth or SOCO's backend code |
 | Leave test accounts out of "popular items" in the plan-B ladder | ENG-09 |

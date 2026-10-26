@@ -16,7 +16,8 @@ Each action is read from one place only, so nothing is counted twice (ENG-10):
       Hide                item's category
     purchases           ml_orders: the order itself, at its creation time
     business follows    the platform's follows (followingReference businessRegister),
-                        on the business's category, which must be one of the 23
+                        on the business's category (businessregisters.category),
+                        which must map to one of the 23 (the tree rule, ENG-29)
 
 Open return request (ENG-30 point 10): an order with an open return request
 (ml_return_requests, isActive true) contributes nothing while it is open; when the
