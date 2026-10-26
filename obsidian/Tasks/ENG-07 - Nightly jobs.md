@@ -139,3 +139,7 @@ The Build List splits ENG-07 into six numbered parts (1–6). There are three ex
 ## Review, 26 Oct 2026
 - Every job run now says who started it: the 2 AM scheduler, the sync loop, or a person. The test server gets a script to keep the scheduler and the sync running, so there's proof of a real scheduled night.
 - The "kill a job halfway" check now shows its output instead of hiding errors.
+
+## Test server, 26 Oct 2026
+- The "kill a job halfway" check now waits until the job really is halfway (two of four users written) before stopping it; on the slow test server it used to stop the job before it had started.
+- The job-runs report is back to its original layout (one check counts its "CURRENT" marks), with who started each run added.

@@ -503,3 +503,8 @@ The live demo script, in plain language, is the Obsidian note
 - **Who started a run.** Every `ml_job_runs` row now records `started_by`: `scheduler` (the 2 AM nightly, `reco/jobs/scheduler.run_forever`), `sync_loop` (`reco/sync/run.sync_forever`) or `hand` (a person; `reco.jobs.batches.TRIGGER`, a context variable). `scripts/show_job_runs.py [--hours N] [--by scheduler]` prints the rows. On the test server, `bash scripts/test_server_services.sh start` runs the sync loop and the scheduler in the background against `soco_engine_test` (logs in `logs/`), so the next morning `show_job_runs.py --by scheduler` shows a scheduled nightly.
 - **7.5** no longer hides the kill demo's errors (`2>/dev/null` removed; its output is printed into the proof).
 - **"previous_version 58 → 7"**: see ENG-02 (review point 3): the checklist's temporary serving settings.
+
+## Test server run of 26 Oct 2026: 7.5 and 7.6
+
+- **7.6** failed because `scripts/show_job_runs.py` had been overwritten on 26 Oct by a new report of the same name, which printed "current" in lower case: the check counts `CURRENT`. The original report is restored (newest 12, `CURRENT`), with `started_by` and the run time added to each line, and `--hours` / `--by` for the scheduled-run proof (review point 6).
+- **7.5**: `scripts/demo_kill_job.py` killed the slow batch after a fixed 2.5 s; on the test server (slow, 250 ms from the database) the child was still starting, so there was nothing half-done to kill. It now kills the batch once it has written two of its four users, however long that takes (at most 300 s). Laptop, 26 Oct: killed after DEMO-U2, the previous batch still read, the killed run recorded as failed ("abandoned"): kill-check-ok.

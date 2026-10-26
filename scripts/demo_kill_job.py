@@ -7,7 +7,8 @@ Runs only against reco_demo (it refuses any other database). Uses four made-up
 users, DEMO-U1..DEMO-U4, and the interest score collection:
 
   1. a complete batch: everyone "fashion"           -> current
-  2. a slow batch ("beauty"), one user a second, killed outright after ~2.5 s
+  2. a slow batch ("beauty"), one user a second, killed outright once it has written
+     two of the four users (truly halfway, however slow the machine or the link)
      (SIGKILL on macOS and Linux, TerminateProcess on Windows: nothing in the job runs after it)
   3. what a request reads now                        -> still "fashion"
   4. the next night's batch ("travel")               -> the killed run is recorded as failed
@@ -82,10 +83,22 @@ async def main(slow: bool) -> int:
         await batch(settings, "fashion")
         print(f"   a request reads: {await reads(settings)}")
         print("2. a slow batch ('beauty'), killed halfway")
-        child = subprocess.Popen([sys.executable, __file__, "--slow-batch"], env=os.environ.copy())
-        time.sleep(2.5)
+        # Killed once it has written two of the four users, not after a fixed time: on a
+        # slow machine far from the database (the test server, 26 Oct 2026) the job was
+        # still starting at 2.5 s, so nothing had begun to be killed.
+        child = subprocess.Popen([sys.executable, __file__, "--slow-batch"], env=os.environ.copy(),
+                                 stdout=subprocess.PIPE, text=True)
+        written, started = 0, time.monotonic()
+        while written < 2 and time.monotonic() - started < 300:
+            line = child.stdout.readline()
+            if not line:
+                break
+            print(line, end="")
+            written += line.strip().startswith("wrote ")
         child.kill()  # SIGKILL on macOS/Linux, TerminateProcess on Windows
         child.wait()
+        if written < 2:
+            print(f"   the slow batch wrote only {written} users before it stopped or 300 s passed")
         print("   killed outright: nothing in the job could run after it")
         print("3. straight after the kill")
         print(f"   a request reads: {await reads(settings)}")
