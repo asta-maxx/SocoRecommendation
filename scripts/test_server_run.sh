@@ -75,3 +75,4 @@ git -c user.name="${GIT_AUTHOR_NAME:-Allen Matthew}" -c user.email="${GIT_AUTHOR
   commit -q -m "Test server checklist run, $(date +%Y-%m-%d): raw proofs" && git push -u origin "$branch" \
   && echo "DONE: pushed $branch. Tell Claude it is there." \
   || echo "The proofs are in 'Test Output/' and checklist_server.txt; the push did not go through (see above)."
+git checkout -q "$code_branch" && echo "== back on $code_branch"
