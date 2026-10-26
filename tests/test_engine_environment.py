@@ -48,6 +48,9 @@ def test_each_environment_gets_its_own_engine_database_by_default(
 ) -> None:
     monkeypatch.setenv("ENGINE_ENV", env)
     monkeypatch.delenv("ML_MONGO_DB", raising=False)
+    # The test-only limits a test-server run exports are refused in production (by design).
+    monkeypatch.delenv("REQUEST_BUDGET_MS", raising=False)
+    monkeypatch.delenv("SOURCE_TIME_LIMIT_MS", raising=False)
     monkeypatch.setattr("reco.config._SERVER_ENGINE_ENV", env)
 
     assert Settings.from_env().ml_mongo_db == f"soco_engine_{env}"

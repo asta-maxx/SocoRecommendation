@@ -90,8 +90,14 @@ def _test_uri() -> str:
     return f"{uri}{separator}serverSelectionTimeoutMS={_SELECTION_TIMEOUT_MS}"
 
 
+def _test_limit(name: str, request) -> int | None:
+    if request.node.get_closest_marker("mongo") is None or not os.environ.get(name):
+        return None
+    return int(os.environ[name])
+
+
 @pytest.fixture
-def settings() -> Settings:
+def settings(request) -> Settings:
     """Settings pointed at a throwaway database, never at the real one."""
     return Settings(
         app_mongo_uri=_test_uri(),
@@ -99,10 +105,11 @@ def settings() -> Settings:
         ml_mongo_uri=_test_uri(),
         ml_mongo_db=TEST_DB,
         model_version="test-1.0.0",
-        # The test-only limits (review of 26 Oct, point 1), when the run sets them:
-        # on the far-away test server the request path needs them to answer at all.
-        request_budget_ms=int(os.environ["REQUEST_BUDGET_MS"]) if os.environ.get("REQUEST_BUDGET_MS") else None,
-        source_time_limit_ms=int(os.environ["SOURCE_TIME_LIMIT_MS"]) if os.environ.get("SOURCE_TIME_LIMIT_MS") else None,
+        # The test-only limits (review of 26 Oct, point 1), when the run sets them, for the
+        # database tests only: on the far-away test server the request path needs them to
+        # answer at all. Unit tests keep the pack's limits (they test the rules).
+        request_budget_ms=_test_limit("REQUEST_BUDGET_MS", request),
+        source_time_limit_ms=_test_limit("SOURCE_TIME_LIMIT_MS", request),
     )
 
 
