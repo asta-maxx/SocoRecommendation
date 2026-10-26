@@ -87,6 +87,10 @@ def settings() -> Settings:
         ml_mongo_uri=_test_uri(),
         ml_mongo_db=TEST_DB,
         model_version="test-1.0.0",
+        # The test-only limits (review of 26 Oct, point 1), when the run sets them:
+        # on the far-away test server the request path needs them to answer at all.
+        request_budget_ms=int(os.environ["REQUEST_BUDGET_MS"]) if os.environ.get("REQUEST_BUDGET_MS") else None,
+        source_time_limit_ms=int(os.environ["SOURCE_TIME_LIMIT_MS"]) if os.environ.get("SOURCE_TIME_LIMIT_MS") else None,
     )
 
 

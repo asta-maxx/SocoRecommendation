@@ -369,3 +369,7 @@ async def read_commission_configs(settings: Settings) -> list[dict[str, Any]]:
     cursor = app_db(settings)[PLATFORM_COLLECTIONS["commission_config"]].find({}, {f: 1 for f in COMMISSION_FIELDS})
     return [doc async for doc in cursor]
 
+
+async def count_rows(settings: Settings, kind: str) -> int:
+    """The platform collection's total rows (the reconciliation's source total, ENG-04)."""
+    return await app_db(settings)[PLATFORM_COLLECTIONS[kind]].estimated_document_count()

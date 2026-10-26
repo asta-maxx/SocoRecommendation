@@ -182,3 +182,8 @@ The Build List row has eleven parts (1–11). There are three extras (A–C).
 
 ## Update, 17 Oct 2026
 The feed is now put in order by [[ENG-19 - Ordering the feed]] instead of newest first, and later pages never repeat what you were shown in the last 24 hours.
+
+## Review, 26 Oct 2026
+- Until the test server sits next to the database, it gets a longer, test-only time limit (3 seconds) so lists come back at all. The engine refuses to start in production with it, and every proof says which limits were used.
+- The check now compares each answer with its record field by field: same request, same items in the same order, same methods, same fallback step. A request that fails is never recorded as shown.
+- One feed request makes 17 rounds of database calls; in the same region that's about 20 to 40 ms in all.

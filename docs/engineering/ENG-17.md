@@ -139,3 +139,7 @@ To switch method two to checkouts once APP-22 passes: set `basket_source = "chec
 | `reco/jobs/__main__.py`, `scheduler.py` | Job `product_ranking`, nightly after `promoter` |
 | `tests/test_product_ranker.py` | New |
 | `tests/test_recommendations.py` | The `served` fixture stubs the product ranker too |
+
+## Review of 26 Oct 2026, point 1
+
+Checklist 16.4 (`scripts/try_product_methods.py`): one product request for a user assigned each method, through the request path (status, items, never the context product, the method recorded, the record matching the response). Dev, 26 Oct: both served 10 items (method one its own list; method two through product_step_1, labelled intent). On the test server it runs with the test-only limits (point 1).

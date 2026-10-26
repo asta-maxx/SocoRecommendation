@@ -395,3 +395,7 @@ Commit `6c4299c` (1 Oct 2026):
 The live demo script, in plain language, is `obsidian/Demos/Demo - ENG-04.md`.
 
 **Whole checklist:** `bash scripts/run_checklist.sh` re-runs this item's checks with those of every other finished item, prints PASS/FAIL per line and drops `reco_demo` at the end.
+
+## Review of 26 Oct 2026, point 11
+
+Each reconciliation line (`reco/sync/reconcile.reconcile_source`, the `sync reconciliation` log and its `ml_measurements` row) now carries `rows_checked` (the day's platform rows, each compared with its copy), `source_total` (every row in the platform collection, `fetch.count_rows`) and `engine_total` (every copy the engine holds, `writers.count_copies`); the job's summary line (`sync reconciliation finished`) and its `ml_job_runs` detail list them per source.

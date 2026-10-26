@@ -399,3 +399,7 @@ The live demo script, in plain language, is the Obsidian note
 ## Update, 19 Oct 2026: the test environment
 
 The engine ran on the test server (`revealer`, Windows Server 2019) with `ENGINE_ENV=test` and its own engine database `soco_engine_test`: checklist lines 1.1 to 1.6 passed, 6 of 6 (17 collections; the platform login read-only, now also reading `returnrequests` and `commissionconfigs`; the safety lock; `.env` ignored; no password in tracked files; production refusing a `.env`). ENG-01 stays **Waiting** for production and its read-only login (Aravinth). The test server is far from Atlas (about 250 ms a round trip) and slow: see `Tracing/checks/TEST_SERVER_2026-10-19.md`.
+
+## Review of 26 Oct 2026, point 13
+
+Dev running now: `Tracing/checks/DEV_2026-10-26.md` (17 of 17 collections; the platform login `readonly_user` read-only, now reading returnrequests and commissionconfigs too; `/health` ok in dev; a request answered). **Open for ENG-01:** the engine's login on dev is `allen_db_user` with `atlasAdmin`; ENG-01 needs a separate engine login that can write only to the environment's engine database (Atlas administrator); production running (once a production server exists).

@@ -497,3 +497,9 @@ The live demo script, in plain language, is the Obsidian note
 ## Update, 16 Oct 2026
 
 **16 Oct 2026:** Passed (Kala S1).
+
+## Review of 26 Oct 2026, points 6 and 7
+
+- **Who started a run.** Every `ml_job_runs` row now records `started_by`: `scheduler` (the 2 AM nightly, `reco/jobs/scheduler.run_forever`), `sync_loop` (`reco/sync/run.sync_forever`) or `hand` (a person; `reco.jobs.batches.TRIGGER`, a context variable). `scripts/show_job_runs.py [--hours N] [--by scheduler]` prints the rows. On the test server, `bash scripts/test_server_services.sh start` runs the sync loop and the scheduler in the background against `soco_engine_test` (logs in `logs/`), so the next morning `show_job_runs.py --by scheduler` shows a scheduled nightly.
+- **7.5** no longer hides the kill demo's errors (`2>/dev/null` removed; its output is printed into the proof).
+- **"previous_version 58 → 7"**: see ENG-02 (review point 3): the checklist's temporary serving settings.

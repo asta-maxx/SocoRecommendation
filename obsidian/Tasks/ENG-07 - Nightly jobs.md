@@ -135,3 +135,7 @@ The Build List splits ENG-07 into six numbered parts (1–6). There are three ex
 - **Next:** [[ENG-08 - Filters]]. It applies the rules no model can override (blocks, hidden posts, out of stock) before and after scoring.
 - **Demo:** [[Demo - ENG-07]]. How to show this task working, step by step.
 - **Technical version:** `docs/engineering/ENG-07.md` in the repo.
+
+## Review, 26 Oct 2026
+- Every job run now says who started it: the 2 AM scheduler, the sync loop, or a person. The test server gets a script to keep the scheduler and the sync running, so there's proof of a real scheduled night.
+- The "kill a job halfway" check now shows its output instead of hiding errors.

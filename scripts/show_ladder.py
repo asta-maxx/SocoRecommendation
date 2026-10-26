@@ -22,7 +22,8 @@ sys.path.insert(0, str(ROOT))
 
 from reco.config import get_settings  # noqa: E402
 from reco.config import live, sync  # noqa: E402
-from reco.fallback.read_path import get_profile  # noqa: E402
+from reco.fallback.read_path import count_qualified_actions, get_profile  # noqa: E402
+from reco.store.writers import read_user_scores  # noqa: E402
 from reco.platform import connection as platform_conn  # noqa: E402
 from reco.platform import fetch  # noqa: E402
 from reco.store import connection as store_conn  # noqa: E402
@@ -47,6 +48,7 @@ async def main() -> None:
     parser.add_argument("users", nargs="*")
     parser.add_argument("--sample", type=int, default=20, help="platform users to walk when none are named")
     parser.add_argument("--method", default=Method.RECENCY_DECAY.value)
+    parser.add_argument("--all", action="store_true", help="walk every platform user (review of 26 Oct, point 6)")
     args = parser.parse_args()
 
     settings = get_settings()
@@ -59,15 +61,30 @@ async def main() -> None:
           f"and a score under {interest.stale_after_hours:g} h; popularity over {interest.popularity_window_days} days")
     print()
     try:
-        users = args.users or [u.user_id for u in await fetch.read_records(settings, "user", limit=args.sample)]
+        users = args.users or [u.user_id for u in await fetch.read_records(
+            settings, "user", limit=None if args.all else args.sample)]
         steps: Counter[str] = Counter()
+        enough = fresh = 0
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
         for user_id in users:
             p = await get_profile(settings, user_id, method=Method(args.method))
             steps[p.fallback_step or "rung_1"] += 1
+            # Review of 26 Oct, point 6: the two inputs of rung 1, counted separately.
+            enough += await count_qualified_actions(settings, user_id, now) >= interest.personal_min_actions
+            scores = await read_user_scores(settings, user_id, Method(args.method))
+            newest = max((s.computed_at for s in scores if s.computed_at), default=None)
+            if newest is not None and newest.tzinfo is None:
+                newest = newest.replace(tzinfo=timezone.utc)
+            fresh += newest is not None and now - newest < timedelta(hours=interest.stale_after_hours)
             if args.users:
                 show(user_id, p)
                 print()
         print(f"{len(users)} users by step: " + ", ".join(f"{k} {v}" for k, v in sorted(steps.items())))
+        print(f"users with {interest.personal_min_actions} or more qualified actions in {interest.personal_window_days} "
+              f"days: {enough}")
+        print(f"users with a score under {interest.stale_after_hours:g} hours old ({args.method}): {fresh}")
     finally:
         await platform_conn.close_client()
         await store_conn.close_client()

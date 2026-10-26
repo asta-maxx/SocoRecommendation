@@ -75,4 +75,10 @@ async def run_forever(settings: Settings, jobs: dict[str, Callable[[Settings], A
         await asyncio.sleep(max(0.0, (due - utc_now()).total_seconds()))
         # A job reads the settings once, at its start (ENG-02 item 3).
         await config_sync.reload(settings)
-        await run_nightly(settings, jobs)
+        from reco.jobs.batches import TRIGGER
+
+        token = TRIGGER.set("scheduler")
+        try:
+            await run_nightly(settings, jobs)
+        finally:
+            TRIGGER.reset(token)

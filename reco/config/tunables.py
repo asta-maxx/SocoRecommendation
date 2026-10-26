@@ -225,7 +225,10 @@ class Retrieval(_Section):
     #: ENG-14 (Kala, 16 Oct): a post's type is postTypeDetailed where filled, else postType;
     #: empty gives "normal"; anything not listed goes to "other" and is reported daily.
     #: Adding a type is a model_version change.
-    post_types: list[str] = Field(default_factory=lambda: ["photo", "video", "normal", "other"])
+    #: Review of 26 Oct 2026 (point 10): the eight types the platform uses besides photo and video.
+    post_types: list[str] = Field(default_factory=lambda: ["photo", "video", "normal", "poll", "review", "local_update",
+                                                           "product_showcase", "offer", "story", "new_arrival",
+                                                           "event", "other"])
 
 
 # --- Ranking --------------------------------------------------------------------

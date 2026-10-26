@@ -160,3 +160,6 @@ The Build List splits ENG-04 into nine numbered parts (1–9). There are five ex
 - **Next:** [[ENG-05 - Same method for each user]]. It gives each user the same one of two methods every time, fairly and permanently.
 - **Demo:** [[Demo - ENG-04]]. How to show this task working, step by step.
 - **Technical version:** `docs/engineering/ENG-04.md` in the repo.
+
+## Review, 26 Oct 2026
+The daily cross-check of SOCO's data against the engine's copy now also says how many rows it compared and how many each side holds in total.

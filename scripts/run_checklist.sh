@@ -214,6 +214,8 @@ check "5.5 the real settings file splits within 2 points" "$PY scripts/show_assi
 echo "== 6. ENG-06: serve a list and record it (throwaway reco_demo, port 8192)"
 proof_to ENG-06
 check "6.1 contract: 401, 400s, 503 off/internal, database fault, response shape" "$PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m 'not mongo'" "27 passed"
+# Review of 26 Oct, point 1: the limits this run uses, written into the proof.
+check "6.0 the time limits this run uses (test-only REQUEST_BUDGET_MS / SOURCE_TIME_LIMIT_MS when set; refused in production)" "$PY scripts/show_limits.py" "environment"
 check "6.2 constructed data: eligible newest first; record matches the response" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_recommendations.py -p no:cacheprovider -m mongo" "2 passed"
 # The serving copy turns both surfaces on, so it is a change: it needs a new config_version, or the
 # engine (rightly) keeps the version already recorded in reco_demo by the jobs (2.9's rule).
@@ -223,8 +225,8 @@ SERVE_TOKEN="checklist-$RANDOM$RANDOM"
 INGEST_TOKEN="$SERVE_TOKEN" SETTINGS_FILE="$WORK/serve.toml" ML_MONGO_DB=reco_demo $PY -m uvicorn reco.main:app --port 8192 >"$WORK/serve.log" 2>&1 &
 started 8192; disown
 if wait_for "curl -sf http://127.0.0.1:8192/health" 60; then
-  check "6.3 feed over HTTP: p95 within 200 ms; every record matches" "INGEST_TOKEN=$SERVE_TOKEN ML_MONGO_DB=reco_demo $PY scripts/try_recommendations.py http://127.0.0.1:8192 feed" "19 of 19"
-  check "6.4 product over HTTP: p95 within 200 ms; every record matches" "INGEST_TOKEN=$SERVE_TOKEN ML_MONGO_DB=reco_demo $PY scripts/try_recommendations.py http://127.0.0.1:8192 product" "19 of 19"
+  check "6.3 feed over HTTP: every record matches (one each: request_id, items in order, methods, fallback rung); p95 within 200 ms, judged only without test-only limits" "INGEST_TOKEN=$SERVE_TOKEN ML_MONGO_DB=reco_demo $PY scripts/try_recommendations.py http://127.0.0.1:8192 feed" "19 of 19"
+  check "6.4 product over HTTP: every record matches (one each: request_id, items in order, methods, fallback rung); p95 within 200 ms, judged only without test-only limits" "INGEST_TOKEN=$SERVE_TOKEN ML_MONGO_DB=reco_demo $PY scripts/try_recommendations.py http://127.0.0.1:8192 product" "19 of 19"
   check "6.5 a wrong token is 401" "curl -s -X POST http://127.0.0.1:8192/v1/recommendations -H 'Authorization: Bearer wrong' -d '{}' -w ' HTTP%{http_code}'" "HTTP401"
   V=$(sed -n 's/^config_version = "\([0-9]*\)"/\1/p' "$WORK/serve.toml"); NEXT=$((V + 1))
   sedi "s/config_version = \"$V\"/config_version = \"$NEXT\"/; s/^surface_mode_feed = \"live\"/surface_mode_feed = \"off\"/" "$WORK/serve.toml"
@@ -241,7 +243,7 @@ check "7.1 the scheduler runs at the set time (2 AM IST), reconciliation last; o
 check "7.2 a batch is read only once complete; rows carry provenance" "TEST_MONGO_TIMEOUT_MS=15000 $T -k 'current or provenance or replaces'" "3 passed"
 check "7.3 a failure halfway keeps the previous batch" "TEST_MONGO_TIMEOUT_MS=15000 $T -k halfway" "1 passed"
 check "7.4 a killed run is recorded as failed and never read" "TEST_MONGO_TIMEOUT_MS=15000 $T -k killed" "1 passed"
-check "7.5 a real kill halfway: previous batch still read" "out=\$(ML_MONGO_DB=reco_demo $PY scripts/demo_kill_job.py 2>/dev/null); grep -A1 '3. straight' <<<\"\$out\" | grep -q 'DEMO-U1=fashion' && grep -q abandoned <<<\"\$out\" && echo kill-check-ok" "kill-check-ok"
+check "7.5 a real kill halfway: previous batch still read" "out=\$(ML_MONGO_DB=reco_demo $PY scripts/demo_kill_job.py 2>&1); echo \"\$out\"; grep -A1 '3. straight' <<<\"\$out\" | grep -q 'DEMO-U1=fashion' && grep -q abandoned <<<\"\$out\" && echo kill-check-ok" "kill-check-ok"
 check "7.6 the real nightly run: both methods and the popularity batch current" "ML_MONGO_DB=reco_demo $PY -m reco.jobs nightly && ML_MONGO_DB=reco_demo $PY scripts/show_job_runs.py | grep -c CURRENT" "3"
 
 echo "== 8. ENG-29: adapting to the platform as built"

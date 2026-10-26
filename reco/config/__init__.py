@@ -186,6 +186,10 @@ class Settings(BaseModel):
     #: dev, where the laptop is far from Atlas. The pack sets no value (SD-26 asks
     #: only for an error at once with no retry).
     request_budget_ms: int | None = None
+    #: Test-only (review of 26 Oct 2026, point 1): until the test engine runs next to
+    #: its databases, a longer limit for the whole request (REQUEST_BUDGET_MS) and for
+    #: each candidate source (SOURCE_TIME_LIMIT_MS). Refused in production.
+    source_time_limit_ms: int | None = None
 
     # --- Model identity ------------------------------------------------------
     model_version: str = "1.0.0"
@@ -247,6 +251,17 @@ class Settings(BaseModel):
     log_level: str = "INFO"
 
     # --- Validation ----------------------------------------------------------
+
+    @model_validator(mode="after")
+    def _no_test_limits_in_production(self) -> "Settings":
+        """Review of 26 Oct 2026, point 1: the longer test-only limits never reach
+        production; the engine refuses to start with them."""
+        if self.engine_env == "production" and (self.request_budget_ms or self.source_time_limit_ms):
+            raise ValueError(
+                "REQUEST_BUDGET_MS / SOURCE_TIME_LIMIT_MS are test-only and refused in production: "
+                "production uses the pack's limits (serving.soco_be_timeout_ms, retrieval.source_time_limit_ms)"
+            )
+        return self
 
     @field_validator("engine_env")
     @classmethod
@@ -365,6 +380,7 @@ class Settings(BaseModel):
             ml_mongo_db=_env_str("ML_MONGO_DB", f"soco_engine_{engine_env}"),
             mongo_timeout_seconds=_env_float("MONGO_TIMEOUT_SECONDS", 10.0),
             request_budget_ms=int(os.environ["REQUEST_BUDGET_MS"]) if os.environ.get("REQUEST_BUDGET_MS") else None,
+            source_time_limit_ms=int(os.environ["SOURCE_TIME_LIMIT_MS"]) if os.environ.get("SOURCE_TIME_LIMIT_MS") else None,
             model_version=_env_str("MODEL_VERSION", "1.0.0"),
             category_vocabulary_path=_env_str(
                 "CATEGORY_VOCABULARY_PATH", "reco/platform/categories.json"

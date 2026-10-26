@@ -135,7 +135,10 @@ async def main(keep: bool) -> int:
             if documents:
                 await client[PLATFORM_DB][collection].insert_many(documents)
         say(f"Loaded {sum(map(len, dataset.values()))} constructed documents; {len(users)} users.")
-        for name in ("sync", "interest", "popularity", "category_check"):
+        # The reconciliation after the sync (review of 26 Oct, point 12): without one, the
+        # return-request freshness rule (ENG-30 point 7) rightly says the copy is not
+        # current, and M1 says it runs on the last good copy.
+        for name in ("sync", "reconcile_sync", "interest", "popularity", "category_check"):
             job(name)
         say()
 
@@ -238,6 +241,7 @@ async def main(keep: bool) -> int:
             {"_id": expect["return_request_id"]},
             {"$set": {"isActive": False, "status": "rejected", "updatedAt": datetime.now(timezone.utc)}})
         job("sync")
+        job("reconcile_sync")
         job("interest")
         after = {r["category"]: r for r in await engine["ml_user_interest_scores"].find(
             {"user_id": users["returner"], "method": Method.RECENCY_DECAY}).to_list(None)}

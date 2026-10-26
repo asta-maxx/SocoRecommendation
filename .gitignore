@@ -16,3 +16,6 @@ obsidian/.obsidian/workspace*.json
 
 # scripts/jira_sync.py: local audit log and proposed matches
 Tracing/jira/
+
+# scripts/test_server_services.sh
+logs/

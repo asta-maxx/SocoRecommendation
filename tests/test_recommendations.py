@@ -299,6 +299,29 @@ async def test_a_database_fault_is_503_at_once(served, monkeypatch) -> None:
     assert status == 503 and body["error"] == "database_unavailable" and calls == [1]  # no retry
 
 
+async def test_a_failed_request_is_never_recorded_as_delivered(served, monkeypatch) -> None:
+    """Review of 26 Oct, point 1: a request that fails leaves no served-list record."""
+    settings, records = served
+    put_in_force(LIVE)
+
+    async def down(*args):
+        raise ConnectionError("unreachable")
+
+    monkeypatch.setattr(api.serving, "interim_candidates", down)
+    status, _ = await call(settings, feed())
+    assert status == 503 and records == []
+
+
+def test_the_test_only_time_limits_are_refused_in_production() -> None:
+    from reco.config import Settings
+
+    for limits in ({"request_budget_ms": 3000}, {"source_time_limit_ms": 3000}):
+        with pytest.raises(ValueError, match="test-only"):
+            Settings(engine_env="production", **limits)
+    allowed = Settings(engine_env="test", request_budget_ms=3000, source_time_limit_ms=3000)
+    assert api.request_budget_seconds(allowed, None) == 3.0
+
+
 async def test_no_record_no_list(served, monkeypatch) -> None:
     settings, _ = served
     put_in_force(LIVE)
@@ -417,7 +440,8 @@ def test_the_request_budget_is_soco_be_timeout_off_dev() -> None:
     t = live.current()
     assert api.request_budget_seconds(Settings(engine_env="test"), t) == t.serving.soco_be_timeout_ms / 1000 == 0.25
     assert api.request_budget_seconds(Settings(engine_env="dev"), t) == 2.0
-    assert api.request_budget_seconds(Settings(engine_env="production", request_budget_ms=300), t) == 0.3
+    assert api.request_budget_seconds(Settings(engine_env="production"), t) == 0.25  # the pack's limit, always
+    assert api.request_budget_seconds(Settings(engine_env="test", request_budget_ms=300), t) == 0.3  # test-only override
 
 
 async def test_a_product_in_the_viewers_cart_is_never_on_a_product_list(monkeypatch) -> None:

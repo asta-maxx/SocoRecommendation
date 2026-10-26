@@ -719,3 +719,7 @@ async def read_return_request_windows(settings: Settings) -> dict[str, float]:
     cursor = ml_db(settings)["ml_return_requests"].find({"window_days": {"$ne": None}}, {"order_id": 1, "window_days": 1})
     return {str(row["order_id"]): float(row["window_days"]) async for row in cursor if row.get("order_id")}
 
+
+async def count_copies(settings: Settings, target: str, source: str) -> int:
+    """How many copies of `source` the engine holds (the reconciliation's engine total)."""
+    return await ml_db(settings)[target].count_documents({"source": source})

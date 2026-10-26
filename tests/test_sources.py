@@ -190,3 +190,12 @@ async def test_the_post_index_and_the_sources_on_a_database(store) -> None:
         for name in ("ml_item_state", "ml_events", "ml_job_runs"):
             await engine[name].delete_many({})
         await client.close()
+
+
+async def test_the_test_only_source_limit_overrides_the_setting(index, settings) -> None:
+    """Review of 26 Oct, point 1: SOURCE_TIME_LIMIT_MS (test only) replaces the 20 ms."""
+    index["slow"] = {"follows"}  # 200 ms
+    longer = settings.model_copy(update={"source_time_limit_ms": 3000})
+    assert (await run(longer)).dropped == []
+    assert (await run(settings)).dropped == ["follows"]
+

@@ -114,7 +114,11 @@ async def run_sources(
     now = now or datetime.now(timezone.utc)
     since = now - timedelta(days=tunables.post_age_days)
     limit = tunables.pool_size
-    budget = (time_limit_ms if time_limit_ms is not None else tunables.source_time_limit_ms) / 1000
+    # A caller's limit (tests), else the test-only override (Settings.source_time_limit_ms,
+    # never in production), else the setting (20 ms).
+    limit_ms = (time_limit_ms if time_limit_ms is not None
+                else settings.source_time_limit_ms or tunables.source_time_limit_ms)
+    budget = limit_ms / 1000
     shares = dict(top)
     categories = list(shares)
     batch = await item_state.current_batch(settings)

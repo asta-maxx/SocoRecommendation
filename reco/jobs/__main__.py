@@ -164,7 +164,9 @@ async def _reconcile_sync(settings: Settings) -> None:
         job_logger.info(
             "sync reconciliation finished",
             extra={"job": "reconcile_sync", "passed": all(r["passed"] for r in results),
-                   "sources": {r["source"]: r["passed"] for r in results}},
+                   "sources": {r["source"]: {"passed": r["passed"], "rows_checked": r["rows_checked"],
+                                             "source_total": r["source_total"], "engine_total": r["engine_total"]}
+                               for r in results}},
         )
 
 

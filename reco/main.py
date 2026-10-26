@@ -66,6 +66,11 @@ async def lifespan(app: FastAPI):
         settings.model_version,
         live.current().config_version,
     )
+    if settings.request_budget_ms or settings.source_time_limit_ms:
+        logger.warning(
+            "test-only time limits in force: request %s ms, each source %s ms (never in production)",
+            settings.request_budget_ms or "default", settings.source_time_limit_ms or "default",
+        )
     yield
     for task in (reloader, watcher):
         task.cancel()

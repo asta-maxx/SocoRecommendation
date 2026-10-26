@@ -88,3 +88,6 @@ The Build List row's parts (1–4), in its order, then the extras.
 - **Built on:** [[ENG-07 - Nightly jobs]], [[ENG-10 - Interest score on real data]], [[ENG-08 - Filters]], [[Nightly batches]], [[Settings file]], [[Engine Database]], [[Indexes]]
 - **Next:** [[ENG-15 - Merge the shortlist]]. Puts method one's 300 and this list together into one shortlist of 200 for every person.
 - **Technical version:** `docs/engineering/ENG-14.md` in the repo.
+
+## Review, 26 Oct 2026
+Eight more post types are recognised (poll, review, local update, product showcase, offer, story, new arrival, event), so posts no longer fall into "other". Every type goes through exactly the same rules and maths as photos and videos.

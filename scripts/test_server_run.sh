@@ -36,9 +36,15 @@ grep -q '^ENGINE_ENV=test' .env || {
   echo "      Fix it with:  sed -i 's/^ENGINE_ENV=.*/ENGINE_ENV=test/' .env"; exit 1; }
 grep -q '^ML_MONGO_DB=soco_engine_test' .env || { sed -i 's/^ML_MONGO_DB=.*/ML_MONGO_DB=soco_engine_test/' .env
   grep -q '^ML_MONGO_DB=' .env || echo 'ML_MONGO_DB=soco_engine_test' >> .env; echo "   ML_MONGO_DB set to soco_engine_test"; }
-grep -q '^MODEL_VERSION=1.1.0' .env || { sed -i 's/^MODEL_VERSION=.*/MODEL_VERSION=1.1.0/' .env
-  grep -q '^MODEL_VERSION=' .env || echo 'MODEL_VERSION=1.1.0' >> .env; echo "   MODEL_VERSION set to 1.1.0"; }
+# 1.2.0 (26 Oct 2026): ENG-14's post types grew (Kala: adding a type is a model_version change).
+grep -q '^MODEL_VERSION=1.2.0' .env || { sed -i 's/^MODEL_VERSION=.*/MODEL_VERSION=1.2.0/' .env
+  grep -q '^MODEL_VERSION=' .env || echo 'MODEL_VERSION=1.2.0' >> .env; echo "   MODEL_VERSION set to 1.2.0"; }
 set -a; . ./.env; set +a
+# Review of 26 Oct 2026, point 1: until the test engine runs next to its databases, a
+# longer test-only limit for the request and for each source (the engine refuses them in
+# production). Printed into the proofs by checklist line 6.0.
+export REQUEST_BUDGET_MS="${REQUEST_BUDGET_MS:-3000}" SOURCE_TIME_LIMIT_MS="${SOURCE_TIME_LIMIT_MS:-3000}"
+echo "   test-only limits: request ${REQUEST_BUDGET_MS} ms, each source ${SOURCE_TIME_LIMIT_MS} ms"
 
 echo "== engine database"
 "$PY" scripts/setup_engine_db.py || { echo "STOP: the engine database is not reachable. Is this server's IP on both Atlas access lists?"; exit 1; }

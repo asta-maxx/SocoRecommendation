@@ -71,10 +71,16 @@ async def reconcile_source(settings: Settings, source: SyncSource, day: str, sta
     reread_docs += still_there
     reread = await write_page(settings, source, reread_docs, utc_now()) if reread_docs else 0
 
+    # Review of 26 Oct 2026 (point 11): what was checked, beside the source's totals.
+    source_total, engine_total = await fetch.count_rows(settings, source.kind), \
+        await writers.count_copies(settings, source.target, source.collection)
     result = {
         "source": source.collection,
         "day": day,
         "checked_at": utc_now(),
+        "rows_checked": len(on_platform),  # the platform's rows of the day, each compared with its copy
+        "source_total": source_total,  # every row in the platform collection
+        "engine_total": engine_total,  # every copy the engine holds of it
         "platform_ids": len(on_platform),
         "engine_ids": len(touched | set(held)),
         "missing": len(missing),
@@ -99,5 +105,7 @@ async def reconcile_day(settings: Settings, day: str | None = None) -> list[dict
     async with recorded_run(settings, "reconcile_sync", data_window={"from": start, "to": end}) as run:
         results = [await reconcile_source(settings, source, day, start, end) for source in SYNC_SOURCES]
         run["rows_written"] = sum(r["reread"] for r in results)
-        run["detail"] = {"day": day, "passed": {r["source"]: r["passed"] for r in results}}
+        run["detail"] = {"day": day, "passed": {r["source"]: r["passed"] for r in results},
+                         "checked": {r["source"]: {"rows_checked": r["rows_checked"], "source_total": r["source_total"],
+                                                   "engine_total": r["engine_total"]} for r in results}}
     return results

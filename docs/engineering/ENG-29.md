@@ -337,3 +337,7 @@ Point 4 (order history) is now ENG-30 point 5's history-text map (`[lists.tracki
 ## Update, 17 Oct 2026: category map v7 (Nisha)
 
 `lists.category_map` 78 → 83 entries (settings config_version 7): watches → Jewellery, appliances → Home & Living, tools & home improvement → Home & Living, nature → Travel & Lifestyle, fishing → Sports & Outdoors. Still unmapped and reported: shopping (by decision), bags & wallets, Fishing & Marine (to be classified by its products, never by its name; no such business on dev on 17 Oct), the catimp test categories. Details: `docs/engineering/ANSWERS_2026-10-16.md` §8.
+
+## Review of 26 Oct 2026, point 8
+
+Checklist 8.9 seeds the constructed data into its own test database, `soco_platform_test` (it used `soco_engine_test`, which on the test server is the engine's own database: the seed rightly refused). To re-run on the server.

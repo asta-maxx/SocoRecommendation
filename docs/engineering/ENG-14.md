@@ -182,3 +182,7 @@ python -m reco.jobs --list                  # similar_posts is listed
 ## Update, 17 Oct 2026: Nisha's answers
 
 Two changes to the built method (see §2 and §3 above): purchases made from a post add 20 to the profile; the profile's posts are left off the list. Tests: `tests/test_similar.py` +5 (a kept purchase adds 20 aged from the order; ENG-10's purchase rules; the postevents purchase row never counts; a purchase alone makes an engaged post; the profile's posts are skipped and the next fill), and the MongoDB test now checks the 4 engaged Pets posts are off the list and the other Pets posts come first. Results: 35 unit + 1 MongoDB passed. Checklist 12.4 now expects 35.
+
+## Review of 26 Oct 2026, point 10: the platform's post types
+
+`retrieval.post_types` is now `photo, video, normal, poll, review, local_update, product_showcase, offer, story, new_arrival, event, other` (settings config_version 8; `MODEL_VERSION` 1.2.0 on the test server: adding a type is a model_version change, Kala). Dev on 26 Oct: 550 posts: product_showcase 113, review 108, local_update 78, photo 68, poll 48, offer 33, story 33, new_arrival 33, video 20, event 16: every one now has its own type. **The same rules for every type:** the type only sets which one of the vector's type dimensions is 1 (`similar.post_vector`); the pool rules (`similar.post_is_eligible`: seed, repost, E-04, E-06, E-08, E-09, E-12), the 30 days, the 5,000 cap, the profile and the cosine are the same code path for all types.

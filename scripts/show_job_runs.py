@@ -1,51 +1,51 @@
-"""Show the nightly job runs and which batch is current (ENG-07). Read-only.
+"""Print the engine's job runs (ml_job_runs), with who started each (review of 26 Oct 2026, point 6).
 
-    .venv/bin/python scripts/show_job_runs.py
-    ML_MONGO_DB=reco_demo .venv/bin/python scripts/show_job_runs.py
+    .venv/bin/python scripts/show_job_runs.py                 # the last 36 hours
+    .venv/bin/python scripts/show_job_runs.py --hours 72 --by scheduler
 
-ml_job_runs, newest first: job, method, outcome, rows written, duration, whether
-it is the current batch; then the score rows held per batch. Ids and counts
-only -- no user ids.
+One line per run: when it started, the job and method, who started it (scheduler,
+sync_loop or hand), the outcome, rows written, how long it took, and whether its
+batch is current. Prints the engine database name, never a connection string.
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import sys
-from collections import Counter
+from datetime import timedelta
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from reco.config import get_settings  # noqa: E402
 from reco.store import connection as store_conn  # noqa: E402
-from reco.store.writers import read_job_runs  # noqa: E402
+from reco.store.scores import utc_now  # noqa: E402
 
 
 async def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--hours", type=float, default=36)
+    parser.add_argument("--by", choices=["scheduler", "sync_loop", "hand"], help="only runs started this way")
+    args = parser.parse_args()
     settings = get_settings()
     store_conn.init_client(settings)
     try:
-        runs = await read_job_runs(settings, limit=12)
-        print(f"ml_job_runs in {settings.ml_mongo_db} ({settings.engine_env}), newest first:")
-        for r in runs:
-            print(
-                f"  {r['_id'][:8]}  {r.get('job', ''):9} {str(r.get('method')):15} {r.get('outcome', ''):9}"
-                f" rows {str(r.get('rows_written', '-')):>5}  {str(r.get('duration_seconds', '-')):>6}s"
-                f"  {'CURRENT' if r.get('is_current') else '       '}  {(r.get('error') or '')[:60]}"
-            )
-        held = Counter([
-            (d.get("method"), (d.get("job_run_id") or "none")[:8])
-            async for d in store_conn.ml_db(settings)[settings.scores_collection].find({}, {"method": 1, "job_run_id": 1})
-        ])
-        print(f"score rows in {settings.scores_collection} by batch:")
-        for (method, run), n in sorted(held.items(), key=lambda x: (str(x[0][0]), x[0][1])):
-            print(f"  {str(method):15} {run}  {n}")
+        query = {"started_at": {"$gte": utc_now() - timedelta(hours=args.hours)}}
+        if args.by:
+            query["started_by"] = args.by
+        rows = await store_conn.ml_db(settings)["ml_job_runs"].find(query).sort("started_at", 1).to_list(None)
+        print(f"engine db {settings.ml_mongo_db} ({settings.engine_env}): {len(rows)} runs in the last {args.hours:g} h"
+              + (f", started by {args.by}" if args.by else ""))
+        for r in rows:
+            print(f"{r['started_at']:%Y-%m-%d %H:%M:%S}Z  {r.get('job', ''):<16} {str(r.get('method') or ''):<22} "
+                  f"by {r.get('started_by', '(not recorded)'):<10} {r.get('outcome', ''):<10} "
+                  f"rows {r.get('rows_written', 0):<7} {r.get('duration_seconds', 0) or 0:>8.1f} s"
+                  f"{'  current' if r.get('is_current') else ''}")
+        return 0
     finally:
         await store_conn.close_client()
-    return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main()))
+    sys.exit(asyncio.run(main()))

@@ -182,8 +182,10 @@ async def sync_forever(settings: Settings) -> None:
     """A pass every sync_interval_minutes. Settings are re-read before each pass, so a
     changed interval takes effect with no restart. Every filters.eligibility_refresh_minutes
     (15) the post index the candidate sources read is refreshed too (ENG-12)."""
+    from reco.jobs.batches import TRIGGER
     from reco.ranking import post_index
 
+    TRIGGER.set("sync_loop")  # every run this loop starts is recorded as the loop's
     last_index: datetime | None = None
     while True:
         await config_sync.reload(settings)

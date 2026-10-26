@@ -30,6 +30,7 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, AsyncIterator, Awaitable, Callable
 
@@ -38,6 +39,11 @@ from reco.store import writers
 from reco.store.scores import utc_now
 
 logger = logging.getLogger("reco.job")
+
+#: Who started the run, recorded on every ml_job_runs row (review of 26 Oct 2026,
+#: point 6): "scheduler" (the 2 AM nightly), "sync_loop" (the sync every few
+#: minutes), or "hand" (a person ran `python -m reco.jobs ...`).
+TRIGGER: ContextVar[str] = ContextVar("job_trigger", default="hand")
 
 
 async def run_batch(
@@ -66,6 +72,7 @@ async def run_batch(
         "config_version": live.current().config_version,
         "model_version": settings.model_version,
         "started_at": started,
+        "started_by": TRIGGER.get(),
         "outcome": "running",
         "is_current": False,
     }
@@ -110,7 +117,7 @@ async def recorded_run(
     await writers.record_job_run(settings, {
         "_id": job_run_id, "job": job, "slot": None, "method": None, "data_window": data_window,
         "config_version": live.current().config_version, "model_version": settings.model_version,
-        "started_at": started, "outcome": "running", "is_current": False,
+        "started_at": started, "started_by": TRIGGER.get(), "outcome": "running", "is_current": False,
     })
     result: dict[str, Any] = {"job_run_id": job_run_id, "rows_written": 0, "detail": None}
     try:

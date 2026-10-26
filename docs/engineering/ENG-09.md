@@ -189,3 +189,7 @@ Checklist section 10 (`scripts/run_checklist.sh`): 10.1 the ENG-09 check through
 - Read errors keep their meaning: the engine store failing is rung 5; the platform failing is a 503.
 
 Tests: `test_actions_on_seed_posts_do_not_count`; `tests/test_ladder_store.py::test_qualified_actions_count_what_the_pack_counts` now also leaves out an own-post like and an order with an open request. 53 ladder and serving tests pass (with MongoDB).
+
+## Review of 26 Oct 2026, point 6
+
+`scripts/show_ladder.py` adds two counts: users with `interest.personal_min_actions` (5) or more qualified actions in `personal_window_days` (90) (`read_path.count_qualified_actions`), and users with a score under `stale_after_hours` (48) old for the method. `--all` walks every platform user. To be re-run on the test server after a scheduled nightly into `soco_engine_test`.

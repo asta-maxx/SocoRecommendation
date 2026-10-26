@@ -100,3 +100,7 @@ Kala's F7 ("ENG-30 is Passed only when the ENG-03, 04, 10, 11 and 29 checks re-r
 M1 (ENG-09, ENG-10, ENG-11, with ENG-30 points 5, 6, 7, 9, 10 and Kala's answers) is complete on dev.
 
 **16 Oct 2026:** checks 17 (own-post only: count 0, no score) and 18 (the qualifying set) added from Kala's follow-up. **18 of 18 passed.**
+
+## Review of 26 Oct 2026, point 12
+
+"return-request copy not current; M1 runs on the last good copy" in `check_m1.py` came from the **deliberate** freshness rule (ENG-30 point 7: current only after a sync within 24 hours **and** a passed reconciliation): the script synced its throwaway database but never ran a reconciliation there. It now runs `reconcile_sync` after each `sync`, so the line appears only when it is true.
