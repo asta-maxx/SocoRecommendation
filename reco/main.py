@@ -8,6 +8,8 @@ being made in this file, it is in the wrong file.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -15,10 +17,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from reco.api import health, profiles
-from reco.config import get_settings
-from reco.data import mongo
-from reco.data.writers import ensure_indexes
+from reco.api import health, profiles, recommendations
+from reco.config import get_settings, live, sync
+from reco.monitoring import watch
+from reco.monitoring.logs import configure_logging, log_request
+from reco.platform import connection as platform_conn
+from reco.store import connection as store_conn
+from reco.store.writers import ensure_engine_collections, ensure_indexes
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +31,14 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    logging.basicConfig(
-        level=settings.log_level,
-        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
-    )
+    configure_logging(settings)
 
-    mongo.init_clients(settings)
-    await mongo.verify_databases(settings)
+    store_conn.init_client(settings)
+    platform_conn.init_client(settings)
+    await platform_conn.verify_database(settings)
+    await store_conn.verify_database(settings)
     try:
+        await ensure_engine_collections(settings)
         await ensure_indexes(settings)
     except Exception:
         # A missing index makes scores slow and lets duplicates through; it does
@@ -44,9 +49,35 @@ async def lifespan(app: FastAPI):
             "has createIndex on the ml_ prefix"
         )
 
-    logger.info("reco up: model_version=%s", settings.model_version)
+    try:
+        await asyncio.gather(platform_conn.warm(settings), store_conn.warm(settings))
+    except Exception:
+        logger.exception("could not open the database connections ahead; requests will open them")
+
+    # ENG-02 items 3-4: the settings in force, then a reload at least once a minute.
+    await sync.load_at_start(settings)
+    reloader = asyncio.create_task(sync.reload_loop(settings))
+    # ENG-04 item 7, ENG-07: the lag and stuck-run alerts, independent of the sync and jobs.
+    watcher = asyncio.create_task(watch.watch_loop(settings))
+
+    logger.info(
+        "reco up: env=%s model_version=%s config_version=%s",
+        settings.engine_env,
+        settings.model_version,
+        live.current().config_version,
+    )
+    if settings.request_budget_ms or settings.source_time_limit_ms:
+        logger.warning(
+            "test-only time limits in force: request %s ms, each source %s ms (never in production)",
+            settings.request_budget_ms or "default", settings.source_time_limit_ms or "default",
+        )
     yield
-    await mongo.close_clients()
+    for task in (reloader, watcher):
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    await platform_conn.close_client()
+    await store_conn.close_client()
 
 
 app = FastAPI(
@@ -78,5 +109,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.middleware("http")(log_request)
+
 app.include_router(health.router)
+app.include_router(recommendations.router)
 app.include_router(profiles.router)

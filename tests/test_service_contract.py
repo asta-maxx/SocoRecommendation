@@ -19,7 +19,8 @@ import pytest
 from pydantic import ValidationError
 
 from reco.config import Settings
-from reco.domain.service_contract import (
+from tests.conftest import m1_tunables
+from reco.api.contract import (
     BEYOND_THE_REGISTER,
     CONTRACT_VERSION,
     EVENT_MODELS,
@@ -217,11 +218,17 @@ def test_every_event_validates_through_the_one_request_shape() -> None:
 
 def test_every_event_has_a_decision_about_what_m1_reads() -> None:
     assert set(M1_WEIGHT_KEY) == set(EventName)
-    weight_keys = set(Settings().tunables()["P-06"])
+    weight_keys = set(m1_tunables()["P-06"])
     for weight in M1_WEIGHT_KEY.values():
         assert weight is None or weight in weight_keys
-    # Every P-06 weight has an event to be paid on.
-    assert weight_keys <= set(M1_WEIGHT_KEY.values())
+    # Every P-06 weight has an event to be paid on: in this (pre-v1.3) contract, or,
+    # since ENG-10, among the actions read from the engine's copies.
+    from reco.slots.interest.common import WEIGHT_KEY
+    from reco.slots.interest.copies import ACTION
+    from reco.slots.interest.events import EventType
+
+    from_copies = {WEIGHT_KEY[a] for a in ACTION.values()} | {WEIGHT_KEY[EventType.PURCHASE], WEIGHT_KEY[EventType.BUSINESS_FOLLOW]}
+    assert weight_keys <= set(M1_WEIGHT_KEY.values()) | from_copies
 
 
 def test_a_renamed_field_is_rejected() -> None:

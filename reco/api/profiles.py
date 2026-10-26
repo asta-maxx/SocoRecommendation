@@ -15,12 +15,14 @@ from collections import Counter
 from fastapi import APIRouter, Depends, Query
 
 from reco.config import Settings, get_settings
-from reco.data import readers
-from reco.data.mongo import ml_db
-from reco.domain.scores import Method, utc_now
-from reco.methods.context import ScoringContext
-from reco.read_path import get_profile
-from reco.refresh import METHODS as REFRESH_METHODS
+from reco.config import live
+from reco.platform import readers
+from reco.store.connection import ml_db
+from reco.store.writers import current_job_run_id
+from reco.store.scores import Method, utc_now
+from reco.slots.interest.context import ScoringContext
+from reco.fallback.read_path import get_profile
+from reco.jobs.refresh import METHODS as REFRESH_METHODS
 
 router = APIRouter(tags=["profiles"])
 
@@ -106,7 +108,9 @@ async def users(
     collection = ml_db(settings)[settings.scores_collection]
     scored = sorted(
         await collection.distinct(
-            "user_id", {"method": str(method), "model_version": settings.model_version}
+            "user_id",
+            {"method": str(method), "model_version": settings.model_version,
+             "job_run_id": await current_job_run_id(settings, "interest", str(method))},
         )
     )
     all_users = await readers.read_all_user_ids(settings)
@@ -143,7 +147,7 @@ async def methods(settings: Settings = Depends(get_settings)) -> dict:
             }
             for name in present
         ],
-        "tunables": settings.tunables(),
+        "tunables": live.current().m1(),
     }
 
 
@@ -166,7 +170,7 @@ async def diagnostics(
 
     events, read_stats = await readers.read_user_events(settings, user_id)
     ctx = ScoringContext(
-        tunables=settings.tunables(),
+        tunables=live.current().m1(),
         declared_interests=await readers.read_declared_interests(settings, user_id),
         order_created_at=await readers.read_all_order_creation_times(settings),
         now=utc_now(),
@@ -182,7 +186,7 @@ async def diagnostics(
         "dropped": [
             {
                 "reason": "view too short to mean anything",
-                "detail": f"under P-02 = {settings.qualified_view_threshold_seconds}s",
+                "detail": f"under P-02 = {live.current().events.qualified_view_seconds}s",
                 "count": stats.sub_threshold_views,
             },
             {
@@ -237,7 +241,10 @@ async def overview(settings: Settings = Depends(get_settings)) -> dict:
     rows = [
         row
         async for row in collection.find(
-            {"model_version": version},
+            {"model_version": version, "$or": [
+                {"method": m, "job_run_id": await current_job_run_id(settings, "interest", m)}
+                for m in await collection.distinct("method")
+            ] or [{"_id": None}]},
             {"_id": 0, "user_id": 1, "category": 1, "share": 1, "raw": 1,
              "event_count": 1, "method": 1},
         )
@@ -341,12 +348,12 @@ async def popularity(settings: Settings = Depends(get_settings)) -> dict:
     as not personalised wherever it is served.
     """
     counts = await readers.read_category_popularity(
-        settings, window_days=settings.cold_start_popularity_window_days
+        settings, window_days=live.current().interest.popularity_window_days
     )
     total = sum(counts.values())
 
     return {
-        "window_days": settings.cold_start_popularity_window_days,
+        "window_days": live.current().interest.popularity_window_days,
         "personalised": False,
         "total_events": total,
         "categories": [

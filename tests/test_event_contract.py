@@ -13,7 +13,8 @@ import pytest
 from pydantic import ValidationError
 
 from reco.config import Settings
-from reco.domain.event_contract import (
+from tests.conftest import DS007_M1_TUNABLES
+from reco.platform.demo_event_contract import (
     CONDITIONAL_FIELDS,
     CORE_FIELDS,
     ROW_EVENT_TYPES,
@@ -152,7 +153,7 @@ def test_reversal_weight_is_the_purchase_weight_negated() -> None:
     """Not P-07. P-07 is hide/report/skip and is 0 at launch -- multiplying the
     reversal by it would zero the reversal silently.
     """
-    tunables = Settings().tunables()
+    tunables = dict(DS007_M1_TUNABLES)
     row = make_row(
         event_type="purchase_reversal",
         weight=-20,
@@ -197,7 +198,7 @@ def test_weight_never_reaches_the_engine_event() -> None:
     """The engine derives weight from P-06 keyed on event_type. If it read this
     field, P-06 would stop being configuration.
     """
-    from reco.domain.events import Event
+    from reco.slots.interest.events import Event
 
     assert "weight" not in Event.model_fields
 
@@ -206,7 +207,7 @@ def test_expected_weight_matches_p06_for_every_type() -> None:
     """The one legitimate reading of the field: a check that the generator's
     belief and P-06 agree.
     """
-    tunables = Settings().tunables()
+    tunables = dict(DS007_M1_TUNABLES)
     expected = {
         "product_view": 2.0,
         "keyword_search": 3.0,
@@ -227,7 +228,7 @@ def test_expected_weight_matches_p06_for_every_type() -> None:
 
 def test_expected_weight_follows_a_retuned_p06() -> None:
     """Proving P-06 really is configuration: change it, and the expectation moves."""
-    retuned = Settings(event_weights={"view": 7.0}).tunables()
+    retuned = {**DS007_M1_TUNABLES, "P-06": {**DS007_M1_TUNABLES["P-06"], "view": 7.0}}
 
     assert make_row().expected_weight(retuned) == 7.0  # a product_view row
 
@@ -239,7 +240,7 @@ def test_home_and_living_is_three_merges_not_four() -> None:
     """DS-008's 'four' counts map entries. Kala ruled three are genuine merges;
     the fourth is an underscore spelling of the canonical label correcting itself.
     """
-    from reco.domain.event_contract import (
+    from reco.platform.demo_event_contract import (
         HOME_AND_LIVING_MERGES,
         HOME_AND_LIVING_SPELLING_FIX,
     )
@@ -257,7 +258,7 @@ def test_the_spelling_fix_is_carried_not_rejected() -> None:
     supplies and the mapping happens afterwards, which is what lets U06 show the
     repair rather than hiding it behind a validation error.
     """
-    from reco.domain.event_contract import HOME_AND_LIVING_SPELLING_FIX
+    from reco.platform.demo_event_contract import HOME_AND_LIVING_SPELLING_FIX
 
     row = make_row(categories=[HOME_AND_LIVING_SPELLING_FIX])
 
@@ -266,7 +267,7 @@ def test_the_spelling_fix_is_carried_not_rejected() -> None:
 
 def test_the_three_merges_are_valid_category_keys() -> None:
     """They are toCategoryKey() output -- lowercase, spaces preserved."""
-    from reco.domain.event_contract import HOME_AND_LIVING_MERGES
+    from reco.platform.demo_event_contract import HOME_AND_LIVING_MERGES
 
     assert make_row(categories=list(HOME_AND_LIVING_MERGES)).categories == list(
         HOME_AND_LIVING_MERGES

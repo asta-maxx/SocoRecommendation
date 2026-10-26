@@ -1,0 +1,51 @@
+# scripts/jira_sync.py: which Jira issues it may update, and how. No secrets here:
+# JIRA_EMAIL and JIRA_API_TOKEN go in .env (an API token from
+# https://id.atlassian.com/manage-profile/security/api-tokens, created by Allen).
+#
+# Until every value below is filled in, the script refuses to run.
+
+base_url = "https://mysoco.atlassian.net"   # https://<site>.atlassian.net
+project_key = "SRE"                # the ONE project it may touch (board 138, 17 Oct 2026)
+allen_account_id = "712020:67ee6429-c3c4-4d94-8cd7-6d71613a6e59"   # Allen Matthew, from `check` (17 Oct 2026)
+allen_display_name = "Allen Matthew"
+max_writes_per_run = 40            # 1-50; a run stops at this many writes (17 Oct: 9 comments, 9 moves, 12 proofs)
+attach_proofs = true               # attach each task's proof PDF (once per file)
+proofs_folder = "Test Output (test server)"   # 19 Oct 2026: the test server's run (environment test)
+
+# Jira's statuses in workflow order (SRE's workflow, read 17 Oct 2026): transitions only
+# ever move forward along this list.
+jira_status_order = ["To Do", "In Progress", "Done"]
+
+# The engine's status (the vault note's `status:`) -> the Jira status to move to.
+# Built = works and is tested on dev, but its acceptance check has not run on the
+# test server yet, so it stays In Progress; Passed = Done.
+[transitions]
+"In progress" = "In Progress"
+"Waiting" = "In Progress"
+"Built" = "In Progress"
+"Passed" = "Done"
+
+# Jira issue -> the Build List v1.4 task(s) it covers: the ONLY issues it may touch.
+# The SRE issues follow the earlier plan (RE-09 to RE-22); mapped by hand on 17 Oct
+# 2026 (`discover` found no confident match: the wording differs). Sprints 1 and 2
+# (SRE-10 to SRE-50) are already Done and are not listed; the sprint stories
+# (SRE-71, SRE-98) are not listed either.
+[issues]
+"SRE-72" = ["ENG-08"]               # RE-09 eligibility filter layer
+"SRE-73" = ["ENG-12"]               # RE-10 candidate source connectors
+"SRE-74" = ["ENG-13"]               # RE-11 retrieval method one (quotas)
+"SRE-75" = ["ENG-14"]               # RE-12 retrieval method two (similar posts)
+"SRE-76" = ["ENG-13", "ENG-15"]     # RE-13 merge, quota and deduplication
+"SRE-77" = ["ENG-17"]               # RE-14 product ranker, both methods
+"SRE-78" = ["ENG-21"]               # RE-15 fraud rule engine
+"SRE-79" = ["ENG-09", "ENG-06"]     # RE-16 timeout and fallback ladder
+"SRE-99" = ["ENG-19"]               # RE-17 launch ranking layer
+"SRE-100" = ["ENG-06"]              # RE-18 reason codes (Wave 1A: reason_code returned, always null)
+"SRE-101" = ["ENG-16"]              # RE-19 promoter score, both methods
+"SRE-102" = ["ENG-18"]              # RE-20 opportunity ordering and brand match
+"SRE-103" = ["ENG-06", "ENG-20"]    # RE-21 surface endpoints and latency test
+"SRE-104" = ["ENG-22", "ENG-23"]    # RE-22 conformance queries
+
+# Issue -> one line added to its comment, where the mapping needs explaining.
+[notes]
+"SRE-100" = "Wave 1A scope: every recommended item carries a reason_code field, and the Build List v1.4 sets it to null for Wave 1A (ENG-06). Generating reason codes is not part of Wave 1A."

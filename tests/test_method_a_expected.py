@@ -18,10 +18,11 @@ from pathlib import Path
 import pytest
 
 from reco.config import Settings
-from reco.domain.categories import CategoryVocabulary, resolve_all
-from reco.domain.events import Event, EventType
-from reco.methods.context import ScoringContext
-from reco.methods.interest_decay import score
+from reco.platform.categories import CategoryVocabulary, resolve_all
+from reco.slots.interest.events import Event, EventType
+from reco.slots.interest.context import ScoringContext
+from reco.slots.interest.interest_decay import score
+from tests.conftest import DS007_M1_TUNABLES
 
 DEMO_DIR = Path(
     os.environ.get(
@@ -80,7 +81,7 @@ def demo():
 
 
 VOCABULARY = CategoryVocabulary.load(
-    Path(__file__).resolve().parents[1] / "reco" / "data" / "categories.json"
+    Path(__file__).resolve().parents[1] / "reco" / "platform" / "categories.json"
 )
 
 
@@ -145,7 +146,7 @@ def adapt(row: dict, reference_date: datetime) -> Event | None:
 
 def context_for(demo, user_id: str) -> ScoringContext:
     return ScoringContext(
-        tunables=Settings().tunables(),
+        tunables=dict(DS007_M1_TUNABLES),
         declared_interests=demo["declared"].get(user_id, []),
         order_created_at=demo["orders"],
         now=demo["reference_date"],
@@ -343,7 +344,7 @@ def test_u06_legacy_names_are_counted_when_dropped(demo) -> None:
     unmappable categories is the signal that resolution is not running at all --
     which is exactly how this went unnoticed through four clean runs.
     """
-    from reco.domain.events import ReadStats
+    from reco.slots.interest.events import ReadStats
 
     stats = ReadStats()
     for row in demo["events"]["U06"]:
@@ -400,7 +401,7 @@ def test_u08_drops_are_counted(demo) -> None:
     """Six events, three distinct names. Counted, so the drop rate is a figure
     somebody can look at rather than an absence nobody notices.
     """
-    from reco.domain.events import ReadStats
+    from reco.slots.interest.events import ReadStats
 
     stats = ReadStats()
     for row in demo["events"]["U08"]:

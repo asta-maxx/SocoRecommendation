@@ -14,15 +14,16 @@ import pytest
 import pytest_asyncio
 
 from reco.config import Settings
-from reco.data import mongo
-from reco.data.readers import (
+from reco.platform import connection as platform_conn
+from reco.store import connection as store_conn
+from reco.platform.readers import (
     read_declared_interests,
     read_order_creation_times,
     read_user_events,
 )
-from reco.domain.events import EventType
-from reco.domain.scores import utc_now
-from tests.conftest import TEST_DB, _test_uri
+from reco.slots.interest.events import EventType
+from reco.store.scores import utc_now
+from tests.conftest import TEST_DB, TEST_PLATFORM_DB, _test_uri
 
 pytestmark = pytest.mark.mongo
 
@@ -35,7 +36,7 @@ ORDERS = "ml_test_orders"
 def _settings(shape: str) -> Settings:
     return Settings(
         app_mongo_uri=_test_uri(),
-        app_mongo_db=TEST_DB,
+        app_mongo_db=TEST_PLATFORM_DB,
         ml_mongo_uri=_test_uri(),
         ml_mongo_db=TEST_DB,
         model_version="test-1.0.0",
@@ -52,14 +53,16 @@ def _settings(shape: str) -> Settings:
 async def sources():
     """Both source shapes, seeded side by side in the ml_ namespace."""
     settings = _settings("flat")
-    mongo.init_clients(settings)
+    store_conn.init_client(settings)
+    platform_conn.init_client(settings)
     try:
-        await mongo.ml_db(settings).command("ping")
+        await store_conn.ml_db(settings).command("ping")
     except Exception as exc:  # pragma: no cover - environment dependent
-        await mongo.close_clients()
+        await platform_conn.close_client()
+        await store_conn.close_client()
         pytest.skip(f"MongoDB unreachable (db={settings.ml_mongo_db}): {type(exc).__name__}")
 
-    db = mongo.ml_db(settings)
+    db = store_conn.ml_db(settings)
     for name in (EVENTS, POSTS, USERS, ORDERS):
         await db[name].drop()
     try:
@@ -67,7 +70,8 @@ async def sources():
     finally:
         for name in (EVENTS, POSTS, USERS, ORDERS):
             await db[name].drop()
-        await mongo.close_clients()
+        await platform_conn.close_client()
+        await store_conn.close_client()
 
 
 async def test_both_shapes_produce_the_same_event(sources) -> None:
@@ -295,7 +299,7 @@ async def test_contract_row_reads_straight_through(sources) -> None:
     This is the join between the two halves: the generator writes DemoEventRow,
     the engine reads Event, and nothing in between renames a field.
     """
-    from reco.domain.event_contract import DemoEventRow
+    from reco.platform.demo_event_contract import DemoEventRow
 
     row = DemoEventRow(
         user_id="u10",
@@ -319,7 +323,7 @@ async def test_purchase_reversal_row_is_read_as_a_reversal(sources) -> None:
     """`purchase_reversal` is a row type, not a flag. The reader turns it into a
     purchase marked as reversing, carrying the order_id it must be aged from.
     """
-    from reco.domain.event_contract import DemoEventRow
+    from reco.platform.demo_event_contract import DemoEventRow
 
     row = DemoEventRow(
         user_id="u11",

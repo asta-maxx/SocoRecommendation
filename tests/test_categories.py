@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from reco.domain.categories import (
+from reco.platform.categories import (
     CategoryVocabulary,
     resolve_all,
     to_category_key,
@@ -238,7 +238,7 @@ def test_a_partial_export_says_so_loudly(tmp_path, caplog) -> None:
         encoding="utf-8",
     )
 
-    with caplog.at_level(logging.WARNING, logger="reco.domain.categories"):
+    with caplog.at_level(logging.WARNING, logger="reco.platform.categories"):
         loaded = CategoryVocabulary.load(path)
 
     assert loaded.legacy_map_loaded is False
@@ -252,7 +252,7 @@ def test_the_shipped_vocabulary_has_the_canonical_twenty_three() -> None:
     """List 2, the post category picker. Loaded, never retyped -- a retyped copy
     would be a fourth vocabulary alongside the three that already exist.
     """
-    path = Path(__file__).resolve().parents[1] / "reco" / "data" / "categories.json"
+    path = Path(__file__).resolve().parents[1] / "reco" / "platform" / "categories.json"
     if not path.exists():
         pytest.skip("run scripts/export_categories.py")
 
@@ -273,10 +273,10 @@ def test_no_category_name_is_written_down_in_executable_python() -> None:
     """
     import ast
 
-    import reco.domain.categories as categories_module
-    import reco.data.readers as readers_module
+    import reco.platform.categories as categories_module
+    import reco.platform.readers as readers_module
 
-    path = Path(__file__).resolve().parents[1] / "reco" / "data" / "categories.json"
+    path = Path(__file__).resolve().parents[1] / "reco" / "platform" / "categories.json"
     if not path.exists():
         pytest.skip("run scripts/export_categories.py")
     names = json.loads(path.read_text(encoding="utf-8"))["canonical"]

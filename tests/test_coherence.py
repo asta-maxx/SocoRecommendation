@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from reco.domain.scores import normalise_to_shares, normalise_with_coherence
+from reco.store.scores import normalise_to_shares, normalise_with_coherence
 
 
 def test_clean_user_gets_shares_and_no_failures() -> None:
@@ -69,7 +69,7 @@ def test_coherence_failure_is_logged_at_error(caplog) -> None:
     """Silently clamping and carrying on would leave the profile wrong with
     nothing in the logs to say so.
     """
-    with caplog.at_level(logging.ERROR, logger="reco.domain.scores"):
+    with caplog.at_level(logging.ERROR, logger="reco.store.scores"):
         normalise_with_coherence("u1", {"electronics": -2.66})
 
     assert "coherence failure" in caplog.text

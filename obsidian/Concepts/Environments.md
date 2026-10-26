@@ -1,0 +1,40 @@
+---
+tags: [concept]
+---
+# Environments
+
+The same engine runs in **three separate setups**, so mistakes never reach real users:
+
+| Environment | What it's for | Runs on | Who sees it |
+|---|---|---|---|
+| **dev** | Where I build and try things | **My laptop** | Only me |
+| **test** | Where every check is run, on made-up data | **A server** | Me and Aravinth |
+| **production** | The real thing | **A server** next to [[SOCO_BE]] | Real SOCO users |
+
+Each one has **its own** [[Engine Database]], so testing can never overwrite real data.
+
+> [!note] Decided 24 Sep 2026. The pack says there must be three setups, but not where they run. That part was our choice.
+
+## Four rules that come with this
+1. **Test and production are kept apart:** separate servers, or at least separate boxes on one machine. The speed test runs on test and must never slow down real users.
+2. **Test never uses real SOCO data.** It uses a copy or made-up data, because the checks create their own users and orders.
+3. **Production's database lives close to its server.** Every request has to finish in 0.2 seconds, so the database can't be far away.
+4. **Test keeps its passwords in the server's settings, like production does.** Then whatever works on test also works for real. See [[Secrets and passwords]].
+
+## How the engine knows which one it's in
+A setting called `ENGINE_ENV`, set to `dev`, `test` or `production`. On my laptop it isn't set, so it defaults to **dev**.
+
+The engine's health page (`/health`) now says which environment it's in.
+
+## Where things stand
+- **dev (laptop):** ready.
+- **test (server):** the server is ready (14 Oct 2026): address `83.147.36.203`, access port 1097. I'm cloning the engine onto it and running the checks there. It still needs its own database cluster and the made-up SOCO data. (Aravinth's DB-13 test setup is *Not needed* in pack v1.3: the engine brings its own made-up data.)
+- **production (server):** set up **later** (decided 14 Oct 2026). It needs Aravinth's hosting, its own database cluster and the new login (DB-02). It must be up before anything goes live for shoppers.
+
+## How this connects
+- Required by → [[ENG-01 - Engine home and databases]].
+- Production has strict rules about passwords → [[Secrets and passwords]].
+- The demo only had one setup → [[Before Wave 1A - the M1 demo]].
+
+## Test server, 19 Oct 2026
+The engine now runs on the test server too, with its own test database, and all its checks that don't depend on speed passed there. But the server is far from the database (a quarter of a second each trip) and slow, so it can't prove the speed targets. Needed: a server close to the database, with 2 to 4 cores and 8 GB. → [[Test server run 19 Oct]]

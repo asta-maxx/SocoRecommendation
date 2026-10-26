@@ -2,7 +2,7 @@
 
     python scripts/export_contract_schema.py
 
-SOCO_BE is Node and cannot import `reco.domain.service_contract`, so it validates
+SOCO_BE is Node and cannot import `reco.api.contract`, so it validates
 against this file instead. The Python models are the authority; the schema is
 generated from them, never edited by hand. `test_service_contract.py` fails if the
 checked-in file no longer matches the models, so a field renamed here cannot ship
@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from reco.domain.service_contract import json_schema  # noqa: E402
+from reco.api.contract import json_schema  # noqa: E402
 
 OUT = ROOT / "docs" / "service_contract.schema.json"
 

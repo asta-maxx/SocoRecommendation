@@ -1,0 +1,30 @@
+{
+ "canonical": [
+  "Fashion & Apparel",
+  "Electronics",
+  "Food & Beverages",
+  "Home & Living",
+  "Beauty & Personal Care",
+  "Sports & Outdoors",
+  "Automotive",
+  "Travel & Lifestyle",
+  "Health & Wellness",
+  "Books & Education",
+  "Pets",
+  "Art & Collectibles",
+  "Toys & Kids",
+  "Music & Entertainment",
+  "Office & Business",
+  "Technology",
+  "Jewellery",
+  "Shoes & Footwear",
+  "Organic & Eco",
+  "Photography",
+  "Finance",
+  "Gaming",
+  "Wedding & Events"
+ ],
+ "legacy_map": {},
+ "legacy_map_loaded": false,
+ "source": "reference/post_picker_categories.txt (canonical only -- LEGACY_LABEL_MAP not available)"
+}

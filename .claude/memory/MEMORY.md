@@ -1,0 +1,5 @@
+- [Wave 1A pack supersedes earlier docs](wave1a-pack-supersedes-earlier-docs.md) — docs/updated/ is the spec (v1.3 of 29 Sep, received 1 Oct); precedence; owners; never edit
+- [User is Allen, engine owner](user-is-allen-engine-owner.md) — owns ENG-* items; Aravinth owns APP/DB; Kala issues specs
+- [Environment hosting decision](environment-hosting-decision.md) — dev on laptop, test/prod on servers, their Atlas clusters later
+- [ENG-01 remainder deferred](eng01-remainder-deferred.md) — servers/clusters/deploy come later; ENG-01 Waiting; moved on to ENG-02
+- [Verify against the pack line by line](verify-against-pack-line-by-line.md) — prove compliance per Build List row; answer from pack/data before asking people

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import ValidationError
 
-from reco.domain.scores import (
+from reco.store.scores import (
     InterestScore,
     Method,
     ScoreBatch,
@@ -105,12 +105,13 @@ def test_unknown_field_rejected() -> None:
 
 
 def test_key_includes_method_and_model_version() -> None:
-    """ST4. Both are part of the identity of a score."""
+    """ST4. Both are part of the identity of a score; ENG-07 adds the batch."""
     assert set(make_score().key()) == {
         "user_id",
         "category",
         "method",
         "model_version",
+        "job_run_id",
     }
 
 
@@ -131,6 +132,15 @@ def test_to_document_writes_enums_as_plain_strings() -> None:
         "model_version",
         "window",
         "computed_at",
+        # ENG-07: provenance on every row
+        "score",
+        "slot",
+        "confidence",
+        "config_version",
+        "data_window",
+        "job_run_id",
+        # Kala 2a (16 Oct): the user's qualified actions
+        "qualified_actions",
     }
 
 

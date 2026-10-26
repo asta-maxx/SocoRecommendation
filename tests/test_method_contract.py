@@ -20,24 +20,26 @@ from datetime import timedelta
 import pytest
 
 from reco.config import Settings
-from reco.domain.events import Event, EventType
-from reco.methods import interest_decay, interest_windows
-from reco.methods.context import ScoringContext
-from reco.domain.scores import utc_now
+from reco.slots.interest.events import Event, EventType
+from reco.slots.interest import interest_decay, interest_windows
+from reco.slots.interest.context import ScoringContext
+from reco.store.scores import utc_now
+from tests.conftest import m1_tunables
 
 #: Every scoring method. Method B is appended here when it exists.
 METHODS = [interest_decay, interest_windows]
 
 FORBIDDEN_IMPORTS = {
     "pymongo", "bson", "requests", "httpx", "urllib", "socket",
-    "reco.data", "reco.data.mongo", "reco.data.readers", "reco.data.writers",
+    "reco.platform", "reco.platform.connection", "reco.platform.readers",
+    "reco.store", "reco.store.connection", "reco.store.writers",
     "open", "pathlib",
 }
 
 
 def make_ctx(**overrides) -> ScoringContext:
     fields = {
-        "tunables": Settings().tunables(),
+        "tunables": m1_tunables(),
         "declared_interests": ["Fashion & Apparel"],
         "order_created_at": {},
         "now": utc_now(),
@@ -190,7 +192,7 @@ def test_retuning_a_parameter_changes_the_score(method) -> None:
         events,
         make_ctx(
             declared_interests=[],
-            tunables=Settings(event_weights={"view": 40.0}).tunables(),
+            tunables=m1_tunables({"interest.weights.qualified_view": 40.0}),
         ),
     )
 

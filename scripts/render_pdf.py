@@ -184,8 +184,8 @@ PAGE = """<!doctype html>
 #: The module each contract document is enforced by, for the footer. A document
 #: not listed here is not a contract and claims no enforcement.
 ENFORCED_BY = {
-    "EVENT_CONTRACT.md": "reco/domain/event_contract.py",
-    "SERVICE_CONTRACT.md": "reco/domain/service_contract.py",
+    "EVENT_CONTRACT.md": "reco/platform/demo_event_contract.py",
+    "SERVICE_CONTRACT.md": "reco/api/contract.py",
 }
 
 

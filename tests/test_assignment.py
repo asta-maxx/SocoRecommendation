@@ -1,0 +1,142 @@
+"""ENG-05: each user's method, the same way every time.
+
+The Build List's check:
+    - the same user gets the same method across two restarts   test_same_method_across_restarts
+    - changing a split changes assignment with no deploy       test_a_split_change_moves_users_with_no_deploy
+    - over 10,000 test ids, the split is within 2 points       test_ten_thousand_ids_land_within_two_points
+"""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+import subprocess
+import sys
+
+import pytest
+from bson import ObjectId
+
+from reco.config import live
+from reco.config.tunables import Tunables
+from reco.slots.assignment import SLOT_NAMES, assign, assign_all, bucket, policy_id
+from tests.conftest import put_in_force
+
+USER = "64f1c0ffee0000000000abcd"
+
+
+def test_the_bucket_is_sha256_of_slot_and_user_first_8_hex_mod_100() -> None:
+    expected = int(hashlib.sha256(f"interest:{USER}".encode()).hexdigest()[:8], 16) % 100
+    assert bucket("interest", USER) == expected
+    assert 0 <= expected <= 99
+
+
+def test_each_slot_hashes_separately() -> None:
+    """The slot name is in the hash, so the three slots don't move together."""
+    ids = [str(ObjectId()) for _ in range(500)]
+    same = sum(bucket("interest", i) == bucket("product_ranking", i) for i in ids)
+    assert same < 50
+
+
+def test_below_the_split_is_method_two() -> None:
+    put_in_force({"slots.interest.split": 50})
+    for i in (str(ObjectId()) for _ in range(200)):
+        a = assign("interest", i)
+        assert (a.which == "method_two") == (a.bucket < 50)
+        assert a.method == ("time_windows" if a.which == "method_two" else "recency_decay")
+
+
+def test_same_method_across_restarts() -> None:
+    """A fresh Python process (a restart, with a new hash() salt) gives the same answers."""
+    ids = [str(ObjectId()) for _ in range(50)]
+    here = [assign_all(i)[s].method for i in ids for s in SLOT_NAMES]
+    script = (
+        "import sys, json; from reco.slots.assignment import assign_all, SLOT_NAMES;"
+        "ids = json.loads(sys.argv[1]);"
+        "print(json.dumps([assign_all(i)[s].method for i in ids for s in SLOT_NAMES]))"
+    )
+    import json
+
+    runs = [
+        json.loads(subprocess.run([sys.executable, "-c", script, json.dumps(ids)], capture_output=True, text=True, check=True).stdout)
+        for _ in range(2)
+    ]
+    assert runs[0] == runs[1] == here
+
+
+def test_a_split_change_moves_users_with_no_deploy() -> None:
+    ids = [str(ObjectId()) for _ in range(2000)]
+    put_in_force({"slots.interest.split": 50})
+    before = sum(assign("interest", i).which == "method_two" for i in ids)
+    put_in_force({"slots.interest.split": 10, "config_version": "next"})
+    after = [assign("interest", i) for i in ids]
+    assert sum(a.which == "method_two" for a in after) < before
+    assert all(a.config_version == "next" for a in after)
+
+
+@pytest.mark.parametrize("split", [50, 25, 10, 0])
+def test_ten_thousand_ids_land_within_two_points(split: int) -> None:
+    put_in_force({f"slots.{slot}.split": split for slot in SLOT_NAMES})
+    ids = [str(ObjectId()) for _ in range(10_000)]
+    for slot in SLOT_NAMES:
+        share = 100 * sum(assign(slot, i).which == "method_two" for i in ids) / len(ids)
+        assert abs(share - split) <= 2, (slot, share)
+
+
+def test_missing_settings_give_everyone_the_default_and_log_it(caplog) -> None:
+    class NoSlots:
+        config_version = "2"
+        slots = None
+
+    with caplog.at_level(logging.ERROR, logger="reco.slots"):
+        a = assign("interest", USER, NoSlots())  # type: ignore[arg-type]
+    assert a.from_default and a.which == "method_one" and a.method == "recency_decay"
+    assert any("slot settings missing" in r.message for r in caplog.records)
+
+
+def test_policy_id_names_the_method_per_slot() -> None:
+    """Build List ENG-05/ENG-26: cfg<version>.<slot>-<method name> for each slot touched."""
+    put_in_force({"slots.product_ranking.split": 0, "slots.interest.split": 50})
+    a = assign("product_ranking", USER)
+    v = live.current().config_version
+    assert policy_id(a) == f"cfg{v}.product_ranking-attribute_similarity"
+    both = assign_all(USER)
+    assert policy_id(both["interest"], both["promoter_score"]) == (
+        f"cfg{v}.interest-{both['interest'].method}.promoter_score-{both['promoter_score'].method}"
+    )
+
+
+def test_a_slot_left_out_of_the_file_gives_everyone_the_default(tmp_path, caplog) -> None:
+    """DS-017 5: missing configuration -- everyone gets the default, the fault is logged."""
+    import logging
+
+    from reco.config.live import ROOT, read_file
+
+    text = (ROOT / "settings" / "engine.toml").read_text()
+    start = text.index("[slots.interest]")
+    end = text.index("[slots.product_ranking]")
+    copy = tmp_path / "engine.toml"
+    copy.write_text(text[:start] + text[end:])
+    with caplog.at_level(logging.ERROR, logger="reco.settings"):
+        tunables = read_file(str(copy)).tunables
+    assert tunables is not None and tunables.slots.interest.split == 0
+    assert all(assign("interest", str(ObjectId()), tunables).which == "method_one" for _ in range(200))
+    assert tunables.slots.product_ranking.split == 50  # the slots that are there keep their values
+    assert any("slots.interest" in r.getMessage() for r in caplog.records)
+
+
+def test_an_unknown_slot_is_refused() -> None:
+    with pytest.raises(ValueError):
+        assign("feed", USER)
+
+
+def test_the_defaults_start_at_fifty_with_method_one_default() -> None:
+    for slot in SLOT_NAMES:
+        settings = getattr(Tunables().slots, slot)
+        assert settings.split == 50 and settings.default_method == "method_one"
+
+
+def test_a_missing_user_id_gets_the_default_in_every_slot() -> None:
+    put_in_force({f"slots.{slot}.split": 50 for slot in SLOT_NAMES})
+    for slot in SLOT_NAMES:
+        a = assign(slot, "")
+        assert a.which == "method_one" and a.from_default

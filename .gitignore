@@ -6,3 +6,19 @@ venv/
 .pytest_cache/
 .coverage
 *.egg-info/
+
+# Obsidian: per-machine window layout
+obsidian/.obsidian/workspace*.json
+
+# macOS folder metadata
+.DS_Store
+.claude/worktrees/
+
+# scripts/jira_sync.py: local audit log and proposed matches
+Tracing/jira/
+
+# scripts/test_server_services.sh
+logs/
+
+# reco.config.state on dev: the settings state (RECO_STATE_DIR unset)
+.state/

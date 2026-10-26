@@ -1,0 +1,297 @@
+SOCO Fraud and Abuse Policy  v1.4
+Promoters, buyers and sellers. Wave 1A (model family M9). Issued by Cristo Labs, 14 October 2026. Replaces v1.3. v1.4 follows how the platform records commission: stores pay promoters directly, SOCO records each commission and an admin can reject it, and there is no hold, so a void is an admin reject and a payment restored on appeal is arranged outside SOCO. Self-purchase now covers every account a person owns, and a return is read as order_status Returned. The rules, levels, notices and appeals are otherwise unchanged. v1.1 was an internal draft and was not issued.
+Item
+Detail
+Status
+Issued. In force for detection from launch. In force for action on accounts once the three roles below are named.
+Policy owner
+[To be named by App Team]
+Reviewer
+[To be named by App Team]
+Second approver (levels 4 and 5, and appeals)
+[To be named by App Team]
+Prepared by
+Kala, Cristo Labs
+How App Team names the roles. App Team writes the three names in the table above and returns this page to Cristo Labs. Until a name is written in, the policy runs in detection-only mode (section 3).
+Legal review advised. This is a business policy, not legal advice. Cristo Labs advises App Team to have its legal counsel review it before any action is taken on an account. The review should check it against the SOCO user and promoter terms and applicable law, including India's Digital Personal Data Protection Act, 2023. It should also confirm that users agree to it in the terms.
+1. Purpose and scope
+This policy protects four parties. Buyers should see genuine recommendations. Honest promoters should not be outranked by fake engagement. Sellers pay for real sales. Promoters earn commission that stores pay them directly, and SOCO records each commission and can reject it.
+In scope: every account type (users, promoters and businesses). Commerce fraud, engagement fraud, and account fraud (multiple, shared or replacement accounts).
+Out of scope: payment card fraud and chargebacks, which Razorpay handles. Account takeover and login security, which the platform's security layer handles. Content moderation for reasons other than fraud.
+2. Principles
+The system flags; a person decides. No account is restricted automatically in Wave 1A.
+Proportionate. The response matches the severity and the history. A first minor case gets a warning.
+Evidence first. No account is restricted without a reviewer recording the evidence.
+No commission is rejected while in doubt. Commission is rejected only on orders confirmed as fraudulent. The platform has no hold, so commission under review can still be approved and paid (section 7).
+Transparent to the person. Anyone restricted is told the reason category and how to appeal. Rules and thresholds are never disclosed.
+Recorded. Every flag, decision and threshold in force is logged.
+Calibrated. Thresholds are loosened where they produce too many false alarms.
+3. Detection-only mode, until the roles are named
+Until the policy owner and reviewer are named on the first page:
+The engine runs every rule, records every hit, and opens cases at levels 1 and 2 as normal.
+No warning, restriction, suspension or removal is applied to any account, and no notice is sent.
+Cases stay open. None is ever acted on by default.
+One rule applies anyway, because it is not a penalty: self-purchases never create commission (section 7). The platform already applies it, across every account a person owns.
+Once the owner and reviewer are named, open cases are reviewed in order of priority, oldest first.
+4. What counts as fraud
+Code
+Behaviour
+Example
+Severity
+FR-C1
+Self-purchase
+A promoter buys through their own post, or through a post made by another account they own (their personal account or any of their stores), or has a household member do it, to earn commission.
+Low on first occurrence; Medium if repeated
+FR-C2
+Collusive buying
+A small group of buyers repeatedly buys through one promoter, often to cancel or return later.
+High
+FR-C3
+Order-and-cancel farming
+Orders placed to inflate a promoter's numbers, then cancelled or returned.
+Medium
+FR-C4
+False delivery by a seller
+A seller marks an order Delivered that was never delivered.
+High
+FR-E1
+Automated activity
+Bots or scripts liking, following or commenting faster than a person could.
+High
+FR-E2
+Bought engagement
+Purchased followers, likes or views.
+High
+FR-E3
+Engagement rings
+Groups that agree to like and comment on each other's posts to lift ranking.
+Medium
+FR-A1
+Multiple accounts to game
+One person running several accounts to engage with or buy from their own promoter account.
+High
+FR-A2
+Evading a penalty
+Opening a new account after a suspension or removal.
+Severe
+FR-A3
+Account sharing or selling
+Selling an account, or giving login details to a growth service.
+Medium
+FR-X1
+Passing off others' content
+Reposting someone else's content as original. In Wave 1A this is handled by leaving reposts out of the content quality score.
+Low
+5. How fraud is detected in Wave 1A
+The engine runs these rules nightly. A hit is a signal, never a verdict. Every threshold is provisional, is read from configuration, and is logged with every hit. Incognito orders are included, otherwise incognito would be a way around R03 and R05. The engine reads every relevant record: actions later undone (an unlike, an unfollow), actions on a person's own posts (the platform's is_self flag is a supporting signal only, never evidence on its own), and cancelled, rejected, returned and incognito orders. Order outcomes are read from the order itself: order_status, with its history in tracking_info. A return is an order whose order_status is Returned, which the seller sets when the return is recorded. There is no Return Requested status. A record read again by the engine is the same evidence, never a new offence.
+Rule
+Detects
+Provisional threshold
+Severity
+R01
+FR-E1
+More than 30 likes, follows, comments or shares in any one minute
+High
+R02
+FR-E1, FR-E2
+More than 1,000 actions in a day
+Medium
+R03
+FR-C1
+The buyer is the same person as the author of the post bought through, or of the original post it reposts, or shares a device with that author. A person's personal account and every store they own count as one person. Any occurrence. Counted whatever the order's commission record shows.
+Medium
+R04
+FR-C2, FR-C3
+A promoter's delivered rate is below half the platform-wide delivered rate for the same period, with at least 10 attributed orders
+Medium
+R05
+FR-C2
+One buyer accounts for more than half of a promoter's attributed orders in 30 days, with at least 5 orders
+Medium
+R06
+FR-E3, FR-A1
+Over 40% of accounts engaging with the promoter in 30 days engage with no one else, with at least 50 engaging accounts
+Medium
+R07
+FR-E2
+Over 30% of new followers in 7 days were created within the same 24 hours, with at least 50 new followers
+High
+R08
+FR-E1, FR-E3
+Engagement in any hour is above 10 times the account's 14-day hourly average, with at least 100 engagements
+Medium
+R09
+FR-E2
+Likes above 80% of qualified views on a post with at least 100 qualified views
+Medium
+R10
+FR-C1, FR-C2
+The buyer follows the promoter. Context only: it raises priority when R03 or R05 also hits.
+None on its own
+R11
+FR-A1
+Attributed orders within 7 days of the promoter account's creation
+Low, context
+R12
+FR-A1, FR-A3
+3 or more accounts on one device that engaged with or bought from the same promoter within 30 days
+High
+Not in Wave 1A: duplicate content detection, which needs media matching, and referral code reuse, since referral codes are not yet recorded.
+6. What happens to an account
+Level
+Entered when
+What happens
+Told?
+Earnings
+Lasts
+Decided by
+0 Clear
+No open signals
+Nothing
+No
+Normal
+1 Watch
+One Low or Medium hit
+Recorded only. No effect on the account, its ranking or its score.
+No
+Normal
+Clears after 30 days with no further hit
+Automatic
+2 Review
+One High hit; or two different rules within 30 days; or a watched account hits again
+A reviewer examines the case within 5 working days, or 1 working day when a High rule hits with R05 or R10
+No
+Nothing is rejected yet. The platform cannot hold commission, so it may be approved and paid while the case is open (section 7)
+Until reviewed
+Automatic entry
+W Warning
+Confirmed first Low-severity violation
+A strike is recorded. No restriction.
+Yes
+Commission on the offending orders is rejected (the void)
+Strike lasts 12 months
+Reviewer
+3 Restricted
+The strike table
+Fake engagement is removed from counts, the promoter score is halved, and no new promotional posts or referral earnings are allowed
+Yes
+Commission on the offending orders is rejected; the rest is paid
+14 days
+Reviewer
+4 Suspended
+The strike table
+Cannot post, promote or earn, and is not scored or recommended. Can still view and complete their own orders as a buyer.
+Yes
+Commission on the offending orders is rejected. Other pending commission cannot be held (section 7)
+30 days
+Reviewer and second approver
+5 Removed
+The strike table, or any FR-A2 case
+Account closed, and other accounts confirmed as the same person's are closed too
+Yes
+Commission on the offending orders is rejected; legitimate commission is paid
+Permanent
+Reviewer and second approver
+6.1 The strike table
+Confirmed severity
+No earlier strikes
+One earlier strike
+Two or more
+Low
+Warning
+Level 3
+Level 4
+Medium
+Level 3
+Level 4
+Level 5
+High
+Level 4 (reviewer may choose 3)
+Level 5
+Level 5
+Severe
+Level 5
+Level 5
+Level 5
+The reviewer may choose one level lower than the table, with a recorded reason, but never higher. A false alarm or unclear outcome closes the case with no strike, and no commission is rejected.
+7. Commission and earnings
+Three different rules touch commission, and they are kept apart. Platform commission, as the platform pays it: a commission is approved once the order has been Delivered for the longer of the hold days (7 by default) and the product's return window plus 2 days. A return request does not pause it. Cancelled, rejected or returned orders never earn commission: if an order becomes Cancelled, Rejected or Returned, the commission is reversed, and if it was already paid, the platform records a clawback from the promoter's next payout from that store. This applies to everyone and is not a penalty.
+Recommendation measurement, not a commission rule: the engine's promoter score counts a sale as completed only when, in addition, no return request is open (build list ENG-16). It is stricter than the platform on purpose, and it does not change what anyone is paid.
+Fraud enforcement: commission is rejected only on a confirmed case, by an admin with the role to do it, as set out below. A rule hit or an open case alone never rejects commission.
+Self-purchases never create commission. A person's personal account and every store they own count as one buyer: when every creator on the post is the buyer's own account, no commission is created. The platform applies this from launch. Three or more in 30 days opens a review under R03.
+Stores pay commission to promoters directly, outside SOCO, and record the payment in SOCO. SOCO records every commission, and an admin with the super_admin, admin or finance_manager role can reject one while it is pending or approved. Rejection is final.
+There is no hold. The platform cannot pause a commission while a case is open: pending commission is approved automatically once its approval date passes. When a case is confirmed, the commission on the offending orders is rejected through the admin reject; this is the void. Commission already paid cannot be rejected through SOCO, and the case record notes it.
+If an appeal succeeds after a commission was rejected, the platform cannot restore it. SOCO arranges the payment with the store outside SOCO, and the case record notes it.
+Before enforcement starts (once the roles are named), SOCO decides whether a commission hold is needed: a review can take longer than the 7-day hold window, so commission could be paid before a case is decided.
+8. The review process
+One reviewer, with a capacity of 20 cases a week. Levels 4 and 5 also need the second approver.
+A reviewer never reviews a case involving someone they know personally. It passes to the second approver.
+The review screen shows every rule hit with its value and the threshold in force, the orders, posts and accounts involved, earlier strikes and account age.
+Confirmed needs at least one recorded fact that supports the hit and is independent of it. For example: the buyer and promoter share a device, the buyer is the promoter, the followers were all created on the same day with no other activity, or the person admits it. A rule hit alone is never enough.
+Outcomes: confirmed, with a fraud code; false alarm (no strike, nothing rejected); or unclear (no strike, nothing rejected, back to Watch for 30 days).
+An overdue case goes to the policy owner. It is never acted on by default.
+The reviewer, or whoever rejects commission on a confirmed case, must hold an admin role that can reject commission (super_admin, admin or finance_manager).
+9. Notices and appeals
+A person is told at Warning and at levels 3, 4 and 5, by an in-app message and a notification. Watch and Review are never notified. Notices never say which rule fired or its threshold.
+The wording below is the standard wording and is used as written. App Team may change it at any time by sending new wording to Cristo Labs. Until then this wording applies.
+Reason category
+Used for
+purchases through your own posts or accounts
+FR-C1
+orders that do not look genuine
+FR-C2, FR-C3, FR-C4
+activity that does not look genuine
+FR-E1, FR-E2, FR-E3
+use of more than one account
+FR-A1
+returning after your account was closed
+FR-A2
+sharing or selling your account
+FR-A3
+Notice
+Standard wording
+Warning
+We found activity on your account that goes against SOCO's rules: {reason category}. This is a warning, and nothing on your account has been restricted. If it happens again, your account may be restricted. If you think we have made a mistake, you can appeal within 30 days by tapping Appeal.
+Restricted
+Your account has been restricted until {end date} because of {reason category}. Until then you cannot publish promotional posts or earn referral commission, and some likes or follows may be removed from your counts. Everything else works as normal. If you think we have made a mistake, you can appeal within 30 days by tapping Appeal.
+Suspended
+Your account has been suspended until {end date} because of {reason category}. Until then you cannot post, promote or earn. You can still view your account and complete orders you have already placed. If you think we have made a mistake, you can appeal within 30 days by tapping Appeal.
+Removed
+Your account has been closed because of {reason category}. Commission you earned legitimately will still be paid. If you think we have made a mistake, you can appeal within 30 days by tapping Appeal.
+Added when the confirmed fraud code is automated activity (FR-E1)
+We recommend that you change your password now, and remove access for any app or service that has your SOCO login details.
+Appeal received
+We have received your appeal. A different person from the one who made the first decision will review it, and we will reply within 10 working days.
+Appeal outcome
+We have reviewed your appeal. {Our decision stands. | We have reduced the action to: {level}. | We have reversed the decision, and your account is back to normal.}
+An appeal can be made within 30 days of a notice, from the notice itself.
+It is decided by the second approver, never the original reviewer, within 10 working days. The decision is final.
+An overturned case removes the strike, lifts the restriction, arranges payment of rejected commission outside SOCO (section 7), and restores the promoter score at the next refresh.
+10. Calibration and the false-alarm limit
+Calibration starts once reviews exist. Every fortnight the engine compares each rule's reviewed cases with their outcomes.
+If more than half of a rule's reviewed cases in a fortnight are false alarms, the rule is switched to watch-only, and the change is logged with the numbers behind it.
+After 8 weeks of reviews, each rule's threshold is set to the value that kept false alarms at or below half. This is a fixed rule applied by the engine owner. It needs no approval.
+Automatic restriction is not allowed in Wave 1A. Later, one rule may be allowed to restrict automatically, but only after it has shown at least 90% confirmed cases over at least 100 reviews.
+11. Exemptions
+Internal staff and test accounts go on an exemption list, each entry with a reason and an end date. Exempt accounts are still flagged and recorded, but never actioned. There is no exemption for new accounts, business accounts or high-earning promoters. The list is kept in the engine's settings: each entry has the account, the reason and an end date, and every change is logged. Test accounts are also on a separate list that is left out of recommendations learning and measurement.
+12. Ownership and changes
+Thresholds change only under the section 10 rule. Every change is logged with its date, the old and new value, and the evidence.
+Every case records the policy version and the threshold values in force at that moment.
+In an emergency, such as an active attack, the policy owner may tighten a threshold straight away, recording the reason in writing within 24 hours.
+The policy is reviewed at the end of the 8-week calibration, then every quarter.
+13. Data protection and retention
+Device, network and login data are used only for fraud detection. They are never used for recommendations, never passed raw to any outside service, and stored as hashed fingerprints rather than raw IP addresses.
+Case records are kept for 2 years after a case closes. Rule hits that never became a case are kept for 12 months.
+Access is limited to the reviewer, the policy owner, the second approver and the engine.
+Rule inputs come from the engine's copies of platform data, kept for at least 365 days. Keeping those copies does not change the case and rule-hit periods above, or who may see them.
+Purchase privacy for incognito orders does not change fraud detection, and does not allow a buyer's identity to be shown to anyone outside the roles above.
+How long records are kept after an account is deleted is one of the points for the advised legal review. Until then, deleting an account purges its recommendation data from the engine, but not its fraud case records, which follow the periods above.
+14. What is built for this policy
+Who
+What
+Engine (Allen)
+The rules R01 to R12, with thresholds in configuration. Case and flag records, kept with their full evidence so they can be reviewed once the roles are named. Level and strike logic. A case interface for the review screen. Trust applied to the promoter score. The fortnightly calibration rule in section 10. The exemption and test-account lists.
+Platform (Aravinth)
+Once the roles are named: the review screen; restriction fields and enforcement on accounts; notices and the appeal form, using the section 9 wording. From launch: no commission on self-purchase, across every account a person owns (built by the platform; checked by build list APP-16).
+App Team
+Name the three roles on the first page. Legal review, as advised. Before enforcement starts, decide whether a commission hold is needed (section 7).

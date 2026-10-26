@@ -1,0 +1,222 @@
+SOCO-REC Service Design Agreement  v1.7
+SOCO Recommendation Intelligence Engine. The design of the recommendation service. Issued by Kala (Cristo Labs), 14 October 2026. Status: frozen for build. Read with SOCO-REC-DS-017 API Contract v2.6.
+1. Status of this agreement
+v1.2 removed shadow mode. v1.3 removed references to withdrawn documents. v1.5 replaced the event endpoint with the engine sync. v1.6 adapts the service to what the platform already has: lists shown unchanged with a serve log, eligibility kept current by full re-reads and checks when each list is built, deletion only after confirmation, an internal mode for checks, and a test environment on constructed data. v1.7 adds the copy of return requests (status and dates only, never personal details) and the nightly read of the commission settings for M6 (build list ENG-30). v1.4 was an internal draft and was not issued.
+Where a fact still needs confirming, an assumption is stated and the design is written to it. Assumptions use the same register as DS-017 (Section 11), marked [Assumed: AS-nn].
+If an assumption turns out to be wrong, the owner tells Cristo Labs in writing, and Cristo Labs issues the next version. The build does not stop while that happens.
+Owner of the build: Allen. Aravinth's part: SD-03 hosting, and fallback handling in SOCO_BE.
+2. Shape of the service
+Ref
+Decision
+SD-01
+One codebase that runs two ways.
+API: recommendations, the fraud case interface used by the admin review screen, and a health check. There is no event endpoint.
+Scheduled jobs: the engine sync (every 5 minutes), score refreshes, the fraud rules, the fraud calibration rule, the daily reconciliation and deletion handling.
+Requests stay fast because no heavy calculation happens inside them, and a failed job never touches the feed.
+SD-02
+Written in Python, the language of the M1 engine. No second language. [Assumed: AS-13]
+SD-03
+Runs in the same network as SOCO_BE. Only SOCO_BE and the admin panel can reach it, never the public internet. [Assumed: AS-06]
+SD-04
+Three environments: dev, test and production, each with its own engine database. The test environment holds constructed platform-shaped data, so the failure tests can stop databases and break settings without touching the platform. App checks run on test accounts in production, with the surface in internal mode (SD-10).
+3. Modules
+Ref
+Decision
+SD-05
+The service is split into twelve modules, listed below.
+SD-06
+Only platform reads the platform database, with the read-only credential. Only store writes, and only to the engine's own database.
+Module
+What it does
+api
+The endpoints in DS-017.
+config
+Loads and reloads settings.
+slots
+The replaceable methods.
+store
+Reads and writes the engine database.
+platform
+Read-only access to the platform database.
+eligibility
+Filter rules: blocks (status blocked in followers, read when each list is built), feedback, private, hidden, deranked or removed posts, inactive or restricted accounts, out of stock. Uses the current state kept by the sync, and re-checks the returned items when each list is built (SD-31). Never exposes a buyer's identity from an incognito order.
+ranking
+Merge, quotas, ordering and the exploration slice.
+fallback
+The fallback ladder.
+sync
+Reads postevents, orders, recommendationrequests, rec_serve_log and returnrequests by their change time, and posts, users, businessregisters, products and productvariants in full every 15 minutes, through the platform module. Writes the engine copies through the store module. Keeps checkpoints, runs the backfill and the daily reconciliation. From returnrequests it keeps only the status and date fields listed in build list ENG-30.
+jobs
+Refreshes and extracts. The M6 job reads commissionconfigs in full, through the platform module, each night.
+fraud
+Rules and cases.
+monitoring
+Timings and logs.
+4. Configuration
+Ref
+Decision
+SD-07
+One versioned configuration file holds every tunable setting, each matching a setting in the Wave 1A build list.
+SD-08
+Passwords and tokens (database credentials, INGEST_TOKEN) are never in the configuration file or the code. They sit in server environment settings only.
+SD-09
+Settings reload at least once a minute, and every change is logged in ml_config_changes. If a new file is broken, the service keeps running on the last good version and logs the fault. If no version has ever loaded, it uses the defaults.
+SD-10
+Each surface has a mode: off, internal or live. There is no shadow mode. Internal gives engine lists only to the test accounts listed in the configuration, and 503 to everyone else, for checks on production before launch. At launch a surface is set live only if its pre-launch checks pass. The service owner sets a surface off at once if, in any one day, the operational fallback rate (timeouts, errors, 503s and skipped calls, from SOCO_BE's serve log) is above 10%, p95 is above 250 ms, errors are above 2%, or an acceptance check fails. Cold-start rungs inside successful responses are not fallbacks and never trigger this. No approval is needed.
+5. How a method plugs into a slot
+Ref
+Decision
+SD-11
+Every method has two parts. compute: run by the refresh job to write scores. read: used by a request to fetch a stored score.
+SD-12
+Methods are registered by name, and the configuration picks them by name. A later method (for example Wave 1B) is a new module plus a configuration entry, with no change elsewhere.
+SD-13
+Two-method slots at launch: interest (M1), product_ranking (M5), promoter_score (M8).
+Single-method: fraud rules (M9), the launch ranking layer, and M6, which runs as a job only, with nothing shown to promoters.
+The two retrieval methods both run as candidate sources and are merged, not split between users.
+SD-14
+Every method has a model_version, raised whenever a code change could change its output.
+6. How the method is chosen per request
+Ref
+Decision
+SD-15
+A hash of user_id, a separate hash per slot, the split read from configuration, and the method named in policy_id. The full rules are in DS-017 Section 5.
+SD-16
+The exploration slice: 5% of feed requests, top 3 positions untouched, is_exploration returned on the response. It is independent of method choice.
+7. Scores
+Ref
+Decision
+SD-17
+A request does no model calculation. It only reads stored scores, filters, merges and orders. All model calculation happens in the scheduled jobs.
+SD-18
+All engine collections use the ml_ prefix. The list is below.
+SD-19
+Every score row carries: the item or person scored, slot, method, model_version, config_version, score, confidence (where the method has one), the data window, the time computed, and the job run id.
+SD-20
+A refresh writes a complete new batch and only then marks it as current. A request never reads a half-written batch. If a refresh fails, the previous batch stays in use.
+SD-21
+Every job run is recorded in ml_job_runs: what ran, over what window, rows written, and whether it succeeded.
+SD-22
+Refreshes run daily at 2 AM IST for the three two-method slots, M2 method two candidates, M6 and the fraud rules. The engine sync runs every 5 minutes, and the daily reconciliation runs after the 2 AM refreshes. The times are settings.
+SD-23
+The interest-score fallback ladder has five rungs, checked in order, first match wins: 1 at least 5 qualified actions and a fresh score; 2 fewer than 5 actions with declared interests, served as the floor plus those actions; 3 fewer than 5 actions and no declared interests, served as platform popularity over the last 30 days (a setting); 4 a stale (over 48 hours) or broken score, served as the old delivered score; 5 engine down, served as the old delivered score. If the engine's own store cannot be read, rung 5 applies at once. Rungs 4 and 5 fall through to rung 3 where no delivered score exists, each logged separately. At surface level the last step is the delivered ordering. The response names the rung. A fallback is never counted as a result for a method that did not run. [Assumed: AS-14]
+Collection
+Holds
+Status
+ml_events
+Copies of platform events (postevents) and served lists (recommendationrequests), made by the sync, and the service's own E1 records
+Set (changed in v1.5)
+ml_user_interest_scores
+M1 interest scores, both methods
+Exists today
+ml_fraud_flags, ml_fraud_cases
+Fraud flags and reviewed cases
+Set
+ml_product_scores
+M5 product ranking scores
+New
+ml_promoter_scores
+M8 promoter scores
+New
+ml_promoter_scores_monthly
+Monthly copy for score history
+New
+ml_opportunity_scores
+M6 output, not shown
+New
+ml_job_runs
+Record of every job run
+New
+ml_config_changes
+Record of every configuration change
+New
+ml_user_candidates
+Retrieval method two: top 200 posts per user
+New
+ml_measurements
+Weekly measures and reports
+New
+ml_orders
+Copies of orders, with order_status and tracking_info
+New
+ml_sync_state
+Checkpoint and lag per source collection
+New
+ml_item_state
+Current eligibility state of posts, accounts and products
+New
+ml_deletions
+Accounts confirmed deleted on the platform, and when their engine data was purged
+New
+ml_return_requests
+Copies of return requests: order, return number, status, isActive and dates only, never the pickup address, phone, photos or refund details
+New
+8. Serving and monitoring
+Ref
+Decision
+SD-24
+Every response carries request_id, policy_id, model_version, config_version, fallback_step, is_exploration and reason_code (null for now). Every served item carries item_id, item_type, post_id and product_id.
+SD-25
+Time limits per stage: retrieval 80 ms, ranking 80 ms, network and serialisation 40 ms, inside a 200 ms p95. A candidate source that runs over its limit is dropped for that request and logged. [Assumed: AS-07]
+SD-26
+If either database cannot be read, the service returns an error at once so SOCO_BE falls back. No retries inside a request.
+SD-27
+Tracked per surface: response time by stage, operational fallback rate (measured at SOCO_BE from its serve log, rec_serve_log, including calls skipped by its circuit breaker or served from its cache), cold-start rungs reported separately, errors, and the number of users on each method. Also tracked: sync lag per source collection and the daily reconciliation result.
+SD-28
+A health check reports whether both database connections work.
+SD-29
+Engine copies are kept at least 365 days from the original event time, under the engine's own expiry. The platform's 90-day expiry on short-lived event types and served lists never deletes them. An update keeps the original event time.
+SD-30
+The daily reconciliation compares, per source collection, the ids and the field values that change (undone_at, order_status, tracking_info, seen_ids), not just counts. A mismatch is logged and re-read. A sync more than 15 minutes behind, or a failed run, alerts the service owner, who restarts from the last checkpoint. The copy of returnrequests counts as current only when its last sync completed within 24 hours and its last reconciliation passed; when it is not current, the promoter score job keeps its previous batch, because a missing record is never proof that no return request exists.
+SD-31
+Eligibility is kept current. Every 15 minutes the sync re-reads posts, users, businessregisters, products and productvariants in full and updates ml_item_state; only a completed read is used, and a failed or partial read keeps the previous state. Each run's duration and database load are recorded. When a list is built, blocks, visibility and stock are also re-checked on the returned items, so a block or a change in stock takes effect on the next list.
+SD-32
+SOCO_BE shows engine lists exactly as returned: no filtering, re-ordering, trimming or added items. It writes one serve-log row per list request (origin, outcome, elapsed time). The service checks on real rows that impressions show the item it returned at each position.
+SD-33
+An account is treated as deleted only when a completed full read does not contain it, a direct lookup finds nothing, and a second completed read at least 24 hours later agrees. A failed, partial or filtered read never counts. The daily job then purges that account's engine copies and scores, recording it in ml_deletions. Fraud case records follow the Fraud Policy, section 13. Routine platform expiry is not deletion.
+SOCO_BE is assumed to cache recommendation responses (AS-02). The monitoring in SD-27 is measured at the service, so cached reuse does not appear in its counts; E1 counts one row per list generated.
+9. What this lets the models do
+Model
+Runs as
+Writes to
+Serving
+M1 interest
+Two-method slot
+ml_user_interest_scores
+Feed, via the ranking layer
+M5 product ranking
+Two-method slot
+ml_product_scores
+Product detail and cart
+M8 promoter score
+Two-method slot
+ml_promoter_scores, monthly copy
+Feed ordering input
+M6 opportunity
+Job only
+ml_opportunity_scores
+Not shown in Wave 1A
+M9 fraud rules
+Single method
+ml_fraud_flags, ml_fraud_cases
+Review screen only
+10. Assumptions
+AS-01 to AS-12 and AS-21 to AS-26 are in DS-017 Section 11 and apply here too. This agreement adds two.
+Ref
+Assumption
+AS-13
+The service is written in Python, the language of the M1 engine.
+AS-14
+The thresholds in the SD-23 ladder are the ones in the Wave 1A build list (ENG-09).
+11. Change control and sign-off
+After signature this agreement is frozen. Any change needs a new version number, agreed in writing by Allen and Aravinth.
+Role
+Name
+Signature
+Date
+Recommendation service
+Allen
+SOCO_BE hosting and fallback (SD-03)
+Aravinth
+Issued by (Cristo Labs)
+Kala

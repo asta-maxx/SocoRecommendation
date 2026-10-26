@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from reco.data import writers
-from reco.data.writers import NamespaceViolation, _collection
+from reco.store import writers
+from reco.store.writers import NamespaceViolation, _collection
 
 
 class _FakeDatabase(dict):
@@ -81,6 +81,7 @@ def test_every_write_path_goes_through_the_guard() -> None:
         "upsert_user_scores",
         "delete_user_scores",
         "ensure_indexes",
+        "ensure_engine_collections",
     ):
         function_source = inspect.getsource(getattr(writers, name))
         assert "_collection(" in function_source, (

@@ -13,8 +13,14 @@ services:
       - "8100:8100"
     env_file:
       - .env
+    volumes:
+      # The settings state survives a redeploy (a new image): reco.config.state.
+      - reco-state:/var/lib/reco
     networks:
       - soco
+
+volumes:
+  reco-state:
 
 networks:
   soco:
