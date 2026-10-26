@@ -61,6 +61,18 @@ def _settings_sheet_in_force():
     live.reset()
     yield
     live.reset()
+
+
+@pytest.fixture(autouse=True)
+def _own_state_dir(tmp_path_factory, monkeypatch):
+    """Every test keeps its settings state (reco.config.state) in a folder of its own,
+    never in the repo's .state/ or the server's /var/lib/reco."""
+    from reco.config import state
+
+    folder = tmp_path_factory.mktemp("state")
+    monkeypatch.setattr(state, "DEV_DIR", folder)
+    monkeypatch.setattr(state, "SERVER_DIR", folder)
+    return folder
 #: The engine database is never the platform database (AS-09), so the test
 #: settings name a separate one for the read-only side. Store tests seed and read
 #: ml_ collections only, which live in TEST_DB.

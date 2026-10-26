@@ -310,8 +310,10 @@ Each record holds:
 | `values` | The full snapshot, used to recover the last good version |
 
 Each accepted change is also logged: `settings changed`, with `changed_keys` and `recorded`.
-A record that fails is retried on every reload until written (1 Oct 2026 audit;
-§2 part 3, *Resilience*). Test: `tests/test_watch.py::test_a_settings_change_that_could_not_be_recorded_is_tried_again`.
+~~A record that fails is retried on every reload until written (1 Oct 2026 audit)~~.
+**Replaced 26 Oct 2026 (review point 3):** a change whose entry cannot be written is
+**not applied**; only turning a surface off is applied first, its entry kept in the
+state directory. See *Update, 26 Oct 2026* at the end.
 List edits (exemptions, test accounts, the category map) are recorded the same way.
 
 ### 5. `GET /health`: 200 or 503: built
@@ -425,6 +427,7 @@ call `warm` as well as `init_client`, `close_client`, `verify_database` and `pin
 | Variable | Meaning | Default |
 |---|---|---|
 | `SETTINGS_FILE` | Path to the settings file, relative to the repo root unless absolute | `settings/engine.toml` |
+| `RECO_STATE_DIR` | (26 Oct 2026) The settings state that survives a restart and a redeploy: a surface turned off while the engine database was down, with its diary entry still to be written, and a copy of the latest diary entry. Outside the code folder | `/var/lib/reco` on test and production; `.state/` in the repo (ignored by git) on dev |
 | `INGEST_TOKEN` | The serving token: SOCO_BE sends it as a bearer token on `POST /v1/recommendations` (DS-017 v2.5 §3). Server environment only (SD-08). Empty = every call refused | empty |
 
 Removed: `P02_QUALIFIED_VIEW_SECONDS` … `P27_COLD_START_WINDOW_DAYS`. Tunables
@@ -588,3 +591,111 @@ rejected. `reco_demo` dropped afterwards.
 **16 Oct 2026 (Kala F5):** rollbacks are recorded; one diary entry per transition (`uniq_transition`). Passed once shown. See `ANSWERS_2026-10-16.md`.
 
 **16 Oct 2026, F5 shown:** checklist line **2.10** puts the earlier version back on the running engine and checks the diary records it as a rollback (`scripts/show_config_changes.py` prints `ROLLBACK`). Unit test `test_a_rollback_is_recorded_too`.
+
+## Update, 26 Oct 2026: the settings diary (review point 3)
+
+**The finding.** `scripts/check_m1.py` printed `could not record the settings change in ml_config_changes … cannot encode object: datetime.date(2026, 10, 26)`, and the change still took effect. Two faults: BSON has no date type, and a change whose diary entry failed was applied anyway (the 1 Oct "record it late" design).
+
+**The rule from now on** (reviewer, 26 Oct 2026; SD-09 "every change is logged", ENG-02 item 4): a change that cannot be written to the diary is not applied. The settings in force stay and an alert fires. **One exception:** a change that only turns a surface off (SD-10: the owner sets a surface off at once, no approval needed) is applied at once; the off state and its pending diary entry are kept on storage that survives a restart and a redeploy; the entry has its own id and is written to the diary once, however many times it is replayed, when the database is back. Turning a surface back on is applied only after its own entry is written.
+
+### What was built
+
+| Part | Where | Behaviour |
+|---|---|---|
+| Dates in the diary | `reco/store/writers.py` `_diary_values`, used by `record_config_change`; `reco/config/sync.py` `_record` (`model_dump(mode="json")`, `to_jsonable_python` for `changes`) | A `date` (an `expiry` in `lists.test_accounts` / `lists.exemptions`) is stored as its ISO text, `2026-12-31`, as the settings file writes it. A `datetime` (`changed_at`) stays a BSON date. `Tunables.model_validate` reads the text back as a `date`, so the snapshot is still the fallback. |
+| Each entry's own id | `sync._record` | `_id` is a fresh `uuid4().hex`. Writing it again raises `DuplicateKeyError` on `_id` (or on `uniq_transition` if another process wrote the same transition), which `record_config_change` returns as `False`: already recorded. |
+| The rule | `sync._apply` → `_refuse` | Reads the latest entry, writes the new one, and only then `live.put_in_force`. If either fails, or an earlier entry is still waiting (entries are written in order): the settings in force stay; `ERROR "settings change not applied: its diary entry could not be written …"`; `alert("settings_change_not_recorded", …)` once per (in force, refused) pair, not every reload; `live.state().seen = None`, so the next reload (30 s) tries again because the file still differs. Nothing logs `settings changed` for it. |
+| The exception | `sync.only_turns_surfaces_off`, `sync._turn_off_now` | Applies when every changed value is `serving.surface_mode_feed` or `serving.surface_mode_product` going to `off`. The entry (with `applied_before_recorded: true`) is first written to the state directory, then the change is put in force; `WARNING "settings changed: surface turned off at once; its diary entry waits …"` and `alert("settings_change_pending", …)`. If the state directory cannot be written either, the change is refused like any other (nothing would remember it). |
+| Writing the waiting entries | `sync._write_pending`, called first in `load_at_start` and in every `reload` | Oldest first. `follows` is set to the latest entry at the time of writing, `recorded_at` is added, `changed_at` stays the time of the change. Written (or found already there) → the file is removed and the copy of the latest entry refreshed. A failure stops the loop; the rest wait. |
+| Start | `sync.load_at_start` | 1. write any waiting entries; 2. read the latest diary entry or, with the database down, the copy in the state directory (`last_recorded_settings.json`); 3. if entries are still waiting, the newest one's snapshot is the settings to start from (the surface stays off); 4. the file replaces that only under the rule. So with the database down: a file equal to what is recorded or waiting is put in force (`source` "file"); a different file (e.g. a redeploy carrying the older file, feed live) is refused and alerted, and the waiting or recorded settings stay (`source` "state directory"). Every other setting is the last good recorded or the file, as before. |
+| The state directory | `reco/config/state.py`; `Settings.state_dir` (`RECO_STATE_DIR`) | `<RECO_STATE_DIR>/<ML_MONGO_DB>/`. Unset: `/var/lib/reco` on test and production, `.state/` in the repo on dev (ignored by git). One folder per engine database, so entries never cross databases. Outside the code folder, so a redeploy keeps it. The Docker image sets `RECO_STATE_DIR=/var/lib/reco` on the volume `reco-state` (`docker-compose.yml`). |
+
+**File format** (JSON, `format: 1`; each file written to a temporary file in the same folder, `fsync`ed, moved into place with `os.replace`, then the folder `fsync`ed where the system allows):
+
+```
+<state dir>/<engine database>/
+  pending_settings/<changed_at %Y%m%dT%H%M%S%fZ>-<entry id>.json
+      {"format": 1, "engine_database": "...", "entry": {the diary entry: _id, changed_at {"$datetime": ISO},
+       config_version, previous_version, changed_by, environment, source, changes, values, rollback,
+       follows: null, applied_before_recorded: true}}
+  last_recorded_settings.json
+      {"format": 1, "engine_database": "...", "entry": {_id, config_version, previous_version, changed_at,
+       changed_by, values}}
+```
+
+One file per waiting entry (the names sort in the order the changes were made), so the API and a job process sharing the folder never overwrite each other's entries; removing one already removed is fine.
+
+**Choices where the pack is silent** (the rule each must satisfy: "every change is logged", SD-09): the alert names (`settings_change_not_recorded`, `settings_change_pending`); the alert fires once per refused change, with an error line on every retry; a surface-off change that cannot be kept on disk either is refused; the copy of the latest entry on disk lets a start with the database down use the last good recorded settings instead of the defaults.
+
+### Tests (26 Oct 2026, dev laptop)
+
+`tests/test_settings_diary.py`, 19 tests (18 without a database, 1 on MongoDB). The engine database is a stand-in that encodes every write with the driver's own BSON codec (so a `datetime.date` fails exactly as on Atlas) and can be switched off. The restart and redeploy test starts **new processes** (one from the repo, one from a copied code folder carrying the older file) with the engine database really unreachable (`127.0.0.1:1`) and the same state directory.
+
+- a dated change (test account expiry 2026-12-31) is written and reads back as a date; BSON refuses a raw `date`;
+- the rule: database down → not applied, one alert, retried each reload, applied once the database is back; the same at start; a change turning a surface off *and* changing anything else follows the rule;
+- the exception: feed off at once, entry on disk, written once when back (same `_id`, `follows` the previous entry); replayed 5 times (and 5 restarts) with the file removal failing → one row; a second off change while one waits → both written in order; no state directory either → not applied;
+- restart and redeploy with the database down → feed off; turning the feed back on with the database down waits, then is written after the off entry;
+- on MongoDB: a dated change lands in `ml_config_changes`, reads back, and 5 replays of the same entry leave one row.
+
+`tests/test_watch.py`: the 1 Oct "tried again" test now asserts the change is **not** applied until written. `tests/conftest.py`: every test gets its own state folder.
+
+Results: unit `pytest -m "not mongo"` **843 passed, 1 skipped**. MongoDB `TEST_MONGO_TIMEOUT_MS=15000 pytest -m mongo`: **76 tests, 75 passed, 1 failed on timing** (`test_similar.py`, the 20 ms read over the laptop's link to Atlas: 117 ms wall, 23.7 ms beyond two round trips), which **passed on re-run**. `scripts/check_m1.py`: **18 of 18**, no diary error. `scripts/demo_settings_diary.py` (throwaway `reco_diary_check`, dropped): **13 of 13 passed**:
+
+```
+2. The rule, database down
+  PASS  a change that cannot be written is not applied; the settings in force stay
+  PASS  an alert fired: settings_change_not_recorded (once)
+3. The exception, database down: the feed off
+  PASS  the feed is off at once
+  PASS  its diary entry waits in the state directory, with its own id
+4. A restart and a redeploy, database still down
+  PASS  restart (a new process): starts with the feed off
+  PASS  redeploy (a new code folder carrying the older file, feed live): starts with the feed off
+5. Turning the feed back on, database still down
+  PASS  not applied until its diary entry is written: the feed stays off
+6. The database is back
+  PASS  the off entry is written once, replayed five times
+  PASS  then the feed goes back on, with its own entry
+  The diary:
+    2026-10-26T06:58:50+00:00  0 -> 10  by Diary demo
+        lists.test_accounts: [] -> [{'account_id': '64f1c0ffee0000000000abcd', ..., 'expiry': '2026-12-31', ...}]
+    2026-10-26T06:58:53+00:00  10 -> 11  by Diary demo  (applied first, written when the database was back)
+        serving.surface_mode_feed: live -> off
+    2026-10-26T06:59:04+00:00  11 -> 12  by Diary demo
+        serving.surface_mode_feed: off -> live
+```
+
+### "previous_version 58 → 7" in the ENG-07 log
+
+Not a fault in the engine: the checklist left a setting changed. Section 6 serves from a copy of the settings with both surfaces live under config_version **57** (the file's 7 + 50, `run_checklist.sh` line 221), recorded in `reco_demo` as 7 → 57; 6.6 turns the feed off as **58**. The 8192 engine is then stopped with 58 as the last diary entry. Section 7's jobs (`python -m reco.jobs nightly`, 7.6) read the **real** file, 7: `load_at_start` reads the latest entry (58), `live.decide(58, 7)` sees a new version and accepts it, and `_apply` writes 58 → 7 (`rollback: true`; the product surface live → off), which is the line in the ENG-07 log. The fix is in the checklist: a new 6.7 puts the serving copy back to the real file while the 8192 engine still runs, so 58 → 7 is written there, by the step that made the change, and section 7 finds 7 already recorded ("settings loaded", no entry). A new Z.0 shows the settings in force at the end. `scripts/run_checklist.sh` is not edited in this change (another change is in flight there); the lines are in the handover.
+
+### New scripts
+
+- `scripts/demo_settings_diary.py`: the rule, the exception, a restart and a redeploy with the database down, against `reco_diary_check` (dropped at start and end); PASS/FAIL per step.
+- `scripts/show_settings_in_force.py`: read-only; the last diary entry, anything waiting on disk, the file, and what is in force (config_version, both surface modes), ending "in step with the file: yes/no".
+
+### Runbook
+
+- On a server, create the state folder once, owned by the service's user: `sudo install -d -o <service user> /var/lib/reco` (or set `RECO_STATE_DIR`). Without it the off exception cannot keep its entry, so while the database is down it is refused like any other change, and the copy of the latest entry is not kept (a warning each time).
+- After an outage: `scripts/show_settings_in_force.py` shows anything still waiting; the next reload writes it.
+
+### Open
+
+| What | Waiting on |
+|---|---|
+| Add the checklist lines (2.8 log line, 2.11, 2.12, 6.7, Z.0, `RECO_STATE_DIR` in the work folder) to `scripts/run_checklist.sh` | The change in flight there |
+| `/var/lib/reco` on the test and production servers | Whoever runs the servers (one command, above) |
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `reco/config/sync.py` | The rule, the exception, writing waiting entries, the start order; `_unrecorded` and `_record_pending` removed |
+| `reco/config/state.py` | New: the state directory |
+| `reco/config/__init__.py` | `state_dir` (`RECO_STATE_DIR`) |
+| `reco/config/live.py` | `source` may be "state directory" |
+| `reco/store/writers.py` | `_diary_values`: dates as ISO text; `record_config_change` docstring (own id, replay) |
+| `tests/test_settings_diary.py` | New, 19 tests |
+| `tests/test_watch.py`, `tests/conftest.py` | The rule; a state folder per test |
+| `scripts/demo_settings_diary.py`, `scripts/show_settings_in_force.py` | New |
+| `Dockerfile`, `docker-compose.yml`, `.env.example`, `.gitignore` | The `/var/lib/reco` volume; `RECO_STATE_DIR`; `.state/` ignored |

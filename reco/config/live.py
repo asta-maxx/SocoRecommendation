@@ -40,7 +40,9 @@ ROOT = Path(__file__).resolve().parents[2]
 @dataclass
 class State:
     tunables: Tunables = field(default_factory=Tunables)
-    #: Where the settings in force came from: "defaults", "file" or "engine database".
+    #: Where the settings in force came from: "defaults", "file", "engine database" or
+    #: "state directory" (reco.config.state: a surface turned off while the database
+    #: was down, or the copy of the last diary entry when the database cannot be read).
     source: str = "defaults"
     #: Fingerprint of the file bytes last looked at, good or bad, so an
     #: unchanged file is not re-parsed and a broken one is logged once.

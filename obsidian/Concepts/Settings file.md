@@ -17,6 +17,9 @@ Since pack v1.3 it also holds:
 - **A broken file can't crash the engine.** It keeps using the last good version and logs the fault → [[Logs]].
 - **If there has never been a good version,** the engine uses the pack's default values.
 - **Every change is written down:** when, the old value, the new value, and who changed it. That diary is the `ml_config_changes` drawer → [[Collections]].
+- **No diary entry, no change** (26 Oct 2026). If the diary can't be written (the engine database is down), the change waits: the old settings stay, the owner is alerted, and the engine tries again every 30 seconds. **One exception:** switching a surface **off** happens at once, because the pack lets the owner do that with no approval (SD-10). The engine notes it on the server's own disk, in a folder that survives a restart and a new release, and copies it into the diary once the database is back. Switching a surface back **on** is not an exception: it waits for the diary like any other change.
+
+> [!example] Like a shop's till: no receipt, no sale. The one thing anyone may do without a receipt is pull the shutter down; a note goes in the drawer and is copied into the book later. Opening the shutter again needs a receipt.
 
 > [!example] Like a thermostat you can turn without switching the heating off. If someone scribbles nonsense on the dial, it keeps the last sensible setting.
 

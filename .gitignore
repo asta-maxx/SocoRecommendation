@@ -16,3 +16,6 @@ obsidian/.obsidian/workspace*.json
 
 # scripts/jira_sync.py: local audit log and proposed matches
 Tracing/jira/
+
+# reco.config.state on dev: the settings state (RECO_STATE_DIR unset)
+.state/

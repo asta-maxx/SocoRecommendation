@@ -20,6 +20,12 @@ COPY reco ./reco
 # Non-root. The service reads the application database read-only and writes only
 # the ml_ prefix; the container should not hold privileges the service does not.
 RUN useradd --create-home --uid 10001 reco
+# The settings state (reco.config.state): a surface turned off while the engine
+# database was down, and its diary entry still to be written. Outside the code
+# folder and on a volume (docker-compose.yml), so a restart and a redeploy keep it.
+RUN mkdir -p /var/lib/reco && chown reco /var/lib/reco
+ENV RECO_STATE_DIR=/var/lib/reco
+VOLUME /var/lib/reco
 USER reco
 
 EXPOSE 8100

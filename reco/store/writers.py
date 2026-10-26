@@ -11,7 +11,7 @@ something a test can catch rather than something a reviewer has to notice.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from pymongo import DESCENDING, UpdateOne
@@ -360,15 +360,31 @@ async def delete_user_scores(
     return result.deleted_count
 
 
+def _diary_values(value: Any) -> Any:
+    """BSON stores a datetime but not a date: a date (a test account's or an
+    exemption's expiry, Settings sheet "Lists") is written as its ISO text,
+    2026-12-31, as the settings file writes it. Tunables reads it back as a date."""
+    if isinstance(value, dict):
+        return {k: _diary_values(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_diary_values(v) for v in value]
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value.isoformat()
+    return value
+
+
 async def record_config_change(settings: Settings, record: dict[str, Any]) -> bool:
     """Write one settings change to ml_config_changes. ENG-02 item 4.
 
-    Returns False when this transition is already recorded (same versions, after
-    the same entry) -- another process got there first, which is expected.
+    The record carries its own _id (reco.config.sync), so writing the same entry
+    again -- a replay of one kept while the database was down, or a retry after a
+    write that did land -- adds nothing. Returns False when the entry, or this
+    transition (same versions, after the same entry), is already recorded:
+    another process or an earlier attempt got there first, which is expected.
     """
     changes = _collection(ml_db(settings), "ml_config_changes")
     try:
-        await changes.insert_one(dict(record))
+        await changes.insert_one(_diary_values(dict(record)))
     except DuplicateKeyError:
         return False
     return True

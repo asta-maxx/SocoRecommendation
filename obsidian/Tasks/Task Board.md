@@ -7,7 +7,7 @@ My tasks (ENG-…) in the pack's order. A link turns solid once its note exists.
 
 ## Step 1: foundations
 - [ ] [[ENG-01 - Engine home and databases]]: **waiting** (realigned to v1.3 on 1 Oct: 16 of 16 drawers on laptop; test server ready 14 Oct and being set up; production later) · [[Demo - ENG-01|demo]]
-- [x] [[ENG-02 - Service skeleton and settings]]: **passed** (19 Oct, test server) · was **built** (realigned to v1.3 on 1 Oct: sync replaces events, v1.3 settings; check passed on laptop; re-run on the test server later) · [[Demo - ENG-02|demo]]
+- [x] [[ENG-02 - Service skeleton and settings]]: **passed** (19 Oct, test server) · 26 Oct: no diary entry, no change (only switching a surface off goes first, noted on the server's disk) · was **built** (realigned to v1.3 on 1 Oct: sync replaces events, v1.3 settings; check passed on laptop; re-run on the test server later) · [[Demo - ENG-02|demo]]
 - [x] [[ENG-03 - Reading SOCO's data correctly]]: **passed** (16 Oct, Kala: dev run counts) · was built (realigned to v1.3 on 1 Oct: no event source switch; check passed on laptop; re-run on the test server later) · [[Demo - ENG-03|demo]]
 - [x] [[ENG-04 - Engine sync]]: **passed** (19 Oct, test server) · was **built** (laptop/dev; real backfill done 1 Oct; waits on APP-12 updated_at and the test server) · [[Demo - ENG-04|demo]]
 - [x] [[ENG-05 - Same method for each user]]: **passed** (16 Oct, Kala: dev run counts) · was built (1 Oct, laptop; re-run on the test server later) · [[Demo - ENG-05|demo]]
