@@ -186,3 +186,6 @@ Two changes to the built method (see §2 and §3 above): purchases made from a p
 ## Review of 26 Oct 2026, point 10: the platform's post types
 
 `retrieval.post_types` is now `photo, video, normal, poll, review, local_update, product_showcase, offer, story, new_arrival, event, other` (settings config_version 8; `MODEL_VERSION` 1.2.0 on the test server: adding a type is a model_version change, Kala). Dev on 26 Oct: 550 posts: product_showcase 113, review 108, local_update 78, photo 68, poll 48, offer 33, story 33, new_arrival 33, video 20, event 16: every one now has its own type. **The same rules for every type:** the type only sets which one of the vector's type dimensions is 1 (`similar.post_vector`); the pool rules (`similar.post_is_eligible`: seed, repost, E-04, E-06, E-08, E-09, E-12), the 30 days, the 5,000 cap, the profile and the cosine are the same code path for all types.
+
+**Re-run on dev, 26 Oct** (`similar_posts` into a throwaway engine database, dropped after): pool 109 posts (109 eligible; left out: 19 reposts, 9 E-04, 1 E-08); post types: review 24, product_showcase 22, offer 18, photo 11, local_update 11, poll 7, story 6, video 5, new_arrival 3, event 2; **unlisted (counted as "other"): none** (the server's 19 Oct run: 119 of 139 as other). 206 users listed.
+
