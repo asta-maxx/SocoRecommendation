@@ -238,6 +238,12 @@ class Settings(BaseModel):
     # --- Settings file ---------------------------------------------------------
     # ENG-02 / SD-07: every tunable value, versioned. Relative to the repo root.
     settings_file: str = "settings/engine.toml"
+    #: Where the settings state survives a restart and a redeploy: a surface turned
+    #: off while the engine database was down, with its diary entry still to be
+    #: written, and a copy of the latest diary entry (reco.config.state). Outside
+    #: the code folder. Empty: /var/lib/reco on test and production, .state/ in the
+    #: repo on dev.
+    state_dir: str = ""
 
     # --- Tokens (SD-08: server environment only, never a file in production) -
     # DS-017 v2.5 section 3, AS-04: SOCO_BE sends Authorization: Bearer
@@ -393,6 +399,7 @@ class Settings(BaseModel):
             scores_collection=_env_str("SCORES_COLLECTION", ""),
             event_shape=_env_str("EVENT_SHAPE", ""),
             settings_file=_env_str("SETTINGS_FILE", "settings/engine.toml"),
+            state_dir=_env_str("RECO_STATE_DIR", ""),
             ingest_token=_env_str("INGEST_TOKEN", ""),
             log_level=_env_str("LOG_LEVEL", "INFO"),
         )

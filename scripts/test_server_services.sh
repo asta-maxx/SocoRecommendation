@@ -14,6 +14,7 @@ set -u
 cd "$(dirname "$0")/.."
 if [ -x .venv/Scripts/python.exe ]; then PY=.venv/Scripts/python.exe; else PY=.venv/bin/python; fi
 set -a; . ./.env; set +a
+export RECO_STATE_DIR="${RECO_STATE_DIR:-$(cd .. && pwd)/reco-state}"; mkdir -p "$RECO_STATE_DIR"
 grep -q '^ENGINE_ENV=test' .env || { echo "STOP: .env must say ENGINE_ENV=test"; exit 1; }
 mkdir -p logs
 case "${1:-status}" in

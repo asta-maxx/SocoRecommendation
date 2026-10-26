@@ -20,6 +20,7 @@ if [ -x .venv/bin/python ]; then PY=.venv/bin/python; else PY=.venv/Scripts/pyth
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/soco-checklist.XXXXXX")
 SETTINGS_COPY="$WORK/engine.toml"
 LOG="$WORK/engine.log"
+export RECO_STATE_DIR="$WORK/state"   # the checklist's engines keep their settings state here, never in the service's folder
 PASSES=0
 FAILS=0
 FAILED=()
@@ -164,7 +165,7 @@ check "2.7 change diary shows who changed what" "ML_MONGO_DB=reco_demo $PY scrip
 cp "$SETTINGS_COPY" "$WORK/good.toml"
 { echo 'this is = not [valid'; cat "$WORK/good.toml"; } >"$SETTINGS_COPY"
 if wait_for "grep -q 'settings file rejected' '$LOG'" 60; then
-  check "2.8 broken file rejected; still serving" "curl -s -w ' HTTP%{http_code}' http://127.0.0.1:8190/health" "HTTP200"
+  check "2.8 broken file rejected; still serving" "grep 'settings file rejected' '$LOG' | tail -1; curl -s -w ' HTTP%{http_code}' http://127.0.0.1:8190/health" "HTTP200"
 else fail "2.8 broken file rejected; still serving"; fi
 sed 's/pool_size = 300 /pool_size = 250 /' "$WORK/good.toml" >"$SETTINGS_COPY"
 if wait_for "grep -q 'raise config_version' '$LOG'" 60; then pass "2.9 change without a new version refused"
@@ -177,6 +178,8 @@ sed 's/pool_size = 250 /pool_size = 300 /' "$SETTINGS_COPY" > "$WORK/rollback.to
 if wait_for "grep -q '\"settings changed\".*\"config_version\": \"$V\".*\"previous_version\": \"$NEXT\"' '$LOG'" 60; then
   check "2.10 a rollback to the earlier version is recorded in the diary (Kala F5)" "ML_MONGO_DB=reco_demo $PY scripts/show_config_changes.py" "ROLLBACK"
 else fail "2.10 a rollback to the earlier version is recorded in the diary (Kala F5)" "the rollback was not picked up"; fi
+check "2.11 a dated change is written to the diary; the rule and its exception with the database down; restart and redeploy (no database)" "$PY -m pytest -q tests/test_settings_diary.py -p no:cacheprovider -m 'not mongo'" "18 passed"
+check "2.12 the rule and its exception on a real engine database (throwaway reco_diary_check): not written, not applied, alerted; feed off at once; restart and redeploy with the database down keep it off; written once; back on only after its entry" "$PY scripts/demo_settings_diary.py" "13 of 13 passed"
 stop 8190
 
 echo "== 3. ENG-03: reading SOCO's data correctly"
@@ -233,6 +236,11 @@ if wait_for "curl -sf http://127.0.0.1:8192/health" 60; then
   if wait_for "grep -q '\"settings changed\".*\"config_version\": \"$NEXT\"' '$WORK/serve.log'" 60; then
     check "6.6 feed set to off (no restart): 503" "curl -s -X POST http://127.0.0.1:8192/v1/recommendations -H 'Authorization: Bearer $SERVE_TOKEN' -d '{\"user_id\":\"64f1c0ffee0000000000abcd\",\"surface\":\"feed\",\"page\":1,\"limit\":5,\"session_id\":\"ses_1\"}' -w ' HTTP%{http_code}'" "HTTP503"
   else fail "6.6 feed set to off (no restart): 503" "the settings change was not picked up"; fi
+  # Put back what 6.3 to 6.6 changed: the real file (config_version $SV, both surfaces off), recorded here, not by section 7's jobs.
+  cp settings/engine.toml "$WORK/serve.toml"
+  if wait_for "grep -q '\"settings changed\".*\"config_version\": \"$SV\".*\"previous_version\": \"$NEXT\"' '$WORK/serve.log'" 60; then
+    check "6.7 the settings 6.3 to 6.6 changed are put back: the real file is in force and in the diary" "ML_MONGO_DB=reco_demo SETTINGS_FILE=settings/engine.toml $PY scripts/show_settings_in_force.py" "in step with the file: yes"
+  else fail "6.7 the settings 6.3 to 6.6 changed are put back" "the engine did not pick up the real file"; fi
 else fail "6.3 engine with live surfaces started" "$(tail -1 "$WORK/serve.log")"; fi
 stop 8192
 
@@ -327,6 +335,10 @@ echo "== 18. ENG-30: commission settings (point 4) and the daily report of unmat
 proof_to ENG-30
 check "18.1 store disabled and product 15 merge; a missing field falls through; poolPercent 60 ignored and logged; a duplicate scope resolves to the later row; unreadable means M6 does not run; unmatched history texts reported daily (no database)" "$PY -m pytest -q tests/test_commission.py -p no:cacheprovider -m 'not mongo'" "17 passed"
 check "18.2 on a database: commissionconfigs read in full, only the fields used, and merged" "TEST_MONGO_TIMEOUT_MS=15000 $PY -m pytest -q tests/test_commission.py -p no:cacheprovider -m mongo" "1 passed"
+
+echo "== Z. The settings in force at the end"
+proof_to ENG-02
+check "Z.0 the settings in force at the end are the real file's (config_version, both surface modes); the real file is unchanged" "git diff --exit-code --stat settings/engine.toml && ML_MONGO_DB=reco_demo SETTINGS_FILE=settings/engine.toml $PY scripts/show_settings_in_force.py" "in step with the file: yes"
 
 cleanup
 trap - EXIT

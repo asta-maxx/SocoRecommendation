@@ -19,3 +19,6 @@ Tracing/jira/
 
 # scripts/test_server_services.sh
 logs/
+
+# reco.config.state on dev: the settings state (RECO_STATE_DIR unset)
+.state/

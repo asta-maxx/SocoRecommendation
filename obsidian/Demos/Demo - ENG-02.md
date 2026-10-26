@@ -169,6 +169,30 @@ open -a "Visual Studio Code" /tmp/soco-demo.toml
   ```
   Window A shows: `"fault": "outside the Settings sheet's rules: serving.exploration_percent: Input should be greater than or equal to 5"`, `"config_version_in_force": "4"`. The pack says exploration "stays at 5% for Wave 1A". (The comment in the file still says `3-5`: that range is for later waves.)
 
+### 8. No diary entry, no change; a surface can still go off (added 26 Oct)
+- **Say:** "If the diary can't be written, the change waits. The one thing that doesn't wait is switching a surface off, and that survives a restart and a new release."
+- **Run (B):** (its own throwaway database, `reco_diary_check`, dropped at the end)
+  ```bash
+  .venv/bin/python scripts/demo_settings_diary.py
+  ```
+- **They should see** (26 Oct run, trimmed):
+  ```
+  2. The rule, database down
+    PASS  a change that cannot be written is not applied; the settings in force stay
+    PASS  an alert fired: settings_change_not_recorded (once)
+  3. The exception, database down: the feed off
+    PASS  the feed is off at once
+  4. A restart and a redeploy, database still down
+    PASS  restart (a new process): starts with the feed off
+    PASS  redeploy (a new code folder carrying the older file, feed live): starts with the feed off
+  5. Turning the feed back on, database still down
+    PASS  not applied until its diary entry is written: the feed stays off
+  6. The database is back
+    PASS  the off entry is written once, replayed five times
+    PASS  then the feed goes back on, with its own entry
+  == 13 of 13 passed; reco_diary_check dropped
+  ```
+
 ## What you can't show yet
 | Part | Why not | Waiting on |
 |---|---|---|

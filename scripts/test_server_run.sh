@@ -44,6 +44,10 @@ set -a; . ./.env; set +a
 # longer test-only limit for the request and for each source (the engine refuses them in
 # production). Printed into the proofs by checklist line 6.0.
 export REQUEST_BUDGET_MS="${REQUEST_BUDGET_MS:-3000}" SOURCE_TIME_LIMIT_MS="${SOURCE_TIME_LIMIT_MS:-3000}"
+# Review point 3: the service's settings state (the surface-off state and pending diary
+# entries) lives outside the repo folder, so a fresh clone or redeploy keeps it.
+export RECO_STATE_DIR="${RECO_STATE_DIR:-$(cd .. && pwd)/reco-state}"
+mkdir -p "$RECO_STATE_DIR"; echo "   settings state folder: $RECO_STATE_DIR"
 echo "   test-only limits: request ${REQUEST_BUDGET_MS} ms, each source ${SOURCE_TIME_LIMIT_MS} ms"
 
 echo "== engine database"

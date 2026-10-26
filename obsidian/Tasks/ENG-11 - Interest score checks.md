@@ -6,6 +6,9 @@ owner: Allen
 ---
 # ENG-11: Interest score checks
 
+> [!success] 26 Oct 2026: the diary error in the check script is fixed
+> The check script used to print "could not record the settings change … cannot encode datetime.date", and carried on anyway. Its made-up test account has an end date, and the settings diary couldn't store a plain date. Now the diary writes dates as text (2026-11-02) and reads them back as dates. Re-run on my laptop: **18 of 18 pass**, and the error is gone. → [[ENG-02 - Service skeleton and settings]], [[Settings file]]
+
 > [!note] Status: **Built** (14 Oct 2026, on my laptop)
 > One script checks the whole interest score on made-up users and prints PASS or FAIL for each of the pack's 11 checks. **All 11 pass.** It becomes **Passed** once it passes on the test server and the output is saved in the shared "Wave1A checks" folder.
 

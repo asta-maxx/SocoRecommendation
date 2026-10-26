@@ -104,3 +104,9 @@ M1 (ENG-09, ENG-10, ENG-11, with ENG-30 points 5, 6, 7, 9, 10 and Kala's answers
 ## Review of 26 Oct 2026, point 12
 
 "return-request copy not current; M1 runs on the last good copy" in `check_m1.py` came from the **deliberate** freshness rule (ENG-30 point 7: current only after a sync within 24 hours **and** a passed reconciliation): the script synced its throwaway database but never ran a reconciliation there. It now runs `reconcile_sync` after each `sync`, so the line appears only when it is true.
+
+## Update, 26 Oct 2026: check_m1's settings-diary error fixed (review point 3)
+
+`scripts/check_m1.py` printed `could not record the settings change in ml_config_changes … cannot encode object: datetime.date(2026, 10, 26)` and carried on with the change in force. The cause: its settings copy lists the constructed test account with an `expiry` date (`lists.test_accounts`, ENG-29 item 3), and BSON has no date type. The diary now stores a date as its ISO text (`2026-11-02`), and `Tunables` reads it back as a date (ENG-02, *Update, 26 Oct 2026*). Under the new rule a change that cannot be written would not be applied at all, so the test account would no longer be on the list in force.
+
+Re-run on 26 Oct 2026 on the dev laptop, after the fix: **18 of 18 passed**, and the error line is gone from the output (`Tracing/checks/ENG-11_2026-10-26.md`).

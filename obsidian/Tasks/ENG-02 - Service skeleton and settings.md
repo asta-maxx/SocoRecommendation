@@ -24,7 +24,7 @@ owner: Allen
 
 > [!tip] Fixed after a check against the pack (1 Oct 2026)
 > - Numbers the pack says are **fixed for Wave 1A** can no longer be changed in the settings file, even where the pack also gives a range for later. → part 3
-> - If the diary entry for a settings change can't be written, the engine **keeps trying** until it is. → part 4
+> - If the diary entry for a settings change can't be written, the engine **keeps trying** until it is. → part 4 (26 Oct: now the change also **waits** until it is written; see below)
 > - The health check now really **reads** from each database instead of just knocking on the door. → part 5
 > - The database connections never retry by themselves, and are opened ahead of time. → extra D
 
@@ -99,6 +99,7 @@ The Build List splits ENG-02 into six numbered parts (1–6). There are four ext
 - **What we did:** every time a new version goes into force, the engine writes one diary entry. It records the time, the new and old version numbers, who made the change, each changed value with its old and new value, and a full copy of all the settings. Each version number can appear in the diary only once. So if the engine and a job both notice the same change, it's written down only once.
 - **Why it matters:** if results suddenly change, you can see exactly which value moved, when, and who moved it. The same goes for the new lists: you can see who added a test account, and when. → [[Collections]]
 - **Fixed 1 Oct (audit):** if the engine's database is down at the moment of a change, the change still goes into force, but its diary entry couldn't be written. Before, the entry was only written when the engine next restarted, which on a server could be weeks. Now the engine tries again every 30 seconds, until it's written.
+- **Changed 26 Oct (review point 3):** the 1 Oct fix let a change go into force *before* it was written down. Now it's the other way round: **no diary entry, no change.** The one exception is switching a surface off, which happens at once and is written down as soon as the database is back. See *26 Oct 2026* below.
 - **Status:** done. The 1 Oct check wrote exactly this entry: *version 2 → 3, by "Demo", popularity window 30 → 45.* (Rehearsed again after the audit: version 3 → 4.)
 
 ### 5. A health check that tells the truth ✅
@@ -166,6 +167,42 @@ The 24 Sep record is in `Tracing/checks/ENG-02_2026-09-24.md`. The whole checkli
 | Fill in the lists: category map, spellings, test accounts, exemptions | ENG-29 (the adapters); test accounts from Aravinth |
 | The long-running jobs (the 5-minute sync loop, the 2 AM scheduler) re-read the settings once per round, not every minute. The scheduler, waiting for 2 AM, only sees a change when it wakes up. Noted in the audit, not changed yet | A decision; ENG-07 once the servers run them |
 | The Docker package doesn't include the settings file, and its compose file publishes the port and reads `.env`. Noted, to fix when we deploy | The servers ([[ENG-01 - Engine home and databases]]) |
+
+## 26 Oct 2026: no diary entry, no change (review point 3)
+
+**What was wrong.** The interest-score check script printed "could not record the settings change … cannot encode datetime.date", and the change went into force anyway. Two problems:
+1. The settings diary (the engine's record of every settings change, kept in its database) couldn't store a plain date, such as the end date on a test account.
+2. A change whose diary entry failed was still put in force. So the diary could be missing a change that was really in use.
+
+**What happens now.**
+
+| Situation | What the engine does |
+|---|---|
+| A change, and the diary can be written | Writes the entry first, then uses the change. As before. |
+| A change, and the diary **can't** be written (its database is down) | Keeps the settings it has. Raises an alert to the owner (once). Tries again every 30 seconds; once the database is back, the change goes in, with its entry. |
+| A change that **only switches a surface off** (the feed or product pages), diary down | Switches it off **at once**. The pack lets the owner do this with no approval (SD-10). It writes a note on the server's own disk first, with the diary entry and its own id, then alerts the owner. When the database is back, the note is copied into the diary **once**, however many times it's retried, and then deleted. |
+| Switching a surface back **on**, diary down | Waits, like any other change. The surface stays off until its entry is written. |
+| The engine restarts, or a new release is put on the server, with the database still down | Reads the note from the disk before it serves anything, so the surface stays off. A new release that carries an older file (surface on) counts as "switching it back on", so it waits too. |
+
+> [!example] Like a shop's till: no receipt, no sale. The one thing anyone may do without a receipt is pull the shutter down. A note goes in the drawer and is copied into the book when the book is back. Opening the shutter again needs its own receipt.
+
+**Where the note lives.** In a folder on the server that isn't part of the code, so a restart and a new release both leave it alone: `/var/lib/reco` on the servers, a `.state` folder in the project on my laptop (never saved to git). It can be moved with the setting `RECO_STATE_DIR`. Each engine database has its own sub-folder, so notes never mix. The engine also keeps a copy of the last diary entry there, so a restart with the database down still starts on the last good settings rather than the pack's defaults.
+
+**Dates.** The diary now writes a date as text (2026-12-31), the same way the settings file does, and reads it back as a date.
+
+**Shown working (26 Oct, my laptop).**
+- 19 new automatic checks. Two of them start a **brand-new engine process** with the database really switched off: one as a restart, one from a copied code folder as a new release. Both start with the feed off.
+- A demo script runs it all against a throwaway database: **13 of 13 steps pass**. The diary at the end: *0 → 10* (with the test account's date), *10 → 11 feed off* (marked "applied first, written when the database was back"), *11 → 12 feed back on*, each once.
+- All automatic checks: 843 pass without a database; 76 with one (one speed check over my laptop's slow link to the database failed once and passed on re-run). The interest-score check script: 18 of 18, and the error is gone.
+
+**The "58 → 7" line in the nightly-jobs log.** Not an engine fault: the checklist forgot to put a setting back. It serves from a copy of the settings numbered 57 (surfaces on), then switches the feed off as 58, and stops. The nightly jobs that run next read the real file, number 7, so the engine rightly writes "58 → 7" in the diary. The fix is to the checklist: put the real settings back while that engine is still running, and print the settings in force at the end. The exact lines are written down for the checklist; it isn't changed here because another change to it is in progress.
+
+**Still to do.**
+
+| What | Waiting on |
+|---|---|
+| Add the new lines to the checklist | The other change to it |
+| Create `/var/lib/reco` on the test and production servers (one command) | Whoever runs the servers |
 
 ## How this connects
 - **Before it:** [[ENG-01 - Engine home and databases]]

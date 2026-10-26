@@ -1,4 +1,4 @@
-"""The watcher (ENG-04 item 7, ENG-07) and the late settings record (ENG-02 item 4)."""
+"""The watcher (ENG-04 item 7, ENG-07), and a settings change not recorded is not applied (ENG-02 item 4)."""
 
 from __future__ import annotations
 
@@ -31,7 +31,8 @@ async def test_a_run_left_running_too_long_is_alerted(store, caplog) -> None:
     await runs.drop()
 
 
-async def test_a_settings_change_that_could_not_be_recorded_is_tried_again(monkeypatch) -> None:
+async def test_a_settings_change_that_could_not_be_recorded_is_not_applied_and_tried_again(monkeypatch) -> None:
+    """Review point 3 (26 Oct): not written, not applied. The rest is in test_settings_diary.py."""
     written = []
     calls = {"n": 0}
 
@@ -42,12 +43,16 @@ async def test_a_settings_change_that_could_not_be_recorded_is_tried_again(monke
         written.append(record["config_version"])
         return True
 
+    async def no_latest(settings):
+        return None
+
     monkeypatch.setattr(config_sync.writers, "record_config_change", flaky)
-    monkeypatch.setattr(config_sync, "_unrecorded", None)
-    from reco.config import Settings
+    monkeypatch.setattr(config_sync.writers, "read_latest_config_change", no_latest)
+    monkeypatch.setattr(config_sync, "_alerted", None)
+    from reco.config import Settings, live
 
     old, new = Tunables(), Tunables().with_changes({"config_version": "9"})
-    await config_sync._apply(Settings(), old, new, [])
-    assert written == [] and config_sync._unrecorded is not None
-    await config_sync._record_pending(Settings())
-    assert written == ["9"] and config_sync._unrecorded is None
+    assert await config_sync._apply(Settings(), old, new, []) is False
+    assert written == [] and live.current().config_version == old.config_version
+    assert await config_sync._apply(Settings(), old, new, []) is True
+    assert written == ["9"] and live.current().config_version == "9"
