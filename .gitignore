@@ -22,3 +22,11 @@ logs/
 
 # reco.config.state on dev: the settings state (RECO_STATE_DIR unset)
 .state/
+
+# Proof runs (scripts/run_checklist.sh with PROOF_DIR, scripts/test_server_run.sh): kept
+# out of git, so a run's own output never makes the tree look changed (checklist 0.1).
+Test Output/
+Test Output (test server)/
+checklist_server.txt
+wetransfer_*/
+wetransfer_*.zip

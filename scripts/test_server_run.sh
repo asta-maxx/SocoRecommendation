@@ -66,15 +66,27 @@ echo "== engine database"
 echo "== unit tests"
 "$PY" -m pytest -q -p no:cacheprovider -m "not mongo" 2>&1 | tail -3
 
+# A run adds to the proof files it finds, so last run's are moved aside first (kept, never deleted).
+if [ -d "Test Output" ] || [ -f checklist_server.txt ]; then
+  old="../proofs/earlier-$(date +%Y-%m-%d_%H%M%S)"; mkdir -p "$old"
+  mv "Test Output" checklist_server.txt "$old"/ 2>/dev/null; echo "   last run's proofs moved to $(cd "$old" && pwd)"
+fi
 echo "== full checklist with proofs (about 25 minutes)"
 PROOF_DIR="Test Output" bash scripts/run_checklist.sh 2>&1 | tee checklist_server.txt
 
-echo "== pushing the raw proofs to a branch of their own"
-branch="proofs/test-server-$(date +%Y-%m-%d)"
-git checkout -q -b "$branch" 2>/dev/null || git checkout -q "$branch"
-git add -f "Test Output" checklist_server.txt
-git -c user.name="${GIT_AUTHOR_NAME:-Allen Matthew}" -c user.email="${GIT_AUTHOR_EMAIL:-allen@test-server}" \
-  commit -q -m "Test server checklist run, $(date +%Y-%m-%d): raw proofs" && git push -u origin "$branch" \
-  && echo "DONE: pushed $branch. Tell Claude it is there." \
-  || echo "The proofs are in 'Test Output/' and checklist_server.txt; the push did not go through (see above)."
-git checkout -q "$code_branch" && echo "== back on $code_branch"
+# The proofs stay on the server (the repo is private; the server does not push, 26 Oct
+# 2026): packed into one file to send by hand (WeTransfer). PUSH_PROOFS=1 pushes them to a
+# branch of their own instead, if this server is ever given write access.
+if [ "${PUSH_PROOFS:-0}" = "1" ]; then
+  echo "== pushing the raw proofs to a branch of their own"
+  branch="proofs/test-server-$(date +%Y-%m-%d)"
+  git checkout -q -b "$branch" 2>/dev/null || git checkout -q "$branch"
+  git add -f "Test Output" checklist_server.txt
+  git -c user.name="${GIT_AUTHOR_NAME:-Allen Matthew}" -c user.email="${GIT_AUTHOR_EMAIL:-allen@test-server}"     commit -q -m "Test server checklist run, $(date +%Y-%m-%d): raw proofs" && git push -u origin "$branch"     && echo "DONE: pushed $branch." || echo "The push did not go through (see above)."
+  git checkout -q "$code_branch" && echo "== back on $code_branch"
+else
+  pack="proofs-test-server-$(date +%Y-%m-%d_%H%M).tgz"
+  mkdir -p ../proofs
+  tar czf "../proofs/$pack" "Test Output" checklist_server.txt     && echo "DONE: the proofs are packed in $(cd ../proofs && pwd)/$pack. Send that file (WeTransfer)."     || echo "Packing failed; the proofs are in 'Test Output/' and checklist_server.txt."
+fi
+
