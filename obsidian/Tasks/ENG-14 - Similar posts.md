@@ -91,3 +91,6 @@ The Build List row's parts (1–4), in its order, then the extras.
 
 ## Review, 26 Oct 2026
 Eight more post types are recognised (poll, review, local update, product showcase, offer, story, new arrival, event), so posts no longer fall into "other". Every type goes through exactly the same rules and maths as photos and videos.
+
+## 28 Oct 2026
+On the test server, the "read one list within 20 ms" check missed by 6 ms. The database itself took 0 ms; the extra was network wobble on the long link to Mumbai. On that server the time is now reported, not judged; the database part is still checked. Next to the database the 20 ms rule stays as it is.

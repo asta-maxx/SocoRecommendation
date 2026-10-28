@@ -189,3 +189,7 @@ Two changes to the built method (see §2 and §3 above): purchases made from a p
 
 **Re-run on dev, 26 Oct** (`similar_posts` into a throwaway engine database, dropped after): pool 109 posts (109 eligible; left out: 19 reposts, 9 E-04, 1 E-08); post types: review 24, product_showcase 22, offer 18, photo 11, local_update 11, poll 7, story 6, video 5, new_arrival 3, event 2; **unlisted (counted as "other"): none** (the server's 19 Oct run: 119 of 139 as other). 206 users listed.
 
+
+## Update, 28 Oct 2026: the 20 ms read on the test server
+
+Test server, 28 Oct (checklist 0.4; run alone, the same): `test_the_job_writes_a_current_batch_and_one_list_reads_in_20_ms` failed on its wall-time bound only: median read 558.4 ms, ping 266.2 ms, **26.0 ms** beyond two round trips (the bound is 20); the database's own time **0 ms**, index scan, no sort, 200 keys and 200 documents examined. From Kansas City the round trips vary by more than 20 ms, so "read minus two pings" cannot resolve 20 ms there. With the test-only limits in force (`REQUEST_BUDGET_MS` set; review of 26 Oct, point 1) the wall time is now printed, not judged; the database time (≤ 20 ms), the index plan and the 200 documents are still judged. Next to the database, and on the laptop, the wall-time bound stays. Checked on the laptop both ways, 28 Oct: 1 passed each. An earlier 0.4 failure the same day was a dropped connection (`OSError: connection is already closed`) in the 30-minute database run; 12.5 ran the same test in that run and passed.
