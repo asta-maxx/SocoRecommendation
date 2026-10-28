@@ -409,7 +409,11 @@ async def test_a_feed_list_is_recorded_exactly_as_returned(platform, monkeypatch
     assert record["served_items"] == body["items"]
     assert await store_conn.ml_db(settings)["ml_events"].count_documents({"request_id": body["request_id"]}) == 1
     print(f"feed request: {elapsed_ms:.0f} ms")
-    assert elapsed_ms < 1000  # the 200 ms target is measured on the test server (checklist 6.x), not over a laptop link
+    # The 200 ms target is measured next to the database (checklist 6.x). Here the bound is a
+    # laptop's; with the test-only limits in force (a server far from the database, review of
+    # 26 Oct, point 1) the time is reported, not judged.
+    if not settings.request_budget_ms:
+        assert elapsed_ms < 1000
 
 
 @pytest.mark.mongo
