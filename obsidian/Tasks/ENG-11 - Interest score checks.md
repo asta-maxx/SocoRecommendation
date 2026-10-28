@@ -83,3 +83,6 @@ The go-live rule (ENG-24) only switches the feed on if this check passes. It's a
 - **Next:** [[ENG-12 - Candidate sources]]. The first step of finding posts for the feed (M2).
 - **Demo:** [[Demo - ENG-11]]. Run the script and watch the 11 checks.
 - **Technical version:** `docs/engineering/ENG-11.md` in the repo.
+
+## 28 Oct 2026
+On the test server, the M1 check wrote its dated record into the code folder, so the next run's "folder unchanged" check failed. During a checklist run it now saves the record with the other proofs; run by hand it still saves the dated record in `Tracing/checks`.

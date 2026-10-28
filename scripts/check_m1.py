@@ -112,7 +112,7 @@ def assignments() -> dict[str, str]:
     return dict(line.split(" ", 1) for line in out.strip().splitlines())
 
 
-async def main(keep: bool) -> int:
+async def main(keep: bool, out: Path | None = None) -> int:
     now = NOW
     settings = get_settings()
     say(f"# ENG-11: M1 check script, {date.today().isoformat()}")
@@ -318,9 +318,9 @@ async def main(keep: bool) -> int:
             await client.drop_database(ENGINE_DB)
             await client.drop_database(PLATFORM_DB)
         await client.close()
-    out = ROOT / "Tracing" / "checks" / f"ENG-11_{date.today().isoformat()}.md"
+    out = out or ROOT / "Tracing" / "checks" / f"ENG-11_{date.today().isoformat()}.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"Saved {out.relative_to(ROOT)}")
+    print(f"Saved {out}")
     return 0 if all(results) and len(results) == 18 else 1
 
 
@@ -333,4 +333,7 @@ def _vocabulary(settings) -> list[str]:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--keep", action="store_true", help="keep the two throwaway databases")
-    raise SystemExit(asyncio.run(main(parser.parse_args().keep)))
+    # The checklist saves the record with its proofs, not in the repo (checklist 0.1, 28 Oct 2026).
+    parser.add_argument("--out", type=Path, help="where to save the record (default Tracing/checks/ENG-11_<date>.md)")
+    args = parser.parse_args()
+    raise SystemExit(asyncio.run(main(args.keep, args.out)))

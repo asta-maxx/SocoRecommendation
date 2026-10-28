@@ -110,3 +110,7 @@ M1 (ENG-09, ENG-10, ENG-11, with ENG-30 points 5, 6, 7, 9, 10 and Kala's answers
 `scripts/check_m1.py` printed `could not record the settings change in ml_config_changes … cannot encode object: datetime.date(2026, 10, 26)` and carried on with the change in force. The cause: its settings copy lists the constructed test account with an `expiry` date (`lists.test_accounts`, ENG-29 item 3), and BSON has no date type. The diary now stores a date as its ISO text (`2026-11-02`), and `Tunables` reads it back as a date (ENG-02, *Update, 26 Oct 2026*). Under the new rule a change that cannot be written would not be applied at all, so the test account would no longer be on the list in force.
 
 Re-run on 26 Oct 2026 on the dev laptop, after the fix: **18 of 18 passed**, and the error line is gone from the output (`Tracing/checks/ENG-11_2026-10-26.md`).
+
+## Update, 28 Oct 2026: the checklist keeps the record out of the repo
+
+Test server run of 28 Oct: 102 of 105; check 0.1 (working tree clean) failed because `scripts/check_m1.py` (checklist 11.2) wrote `Tracing/checks/ENG-11_<date>.md` into the repo folder on every run, so the next run started with a changed tree. `check_m1.py --out <file>` now saves the record elsewhere; checklist 11.2 saves it in its working folder (its full output is already in the proofs, `ENG-11.md`). Run by hand, the script still saves to `Tracing/checks/ENG-11_<date>.md`, for committing as a dated record.
