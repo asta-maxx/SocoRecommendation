@@ -187,3 +187,6 @@ The feed is now put in order by [[ENG-19 - Ordering the feed]] instead of newest
 - Until the test server sits next to the database, it gets a longer, test-only time limit (3 seconds) so lists come back at all. The engine refuses to start in production with it, and every proof says which limits were used.
 - The check now compares each answer with its record field by field: same request, same items in the same order, same methods, same fallback step. A request that fails is never recorded as shown.
 - One feed request makes 17 rounds of database calls; in the same region that's about 20 to 40 ms in all.
+
+## 28 Oct 2026
+On the test server, the engine can now run as a service next to SOCO's backend (same server, address only reachable from that server). While both surfaces are off it says "off" to every request, so the app keeps showing its own lists. Connecting the backend to it is Aravinth's task (APP-15).
