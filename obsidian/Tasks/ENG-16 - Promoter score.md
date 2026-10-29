@@ -73,3 +73,6 @@ The feed's ranking (ENG-19: author's promoter score is 20% of a post's rank) and
 - **Built on:** [[ENG-30 - Adapting to the October platform facts]], [[ENG-04 - Engine sync]], [[Nightly batches]]
 - **Next:** ENG-19, ordering the feed (now unblocked: M1, M2 and M8 are built).
 - **Technical version:** `docs/engineering/ENG-16.md` in the repo.
+
+## 29 Oct 2026
+On the test server, the promoter score ran on SOCO's real data: 95 promoters scored by both methods, from 143 orders. From tonight it runs with the other nightly jobs.

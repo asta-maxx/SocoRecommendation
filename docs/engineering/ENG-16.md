@@ -89,3 +89,7 @@ python -m pytest -q tests/test_promoter.py
 ## Update, 17 Oct 2026 (ENG-19)
 
 With each method's batch the job now writes the medians an author with no score falls back to (Kala Q8): each main category's median score and the platform median, in `ml_measurements` (measure `promoter_medians`, one document per method, valid only while its `job_run_id` is the current batch; `reco.store.promoter.write_medians` / `read_medians`). `read_promoter_scores` reads many authors' scores at once for ENG-19.
+
+## Update, 29 Oct 2026: M8 on the test server
+
+Run by hand on the test server, 29 Oct 06:38Z (`python -m reco.jobs promoter`, into `soco_engine_test`, 28.4 s), after the scheduled night's reconciliation had passed (the first night it skipped itself, ENG-07 *Update, 29 Oct*): succeeded; 130 authors with original posts, 129 candidates (12 with only reposts, 1 not active); **95 scored**, 34 with no qualified views; commerce on and readable; 143 orders in the window (completed 68, returned 1, not completed 46, rejected 7, cancelled 6, open return request 1, in progress 11; 3 skipped, author not scored); 35 reposts on orders resolved, 32 credited to the original post's author rather than `promoter_id`; 0 return-window fallbacks or differences; events left out: own post 425, view not qualified 563, not a user 48; 0 fraud-restricted. Two batches, 95 rows each: shrinkage `78d50ffc`, cohort_percentile `950504fa`. The next scheduled night records it `started_by: scheduler`.
