@@ -143,3 +143,6 @@ The Build List splits ENG-07 into six numbered parts (1–6). There are three ex
 ## Test server, 26 Oct 2026
 - The "kill a job halfway" check now waits until the job really is halfway (two of four users written) before stopping it; on the slow test server it used to stop the job before it had started.
 - The job-runs report is back to its original layout (one check counts its "CURRENT" marks), with who started each run added.
+
+## 29 Oct 2026
+The first night on the test server: at 2 AM the scheduler started every nightly job by itself, and all 9 succeeded. 206 of 208 users got a fresh personal score. The promoter score skipped itself that first night, because the daily cross-check of the copied data hadn't run yet on the new database. The cross-check passed that night, so the promoter score runs from the next night.
